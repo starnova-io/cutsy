@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A cozy little world that grows when you focus.">
+<title>Hearth</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+  :root{
+    --cream:#F6F1E8; --cream-deep:#EDE5D6; --card:#FFFDF8;
+    --ink:#242321; --muted:#8C857B; --line:#E4DBCB;
+    --terra:#E97845; --terra-deep:#C85A2E; --terra-soft:#F7DECB;
+    --leaf:#6F945C; --leaf-deep:#55794A;
+    --gold:#E9B145;
+    --dusk:#332C26; --dusk-2:#26211D; --dusk-ink:#F3EADB; --dusk-muted:#A99C8C;
+    --r-lg:24px; --r-md:16px; --r-sm:10px;
+    --shadow:0 10px 30px rgba(60,45,30,.10), 0 2px 8px rgba(60,45,30,.07);
+    --font-display:"Fraunces", Georgia, serif;
+    --font-ui:"Nunito", "Avenir Next", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  [hidden]{display:none !important;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:#E7DECC; color:var(--ink);
+    font-family:var(--font-ui); font-size:15px; line-height:1.45;
+    display:flex; align-items:center; justify-content:center; min-height:100dvh;
+    overflow:hidden;
+  }
+  #phone{
+    position:relative; width:min(430px,100vw); height:min(920px,100dvh);
+    background:var(--cream); overflow:hidden; display:flex; flex-direction:column;
+  }
+  @media (min-width:470px) and (min-height:960px){
+    #phone{border-radius:38px; box-shadow:0 30px 80px rgba(50,38,24,.35);}
+  }
+
+  /* ---------- screens ---------- */
+  .screen{
+    position:absolute; inset:0; display:none; flex-direction:column;
+    background:var(--cream); overflow:hidden;
+  }
+  .screen.active{display:flex; animation:screenIn .28s ease both;}
+  @keyframes screenIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  .scroll{flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;}
+
+  /* ---------- shared bits ---------- */
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:6px 12px; font-weight:700; font-size:13px; color:var(--ink);
+  }
+  .pill .spark{color:var(--terra); font-size:14px;}
+  .btn{
+    font-family:var(--font-ui); font-weight:800; border:none; cursor:pointer;
+    border-radius:999px; transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+    touch-action:manipulation;
+  }
+  .btn:active{transform:scale(.965);}
+  .btn:focus-visible{outline:3px solid var(--terra); outline-offset:3px;}
+  .btn-primary{
+    background:var(--terra); color:#FFF7EF; font-size:18px; letter-spacing:.06em;
+    padding:17px 28px; box-shadow:0 10px 24px rgba(201,90,46,.35), inset 0 -3px 0 rgba(0,0,0,.12);
+    width:100%;
+  }
+  .btn-primary:disabled{background:#D8CDBB; box-shadow:none; color:#FFFDF8; cursor:default;}
+  .btn-ghost{
+    background:transparent; color:var(--muted); font-size:14px; font-weight:700; padding:12px 20px;
+  }
+  .btn-small{
+    background:var(--card); border:1px solid var(--line); color:var(--ink);
+    font-size:13px; font-weight:800; padding:9px 16px;
+  }
+  .btn-small.on{background:var(--terra); border-color:var(--terra); color:#FFF7EF;}
+  .label{
+    font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+  }
+
+  /* ---------- home ---------- */
+  #home-head{padding:calc(14px + env(safe-area-inset-top)) 20px 0; display:flex; flex-direction:column; gap:8px;}
+  #home-head .row{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  #greeting{font-family:var(--font-display); font-weight:600; font-size:27px; line-height:1.1; text-wrap:balance;}
+  #home-pills{display:flex; gap:8px; flex-wrap:wrap;}
+  #world-wrap{flex:1; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; padding:2px 6px;}
+  #world{width:100%; height:100%; display:block; user-select:none;}
+  #home-cta{padding:0 20px calc(14px + env(safe-area-inset-bottom) + 66px); display:flex; flex-direction:column; gap:10px;}
+  #home-meta{display:flex; justify-content:space-between; font-size:13px; font-weight:700; color:var(--muted);}
+  #home-meta b{color:var(--ink);}
+  #unlock-track{height:6px; border-radius:99px; background:var(--cream-deep); overflow:hidden;}
+  #unlock-fill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--gold),var(--terra)); width:0%; transition:width .6s ease;}
+
+  /* ---------- focus ---------- */
+  #screen-focus{background:linear-gradient(180deg,var(--dusk) 0%, var(--dusk-2) 100%); color:var(--dusk-ink);}
+  #focus-inner{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    padding:calc(20px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom)); text-align:center;}
+  #focus-top{display:flex; flex-direction:column; align-items:center; gap:10px;}
+  #shield{
+    display:inline-flex; gap:7px; align-items:center; font-size:12.5px; font-weight:700; color:var(--dusk-muted);
+    border:1px solid rgba(243,234,219,.16); border-radius:999px; padding:6px 13px;
+  }
+  #timer{
+    font-family:var(--font-display); font-weight:500; font-size:clamp(64px,20vw,84px); line-height:1;
+    font-variant-numeric:tabular-nums; letter-spacing:.02em; margin:4px 0 2px;
+  }
+  #focus-line{font-family:var(--font-display); font-size:19px; color:var(--dusk-ink);}
+  #focus-sub{font-size:13.5px; color:var(--dusk-muted); font-weight:600;}
+  #focus-scene{width:min(300px,72vw); margin:4px 0;}
+  #dur-chips{display:flex; gap:8px; justify-content:center;}
+  .chip{
+    background:rgba(243,234,219,.08); border:1px solid rgba(243,234,219,.18); color:var(--dusk-ink);
+    border-radius:999px; padding:9px 17px; font-weight:800; font-size:14px; cursor:pointer;
+    font-family:var(--font-ui); transition:background .15s;
+  }
+  .chip.on{background:var(--terra); border-color:var(--terra); color:#FFF7EF;}
+  #focus-actions{width:100%; display:flex; flex-direction:column; gap:6px; align-items:center;}
+  #focus-actions .btn-primary{max-width:340px;}
+  #demo-toggle{
+    position:absolute; top:calc(14px + env(safe-area-inset-top)); right:16px;
+    background:rgba(243,234,219,.08); border:1px solid rgba(243,234,219,.16); color:var(--dusk-muted);
+    font-size:11px; font-weight:800; letter-spacing:.08em; padding:6px 11px; border-radius:999px; cursor:pointer;
+  }
+  #demo-toggle.on{color:#FFF7EF; background:var(--terra); border-color:var(--terra);}
+
+  /* ---------- complete ---------- */
+  #screen-complete{align-items:center; text-align:center;}
+  #complete-inner{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    padding:24px; width:100%;}
+  #complete-spark{font-size:38px; animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both;}
+  #complete-min{font-family:var(--font-display); font-weight:700; font-size:34px; letter-spacing:.02em;}
+  #complete-energy{
+    font-weight:800; font-size:17px; color:var(--terra-deep);
+    background:var(--terra-soft); border-radius:999px; padding:7px 18px; margin-top:2px;
+    animation:popIn .5s .15s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  #complete-grew{font-family:var(--font-display); font-size:18px; color:var(--muted); margin-top:10px;}
+  #reward-card{
+    margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg);
+    box-shadow:var(--shadow); padding:18px 26px 16px; display:flex; flex-direction:column; align-items:center; gap:4px;
+    width:min(280px,80%); animation:popIn .5s .3s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  #reward-card svg{width:110px; height:96px;}
+  #reward-name{font-family:var(--font-display); font-weight:600; font-size:20px;}
+  #reward-tag{font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--leaf-deep);}
+  #complete-actions{display:flex; flex-direction:column; gap:4px; width:min(320px,86%); margin-top:16px;}
+  @keyframes popIn{from{opacity:0; transform:scale(.7);} to{opacity:1; transform:scale(1);}}
+
+  /* ---------- shop ---------- */
+  .sheet-head{padding:calc(14px + env(safe-area-inset-top)) 20px 10px; display:flex; align-items:center; justify-content:space-between;}
+  .sheet-head h1{font-family:var(--font-display); font-weight:600; font-size:24px; margin:0;}
+  #cats{display:flex; gap:7px; overflow-x:auto; padding:2px 20px 12px; scrollbar-width:none;}
+  #cats::-webkit-scrollbar{display:none;}
+  .cat-chip{
+    flex:none; background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:8px 15px; font-size:12px; font-weight:800; letter-spacing:.08em; color:var(--muted);
+    cursor:pointer; font-family:var(--font-ui);
+  }
+  .cat-chip.on{background:var(--ink); border-color:var(--ink); color:var(--cream);}
+  #shop-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:2px 20px calc(20px + env(safe-area-inset-bottom) + 66px);}
+  .item-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg);
+    padding:12px 12px 13px; display:flex; flex-direction:column; align-items:center; gap:2px;
+    box-shadow:0 3px 12px rgba(60,45,30,.05);
+  }
+  .item-card svg{width:100%; height:86px;}
+  .item-card .nm{font-weight:800; font-size:14px; text-align:center;}
+  .item-card .pr{font-weight:800; font-size:13px; color:var(--terra-deep); display:flex; gap:4px; align-items:center;}
+  .item-card .btn{margin-top:7px; width:100%; padding:9px 0; font-size:13px;}
+  .item-card .buy{background:var(--terra); color:#FFF7EF; box-shadow:inset 0 -2px 0 rgba(0,0,0,.12);}
+  .item-card .place-owned{background:var(--leaf); color:#FFF9EC;}
+  .item-card .cant{background:var(--cream-deep); color:var(--muted); cursor:default;}
+  .item-card.locked svg{filter:grayscale(.85) opacity(.55);}
+  .item-card.locked .nm{color:var(--muted);}
+  .item-card .lock-note{
+    font-size:11.5px; font-weight:700; color:var(--muted); text-align:center; line-height:1.3; margin-top:7px;
+    background:var(--cream-deep); border-radius:var(--r-sm); padding:7px 8px; width:100%;
+  }
+  .item-card .owned-note{font-size:11px; font-weight:800; letter-spacing:.1em; color:var(--leaf-deep); text-transform:uppercase; margin-top:8px;}
+
+  /* ---------- place ---------- */
+  #place-head{padding:calc(14px + env(safe-area-inset-top)) 20px 6px; text-align:center;}
+  #place-head h1{font-family:var(--font-display); font-weight:600; font-size:22px; margin:0;}
+  #place-head p{margin:3px 0 0; color:var(--muted); font-size:13px; font-weight:600;}
+  #place-world-wrap{flex:1; min-height:0; padding:0 6px;}
+  #place-world{width:100%; height:100%; display:block;}
+  #place-bar{display:flex; gap:10px; padding:12px 20px calc(18px + env(safe-area-inset-bottom));}
+  #place-bar .btn{flex:1; padding:14px 0; font-size:14px; letter-spacing:.06em;}
+  #place-bar .rot{background:var(--card); border:1px solid var(--line); color:var(--ink);}
+  #place-bar .done{background:var(--terra); color:#FFF7EF; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12);}
+  #place-bar .done:disabled{background:#D8CDBB; box-shadow:none;}
+
+  /* ---------- profile ---------- */
+  #profile .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg);
+    box-shadow:0 3px 12px rgba(60,45,30,.05); padding:16px 18px; margin:0 20px 12px;
+  }
+  #screen-profile .card h2{font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 10px;}
+  #week-stats{display:flex; gap:10px;}
+  .stat{flex:1; text-align:center; background:var(--cream); border-radius:var(--r-md); padding:12px 4px;}
+  .stat b{display:block; font-family:var(--font-display); font-size:22px; font-weight:700;}
+  .stat span{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.05em;}
+  .world-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; font-weight:700; font-size:14px;}
+  .world-row + .world-row{border-top:1px dashed var(--line);}
+  .world-row span:last-child{color:var(--muted); font-weight:800;}
+  #reset-link{background:none; border:none; color:var(--muted); font-size:12px; font-weight:700; text-decoration:underline; cursor:pointer; font-family:var(--font-ui); padding:8px;}
+  .foot-note{margin:2px 20px 20px; font-size:11.5px; color:var(--muted); text-align:center; line-height:1.5;}
+
+  /* ---------- nav ---------- */
+  #nav{
+    position:absolute; left:14px; right:14px; bottom:calc(10px + env(safe-area-inset-bottom));
+    background:rgba(255,253,248,.93); backdrop-filter:blur(10px);
+    border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow);
+    display:flex; padding:5px; z-index:20;
+  }
+  #nav.hidden{display:none;}
+  #nav button{
+    flex:1; background:none; border:none; cursor:pointer; font-family:var(--font-ui);
+    font-size:10.5px; font-weight:800; letter-spacing:.1em; color:var(--muted);
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 0 6px; border-radius:999px;
+  }
+  #nav button svg{width:21px; height:21px;}
+  #nav button.on{color:var(--terra-deep); background:var(--terra-soft);}
+  #nav button:focus-visible{outline:3px solid var(--terra); outline-offset:-2px;}
+
+  /* ---------- toast / confetti ---------- */
+  #dlg{
+    position:absolute; inset:0; background:rgba(36,35,33,.45); z-index:50;
+    display:none; align-items:center; justify-content:center; padding:28px;
+  }
+  #dlg.show{display:flex; animation:screenIn .2s ease both;}
+  #dlg .box{
+    background:var(--card); border-radius:var(--r-lg); box-shadow:var(--shadow);
+    padding:22px 22px 18px; width:100%; max-width:320px; text-align:center;
+  }
+  #dlg p{margin:0 0 16px; font-weight:600; font-size:15px; line-height:1.5;}
+  #dlg .row{display:flex; flex-direction:column; gap:4px;}
+  #dlg .ok{background:var(--terra); color:#FFF7EF; font-size:15px; padding:13px 0; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12);}
+  #toast{
+    position:absolute; left:50%; bottom:calc(92px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--cream); font-weight:700; font-size:13.5px;
+    padding:11px 20px; border-radius:999px; opacity:0; pointer-events:none; transition:all .3s ease; z-index:40;
+    max-width:85%; text-align:center;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .confetti{
+    position:absolute; top:-14px; width:9px; height:13px; border-radius:3px; z-index:30; pointer-events:none;
+    animation:confFall linear both;
+  }
+  @keyframes confFall{
+    from{transform:translateY(0) rotate(0deg); opacity:1;}
+    80%{opacity:1;}
+    to{transform:translateY(105vh) rotate(560deg); opacity:0;}
+  }
+
+  /* ---------- world animations ---------- */
+  .sway{transform-box:fill-box; transform-origin:50% 95%; animation:sway 5.5s ease-in-out infinite;}
+  @keyframes sway{0%,100%{transform:rotate(-1.6deg);} 50%{transform:rotate(1.8deg);}}
+  .glow-pulse{animation:glowPulse 3.4s ease-in-out infinite;}
+  @keyframes glowPulse{0%,100%{opacity:.55;} 50%{opacity:.9;}}
+  #mochi{cursor:pointer;}
+  .cat-breathe{transform-box:fill-box; transform-origin:50% 100%; animation:breathe 3.2s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.035);}}
+  .cat-tail{transform-box:fill-box; transform-origin:12% 88%; animation:tail 3.6s ease-in-out infinite;}
+  @keyframes tail{0%,100%{transform:rotate(0deg);} 45%{transform:rotate(-9deg);} 70%{transform:rotate(4deg);}}
+  .cat-blink{transform-box:fill-box; transform-origin:50% 50%; animation:blink 5s infinite;}
+  @keyframes blink{0%,94%,100%{transform:scaleY(1);} 96.5%{transform:scaleY(.08);}}
+  .cat-happy{transform-box:fill-box; transform-origin:50% 100%; animation:hop .55s ease-in-out 2;}
+  @keyframes hop{0%,100%{transform:translateY(0);} 40%{transform:translateY(-11px);}}
+  .zz{font-family:var(--font-display); font-style:italic; fill:var(--dusk-muted); animation:zzFloat 3s ease-in-out infinite;}
+  .zz2{animation-delay:1.5s;}
+  @keyframes zzFloat{0%{opacity:0; transform:translate(0,0);} 25%{opacity:1;} 100%{opacity:0; transform:translate(9px,-22px);}}
+  .heart-float{position:absolute; font-size:20px; pointer-events:none; z-index:35; animation:heartUp 1s ease-out both;}
+  @keyframes heartUp{from{opacity:1; transform:translateY(0) scale(.7);} to{opacity:0; transform:translateY(-46px) scale(1.25);}}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important;}
+  }
+</style>
+</head>
+<body style="margin:0">
+
+
+<div id="phone">
+
+  <!-- shared SVG defs: must stay rendered so every screen's svg can reference them -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <radialGradient id="lampGlow"><stop offset="0%" stop-color="rgba(255,206,110,.55)"/><stop offset="100%" stop-color="rgba(255,206,110,0)"/></radialGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FBE7BC"/><stop offset="58%" stop-color="#F6C08A"/><stop offset="100%" stop-color="#EC9A6C"/></linearGradient>
+    <radialGradient id="glowF"><stop offset="0%" stop-color="rgba(255,199,102,.4)"/><stop offset="100%" stop-color="rgba(255,199,102,0)"/></radialGradient>
+  </defs></svg>
+
+  <!-- HOME -->
+  <section class="screen active" id="screen-home">
+    <header id="home-head">
+      <div class="row">
+        <div id="greeting">Good evening</div>
+        <span class="pill"><span class="spark">✦</span><span id="energy-pill">0</span></span>
+      </div>
+      <div id="home-pills">
+        <span class="pill">🔥 <span id="streak-pill">7 day focus streak</span></span>
+      </div>
+    </header>
+    <div id="world-wrap"><svg id="world" role="img" aria-label="Your cozy room"></svg></div>
+    <div id="home-cta">
+      <button class="btn btn-primary" id="btn-focus">FOCUS</button>
+      <div id="unlock-track"><div id="unlock-fill"></div></div>
+      <div id="home-meta">
+        <span>Today: <b id="today-min">0 min</b></span>
+        <span id="next-unlock">Next unlock: —</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOCUS -->
+  <section class="screen" id="screen-focus">
+    <button id="demo-toggle" title="Speed up time for this prototype">DEMO ×60</button>
+    <div id="focus-inner">
+      <div id="focus-top">
+        <span id="shield">🌙 Distracting apps silenced</span>
+        <div id="timer">25:00</div>
+        <div id="focus-line">Let’s focus together.</div>
+        <div id="focus-sub">Your room is waiting for you.</div>
+      </div>
+      <svg id="focus-scene" viewBox="0 0 300 170" aria-hidden="true"></svg>
+      <div id="focus-actions">
+        <div id="dur-chips">
+          <button class="chip" data-min="15">15 min</button>
+          <button class="chip on" data-min="25">25 min</button>
+          <button class="chip" data-min="50">50 min</button>
+        </div>
+        <button class="btn btn-primary" id="btn-start">START</button>
+        <button class="btn btn-ghost" id="btn-end" hidden>END SESSION</button>
+        <button class="btn btn-ghost" id="btn-back-home">Back to your room</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPLETE -->
+  <section class="screen" id="screen-complete">
+    <div id="complete-inner">
+      <div id="complete-spark">✨</div>
+      <div id="complete-min">25 MIN FOCUSED</div>
+      <div id="complete-energy">+25 Focus Energy</div>
+      <div id="complete-grew">Your world grew a little.</div>
+      <div id="reward-card" hidden>
+        <svg id="reward-svg" viewBox="0 0 100 100"></svg>
+        <div id="reward-name">Tiny Monstera</div>
+        <div id="reward-tag">New item unlocked</div>
+      </div>
+      <div id="complete-actions">
+        <button class="btn btn-primary" id="btn-reward-primary">PLACE IT</button>
+        <button class="btn btn-ghost" id="btn-reward-later">Later</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOP -->
+  <section class="screen" id="screen-shop">
+    <header class="sheet-head">
+      <h1>Shop</h1>
+      <span class="pill"><span class="spark">✦</span><span id="energy-pill-shop">0</span></span>
+    </header>
+    <div id="cats"></div>
+    <div class="scroll"><div id="shop-grid"></div></div>
+  </section>
+
+  <!-- PLACE -->
+  <section class="screen" id="screen-place">
+    <header id="place-head">
+      <h1>Place your new item</h1>
+      <p>Tap a tile to move it</p>
+    </header>
+    <div id="place-world-wrap"><svg id="place-world"></svg></div>
+    <div id="place-bar">
+      <button class="btn rot" id="btn-rotate">⟳ ROTATE</button>
+      <button class="btn done" id="btn-place-done">DONE</button>
+    </div>
+  </section>
+
+  <!-- PROFILE -->
+  <section class="screen" id="screen-profile">
+    <header class="sheet-head"><h1>Your world</h1>
+      <span class="pill">🔥 <span id="streak-pill-2">7</span></span>
+    </header>
+    <div class="scroll">
+      <div class="card" id="profile">
+        <h2>This week</h2>
+        <div id="week-stats">
+          <div class="stat"><b id="st-min">0</b><span>min focused</span></div>
+          <div class="stat"><b id="st-ses">0</b><span>sessions</span></div>
+          <div class="stat"><b id="st-days">0</b><span>days active</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Your room</h2>
+        <div id="world-inventory"></div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-family:var(--font-display); font-size:16px; margin-bottom:2px;">Mochi</div>
+        <div style="font-size:12.5px; color:var(--muted); font-weight:600;">Your companion. Sleeps beside you while you focus.</div>
+        <svg id="profile-cat" viewBox="-40 -66 80 74" style="width:86px; height:80px; margin-top:6px;"></svg>
+      </div>
+      <p class="foot-note">Prototype — everything stays on this device.<br>
+        In the real app, focus sessions silence distracting apps via Screen&nbsp;Time&nbsp;/&nbsp;Focus APIs.</p>
+      <div style="text-align:center; padding-bottom:calc(20px + env(safe-area-inset-bottom) + 66px);">
+        <button id="reset-link">Reset prototype data</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- NAV -->
+  <nav id="nav" aria-label="Main">
+    <button data-nav="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>HOME</button>
+    <button data-nav="focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9.2M12 2.5h0M9.5 2.5h5"/></svg>FOCUS</button>
+    <button data-nav="shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8h15l-1.2 12h-12.6z"/><path d="M8.5 10.5V6a3.5 3.5 0 0 1 7 0v4.5"/></svg>SHOP</button>
+    <button data-nav="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8.2" r="4.2"/><path d="M4.5 20.5c1.4-3.6 4.2-5.3 7.5-5.3s6.1 1.7 7.5 5.3"/></svg>PROFILE</button>
+  </nav>
+
+  <div id="dlg" role="alertdialog">
+    <div class="box">
+      <p id="dlg-msg"></p>
+      <div class="row">
+        <button class="btn ok" id="dlg-ok">OK</button>
+        <button class="btn btn-ghost" id="dlg-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status"></div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Hearth — cozy isometric focus prototype
+   Loop: FOCUS → EARN → UNLOCK → DECORATE → RETURN
+   ===================================================================== */
+
+/* ---------- iso math ---------- */
+const TW = 64, TH = 32, WALL_H = 118;
+const IX = (x, y) => (x - y) * TW / 2;
+const IY = (x, y) => (x + y) * TH / 2;
+const pt = (x, y, z = 0) => IX(x, y).toFixed(1) + "," + (IY(x, y) - z).toFixed(1);
+const poly = (pts, fill, extra = "") => `<polygon points="${pts.join(" ")}" fill="${fill}" ${extra}/>`;
+
+/* iso box: footprint (x,y)..(x+w,y+d), lifted z px, height h px */
+function box(x, y, w, d, h, z, c, extra = "") {
+  return poly([pt(x,y,z+h), pt(x+w,y,z+h), pt(x+w,y+d,z+h), pt(x,y+d,z+h)], c[0], extra)
+       + poly([pt(x,y+d,z+h), pt(x+w,y+d,z+h), pt(x+w,y+d,z), pt(x,y+d,z)], c[1], extra)
+       + poly([pt(x+w,y,z+h), pt(x+w,y+d,z+h), pt(x+w,y+d,z), pt(x+w,y,z)], c[2], extra);
+}
+function shadow(x, y, w, d, k = .16) {
+  const cx = IX(x + w/2, y + d/2), cy = IY(x + w/2, y + d/2);
+  return `<ellipse cx="${cx}" cy="${cy}" rx="${(w+d)*TW/4*.62}" ry="${(w+d)*TH/4*.62}" fill="rgba(80,58,36,${k})"/>`;
+}
+
+/* ---------- palettes ---------- */
+const WOOD   = ["#C99763", "#AD7C4C", "#916440"];
+const WOOD_D = ["#B07B4F", "#96653C", "#7C5330"];
+const CREAMB = ["#F4EBDB", "#E2D5BE", "#CFC0A6"];
+const TERRAC = ["#EE8A57", "#D96B39", "#BC5A2E"];
+const GREENB = ["#8FB07A", "#6F945C", "#5A7D4A"];
+const STONE  = ["#D6CFC0", "#C2BAA9", "#ABA290"];
+const INKB   = ["#4A443C", "#3A352E", "#2E2A24"];
+
+/* ---------- asset drawings (local coords: footprint at 0,0) ---------- */
+const LEAF_COLS = ["#6F945C", "#7FA26A", "#5A7D4A", "#87AC72"];
+function leaf(px, py, ang, len, col) {
+  return `<g transform="translate(${px},${py}) rotate(${ang})">
+    <path d="M0,0 Q-1.5,-${len*.4} 0,-${len} Q ${len*.42},-${len*.62} 0,0" fill="${col}"/>
+    <path d="M0,0 Q1.5,-${len*.4} 0,-${len} Q -${len*.42},-${len*.62} 0,0" fill="${col}" opacity=".75"/>
+    <line x1="0" y1="0" x2="0" y2="-${len*.85}" stroke="#4E6E41" stroke-width="1.1"/></g>`;
+}
+function potTerracotta(w = .5, h = 15) {
+  const o = (1 - w) / 2;
+  return box(o, o, w, w, h, 0, TERRAC) + box(o-.05, o-.05, w+.1, w+.1, 4, h, TERRAC);
+}
+
+const DRAW = {
+  desk(w, d) {
+    let s = shadow(0,0,w,d);
+    const lg = ["#8F6238","#7C5330","#6B4728"];
+    for (const [lx,ly] of [[.08,.12],[w-.24,.12],[.08,d-.28],[w-.24,d-.28]])
+      s += box(lx,ly,.16,.16,34,0,lg);
+    s += box(-.04,-.04,w+.08,d+.08,9,34,WOOD);
+    /* notebook + mug + pencil pot on top */
+    s += box(.35,.28,.52,.4,2.5,43,["#FBF5E8","#E7DECC","#D6CCB6"]);
+    s += `<line x1="${IX(.61,.48)}" y1="${IY(.61,.48)-46.6}" x2="${IX(.78,.62)}" y2="${IY(.78,.62)-46.6}" stroke="#B9AE99" stroke-width="1"/>`;
+    s += box(1.28,.42,.2,.2,9,43,TERRAC);
+    s += `<ellipse cx="${IX(1.38,.52)}" cy="${IY(1.38,.52)-52}" rx="4.6" ry="2.3" fill="#6B4728"/>`;
+    return s;
+  },
+  chair(w, d) {
+    let s = shadow(0,0,w,d,.13);
+    const lg = ["#96653C","#7C5330","#6B4728"];
+    for (const [lx,ly] of [[.16,.2],[.68,.2],[.16,.66],[.68,.66]]) s += box(lx,ly,.14,.14,21,0,lg);
+    s += box(.1,.14,.78,.7,6,21,WOOD_D);
+    s += box(.1,.68,.78,.16,30,27,WOOD_D);            /* backrest faces the viewer */
+    s += `<ellipse cx="${IX(.49,.42)}" cy="${IY(.49,.42)-28.5}" rx="11" ry="5.5" fill="#E97845" opacity=".85"/>`;
+    return s;
+  },
+  table(w, d) {
+    let s = shadow(0,0,w,d,.13);
+    const lg = ["#96653C","#7C5330","#6B4728"];
+    for (const [lx,ly] of [[.14,.16],[.7,.16],[.14,.7],[.7,.7]]) s += box(lx,ly,.14,.14,25,0,lg);
+    s += box(.04,.06,.9,.88,6,25,WOOD);
+    s += `<circle cx="${IX(.5,.5)}" cy="${IY(.5,.5)-36}" r="4" fill="#E9B145"/>
+          <circle cx="${IX(.5,.5)}" cy="${IY(.5,.5)-36}" r="1.6" fill="#C85A2E"/>`;
+    return s;
+  },
+  bookshelf(w, d) {
+    let s = shadow(0,0,w,d,.15);
+    s += box(0,.1,1,.14,88,0,WOOD_D);                       /* back panel */
+    const BOOKS = [["#C85A2E",14],["#6F945C",17],["#E9B145",12],["#8C857B",16],["#B07B4F",13]];
+    let z = 4;
+    for (let sh = 0; sh < 3; sh++) {
+      s += box(0,.1,1,.72,5,z,WOOD_D);                      /* shelf slab */
+      let bx = .1;
+      const row = BOOKS.slice(sh % 2, (sh % 2) + 4);
+      for (const [col, bh] of row) {
+        s += box(bx,.2,.15,.5,bh,z+5,[col,col,shade(col,-22)]);
+        bx += .19;
+      }
+      z += 28;
+    }
+    s += box(-.03,.07,1.06,.8,5,z,WOOD_D);                  /* top */
+    s += `<g>${leaf(IX(.5,.45), IY(.5,.45)-z-5, -14, 12, "#7FA26A")}${leaf(IX(.5,.45), IY(.5,.45)-z-5, 16, 13, "#6F945C")}</g>`;
+    return s;
+  },
+  monstera(w, d) {
+    let s = shadow(.1,.1,.8,.8,.13) + potTerracotta(.52, 16);
+    const cx = IX(.5,.5), cy = IY(.5,.5) - 19;
+    s += `<g class="sway">`;
+    s += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-22}" stroke="#4E6E41" stroke-width="2"/>`;
+    const L = [[-38,34,0],[38,32,1],[-14,44,2],[16,46,3],[64,26,2],[-64,26,3]];
+    for (const [ang,len,ci] of L) s += leaf(cx, cy-6, ang, len, LEAF_COLS[ci]);
+    s += `</g>`;
+    return s;
+  },
+  cactus(w, d) {
+    let s = shadow(.15,.15,.7,.7,.12);
+    const o=.27; s += box(o,o,.46,.46,12,0,STONE) + box(o-.04,o-.04,.54,.54,3.5,12,STONE);
+    const cx = IX(.5,.5), cy = IY(.5,.5) - 15;
+    s += `<g class="sway">
+      <rect x="${cx-7}" y="${cy-34}" width="14" height="36" rx="7" fill="#6F945C"/>
+      <rect x="${cx-2.2}" y="${cy-32}" width="1.6" height="30" rx=".8" fill="#5A7D4A" opacity=".6"/>
+      <rect x="${cx+3}" y="${cy-30}" width="1.6" height="26" rx=".8" fill="#5A7D4A" opacity=".6"/>
+      <path d="M${cx+6},${cy-20} q10,0 10,-9 " stroke="#6F945C" stroke-width="7.5" fill="none" stroke-linecap="round"/>
+      <circle cx="${cx-1}" cy="${cy-35}" r="3.4" fill="#EE8A57"/>
+      <circle cx="${cx-1}" cy="${cy-35}" r="1.3" fill="#F6C36A"/></g>`;
+    return s;
+  },
+  flower(w, d) {
+    let s = shadow(.2,.2,.6,.6,.11) + potTerracotta(.4, 11);
+    const cx = IX(.5,.5), cy = IY(.5,.5) - 13;
+    s += `<g class="sway"><line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-19}" stroke="#5A7D4A" stroke-width="2"/>`;
+    s += leaf(cx, cy-4, 42, 12, "#7FA26A");
+    for (let i = 0; i < 6; i++) {
+      const a = i * 60 * Math.PI/180;
+      s += `<circle cx="${cx + Math.cos(a)*5.4}" cy="${cy-21 + Math.sin(a)*5.4}" r="3.6" fill="#EE8A57"/>`;
+    }
+    s += `<circle cx="${cx}" cy="${cy-21}" r="3.4" fill="#E9B145"/></g>`;
+    return s;
+  },
+  bonsai(w, d) {
+    let s = shadow(.08,.08,.84,.84,.13);
+    s += box(.12,.12,.76,.76,9,0,STONE) + box(.08,.08,.84,.84,3,9,STONE);
+    const cx = IX(.5,.5), cy = IY(.5,.5) - 12;
+    s += `<path d="M${cx},${cy} C${cx-2},${cy-10} ${cx+7},${cy-12} ${cx+5},${cy-22}" stroke="#7C5330" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M${cx+2},${cy-12} C${cx-6},${cy-14} ${cx-8},${cy-18} ${cx-9},${cy-21}" stroke="#7C5330" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <g class="sway"><ellipse cx="${cx-10}" cy="${cy-24}" rx="10" ry="6" fill="#6F945C"/>
+      <ellipse cx="${cx+7}" cy="${cy-28}" rx="12" ry="7" fill="#7FA26A"/>
+      <ellipse cx="${cx-1}" cy="${cy-33}" rx="9" ry="5.5" fill="#87AC72"/></g>`;
+    return s;
+  },
+  rug(w, d) {
+    const cx = IX(1,1), cy = IY(1,1);
+    return `<ellipse cx="${cx}" cy="${cy}" rx="56" ry="28" fill="#E2916A"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="47" ry="23" fill="#EFB394"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="30" ry="14.5" fill="#F6DECB"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="12" ry="5.5" fill="#E2916A"/>`;
+  },
+  grass(w, d) {
+    let s = `<ellipse cx="${IX(1,1)}" cy="${IY(1,1)}" rx="58" ry="29" fill="#8FB07A"/>
+             <ellipse cx="${IX(1,1)}" cy="${IY(1,1)}" rx="58" ry="29" fill="none" stroke="#7FA26A" stroke-width="3"/>`;
+    const spots = [[.5,.7],[1.3,.4],[1.6,1.3],[.7,1.5],[1.1,1.0]];
+    spots.forEach(([sx,sy], i) => {
+      const bx = IX(sx,sy), by = IY(sx,sy);
+      if (i % 2) s += `<circle cx="${bx}" cy="${by-3}" r="2.6" fill="${i===1?"#EE8A57":"#F6C36A"}"/><line x1="${bx}" y1="${by}" x2="${bx}" y2="${by-3}" stroke="#5A7D4A" stroke-width="1.2"/>`;
+      else s += `<path d="M${bx-3},${by} q1,-6 3,-7 M${bx},${by} q1,-5 3.5,-6" stroke="#5A7D4A" stroke-width="1.4" fill="none" stroke-linecap="round"/>`;
+    });
+    return s;
+  },
+  poster(w, d) {
+    let s = shadow(.2,.3,.6,.5,.1);
+    /* leaning board drawn on left-wall-like plane */
+    const m = `matrix(-30,15,-6,-1,${IX(.85,.15)},${IY(.85,.15)})`;
+    return s + `<g transform="${m}">
+      <rect x="0" y="0" width="1.5" height="52" fill="#B07B4F"/>
+      <rect x=".08" y="3" width="1.34" height="46" fill="#FBF5E8"/>
+      <circle cx=".75" cy="14" r="7" fill="#F6C36A" transform="scale(.06,1)" transform-origin=".75 14"/>
+      <path d="M.1,38 L.5,26 L.85,34 L1.15,22 L1.42,38 Z" fill="#8FB07A" transform="translate(0,4)"/>
+      <rect x=".08" y="3" width="1.34" height="46" fill="none" stroke="#E2D5BE" stroke-width=".6"/></g>`;
+  },
+  books(w, d) {
+    let s = shadow(.25,.25,.5,.5,.1);
+    s += box(.2,.25,.6,.5,7,0,["#C85A2E","#B34E27","#9C4522"]);
+    s += box(.26,.3,.48,.4,6,7,["#6F945C","#628453","#557347"]);
+    s += box(.32,.35,.36,.3,5.5,13,["#E9B145","#D6A03C","#BE8C32"]);
+    return s;
+  },
+  clock(w, d) {
+    let s = shadow(.15,.2,.7,.6,.13);
+    s += box(.2,.28,.6,.44,72,0,WOOD_D);
+    s += box(.15,.24,.7,.52,6,72,WOOD_D);
+    const fx = IX(.62,.72)-8, fy = IY(.62,.72)-56;
+    s += `<ellipse cx="${fx}" cy="${fy}" rx="9.5" ry="10.5" fill="#FBF5E8" stroke="#7C5330" stroke-width="2"/>
+      <line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy-6}" stroke="#242321" stroke-width="1.6" stroke-linecap="round"/>
+      <line x1="${fx}" y1="${fy}" x2="${fx+4.5}" y2="${fy+2}" stroke="#242321" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="${IX(.6,.7)-6}" cy="${IY(.6,.7)-28}" r="4" fill="#E9B145"/>`;
+    return s;
+  },
+  floorlamp(w, d) {
+    let s = shadow(.2,.2,.6,.6,.12);
+    const cx = IX(.5,.5), cy = IY(.5,.5);
+    s += box(.3,.3,.4,.4,5,0,WOOD_D);
+    s += `<rect x="${cx-1.6}" y="${cy-78}" width="3.2" height="74" fill="#96653C"/>
+      <ellipse class="glow-pulse" cx="${cx}" cy="${cy-82}" rx="30" ry="20" fill="url(#lampGlow)"/>
+      <path d="M${cx-15},${cy-76} L${cx-9},${cy-96} L${cx+9},${cy-96} L${cx+15},${cy-76} Z" fill="#F4E3C8"/>
+      <path d="M${cx-15},${cy-76} L${cx-9},${cy-96} L${cx-4},${cy-96} L${cx-8},${cy-76} Z" fill="#EED9B8"/>
+      <path d="M${cx-15.5},${cy-76} h31" stroke="#D96B39" stroke-width="3" stroke-linecap="round"/>`;
+    return s;
+  },
+  desklamp(w, d) {
+    let s = shadow(.25,.25,.5,.5,.1);
+    const cx = IX(.5,.5), cy = IY(.5,.5);
+    s += box(.32,.32,.36,.36,4,0,INKB);
+    s += `<path d="M${cx},${cy-5} C${cx+2},${cy-18} ${cx-8},${cy-20} ${cx-7},${cy-30}" stroke="#3A352E" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <ellipse class="glow-pulse" cx="${cx-10}" cy="${cy-26}" rx="16" ry="11" fill="url(#lampGlow)"/>
+      <path d="M${cx-16},${cy-24} A9,9 0 0 1 ${cx-2},${cy-31} L${cx-7},${cy-30} Z" fill="#E97845"/>
+      <circle cx="${cx-11}" cy="${cy-25.5}" r="2.6" fill="#F6C36A"/>`;
+    return s;
+  },
+  catbed(w, d) {
+    let s = shadow(.1,.1,.8,.8,.12);
+    const cx = IX(.5,.5), cy = IY(.5,.5)-4;
+    s += `<ellipse cx="${cx}" cy="${cy}" rx="27" ry="15" fill="#B07B4F"/>
+      <ellipse cx="${cx}" cy="${cy-4}" rx="27" ry="15" fill="#C99763"/>
+      <ellipse cx="${cx}" cy="${cy-3}" rx="19" ry="10" fill="#F4E3C8"/>
+      <ellipse cx="${cx}" cy="${cy-1.5}" rx="13" ry="6.5" fill="#EED9B8"/>
+      <path d="M${cx-6},${cy+9.5} q6,3.5 12,0" stroke="#B07B4F" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    return s;
+  },
+  yarn(w, d) {
+    let s = shadow(.3,.3,.4,.4,.1);
+    const cx = IX(.5,.5), cy = IY(.5,.5)-7;
+    s += `<circle cx="${cx}" cy="${cy}" r="8.5" fill="#E97845"/>
+      <path d="M${cx-8},${cy-2} q8,-5 16,0 M${cx-8},${cy+3} q8,-5 16,1 M${cx-4},${cy-8} q-3,8 1,16" stroke="#C85A2E" stroke-width="1.4" fill="none"/>
+      <path d="M${cx+7},${cy+4} q12,4 20,1" stroke="#E97845" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+    return s;
+  },
+  roomext(w, d) {
+    /* preview-only: a floor slab corner */
+    return box(0,0,1.6,1.6,10,-10,["#E3C193","#B98F5F","#A37C50"])
+      + poly([pt(0,0,0),pt(1.6,0,0),pt(1.6,1.6,0),pt(0,1.6,0)], "#E3C193")
+      + `<circle cx="${IX(.8,.8)}" cy="${IY(.8,.8)-14}" r="9" fill="#EE8A57"/>
+         <path d="M${IX(.8,.8)-4},${IY(.8,.8)-14} h8 M${IX(.8,.8)},${IY(.8,.8)-18} v8" stroke="#FFF7EF" stroke-width="2.4" stroke-linecap="round"/>`;
+  },
+};
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = c => Math.max(0, Math.min(255, c + amt));
+  return "#" + ((f(n>>16) << 16) | (f((n>>8)&255) << 8) | f(n&255)).toString(16).padStart(6,"0");
+}
+
+/* ---------- catalog (data-driven; renderer resolves by id) ---------- */
+const CATALOG = [
+  { id:"flower",    name:"Sunny Flower",   cat:"plants",    price:40,  unlock:25,  w:1, d:1, ph:52 },
+  { id:"monstera",  name:"Tiny Monstera",  cat:"plants",    price:80,  unlock:25,  w:1, d:1, ph:80 },
+  { id:"cactus",    name:"Desert Cactus",  cat:"plants",    price:60,  unlock:40,  w:1, d:1, ph:62 },
+  { id:"bonsai",    name:"Little Bonsai",  cat:"plants",    price:140, unlock:150, w:1, d:1, ph:55 },
+  { id:"desk",      name:"Wooden Desk",    cat:"furniture", price:150, unlock:0,   w:2, d:1, ph:62 },
+  { id:"chair",     name:"Wooden Chair",   cat:"furniture", price:90,  unlock:50,  w:1, d:1, ph:64 },
+  { id:"table",     name:"Small Table",    cat:"furniture", price:110, unlock:75,  w:1, d:1, ph:48 },
+  { id:"bookshelf", name:"Bookshelf",      cat:"furniture", price:180, unlock:120, w:1, d:1, ph:100 },
+  { id:"rug",       name:"Round Rug",      cat:"decor",     price:70,  unlock:0,   w:2, d:2, ph:16, flat:true },
+  { id:"books",     name:"Book Stack",     cat:"decor",     price:30,  unlock:0,   w:1, d:1, ph:28 },
+  { id:"poster",    name:"Leaning Poster", cat:"decor",     price:50,  unlock:60,  w:1, d:1, ph:66 },
+  { id:"clock",     name:"Standing Clock", cat:"decor",     price:90,  unlock:100, w:1, d:1, ph:86 },
+  { id:"desklamp",  name:"Desk Lamp",      cat:"lighting",  price:80,  unlock:40,  w:1, d:1, ph:42 },
+  { id:"floorlamp", name:"Floor Lamp",     cat:"lighting",  price:120, unlock:75,  w:1, d:1, ph:102 },
+  { id:"yarn",      name:"Yarn Ball",      cat:"pets",      price:40,  unlock:90,  w:1, d:1, ph:24 },
+  { id:"catbed",    name:"Cat Bed",        cat:"pets",      price:200, unlock:200, w:1, d:1, ph:28 },
+  { id:"roomext",   name:"Room Corner",    cat:"rooms",     price:300, unlock:300, w:0, d:0, ph:44, special:"grow" },
+  { id:"grass",     name:"Garden Patch",   cat:"rooms",     price:250, unlock:500, w:2, d:2, ph:34, flat:true },
+];
+const byId = id => CATALOG.find(a => a.id === id);
+const CATS = ["all","furniture","plants","decor","lighting","pets","rooms"];
+
+/* ---------- state ---------- */
+const KEY = "hearth-proto-v1";
+function seedState() {
+  return {
+    energy: 140, totalMin: 185, todayMin: 85, weekMin: 145,
+    sessions: 5, daysActive: 4, streak: 7,
+    lastDay: dayStamp(), roomSize: 7,
+    placed: [
+      { id:"rug",       x:2, y:3, rot:0 },
+      { id:"desk",      x:2, y:0, rot:0 },
+      { id:"chair",     x:2, y:1, rot:0 },
+      { id:"bookshelf", x:0, y:4, rot:0 },
+      { id:"monstera",  x:0, y:0, rot:0 },
+      { id:"floorlamp", x:5, y:0, rot:0 },
+    ],
+    inventory: [], cat: { x:4, y:2 },
+  };
+}
+function dayStamp(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || seedState(); } catch(e){ S = seedState(); }
+if (S.lastDay !== dayStamp()) { S.todayMin = 0; S.lastDay = dayStamp(); }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+/* ---------- world rendering ---------- */
+function itemFootprint(p) {
+  const a = byId(p.id);
+  return p.rot ? { w:a.d, d:a.w } : { w:a.w, d:a.d };
+}
+function drawAsset(p) {
+  const a = byId(p.id);
+  let inner = DRAW[a.id](a.w, a.d);
+  let tf = `translate(${IX(p.x, p.y)},${IY(p.x, p.y)})`;
+  if (p.rot) {
+    const c1 = IX(a.w/2, a.d/2), c2 = IX(a.d/2, a.w/2);
+    return `<g transform="${tf}"><g transform="translate(${c2},0) scale(-1,1) translate(${-c1},0)">${inner}</g></g>`;
+  }
+  return `<g transform="${tf}">${inner}</g>`;
+}
+
+function catSVG(mode) {
+  /* local coords, feet at (0,0). modes: idle | sleep | happy */
+  const ORANGE = "#EFA054", ORANGE_D = "#D07B33", CREAM = "#FBE3C2";
+  if (mode === "sleep") {
+    return `<g class="cat-breathe">
+      <ellipse cx="0" cy="-8" rx="17" ry="9" fill="${ORANGE}"/>
+      <path d="M-14,-4 q-8,4 -2,7 q8,3 14,-1" fill="${ORANGE_D}" opacity=".9"/>
+      <circle cx="-9" cy="-13" r="9" fill="${ORANGE}"/>
+      <path d="M-16,-19 l-1,-7 l6,3 Z M-6,-21 l1,-7 l5,5 Z" fill="${ORANGE_D}"/>
+      <path d="M-14,-13 q2,1.6 4,0 M-7,-13 q2,1.6 4,0" stroke="#7C4A1F" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      <path d="M3,-14 q3,-4 6,0 M8,-15 q3,-4 6,0" stroke="${ORANGE_D}" stroke-width="2" fill="none" opacity=".7"/>
+      </g>
+      <text class="zz" x="6" y="-30" font-size="11">z</text>
+      <text class="zz zz2" x="13" y="-36" font-size="9">z</text>`;
+  }
+  const eyes = mode === "happy"
+    ? `<path d="M-10,-30 q2.4,-3 4.8,0 M-1,-30 q2.4,-3 4.8,0" stroke="#3A2E24" stroke-width="1.7" fill="none" stroke-linecap="round"/>`
+    : `<g class="cat-blink"><circle cx="-7.5" cy="-30" r="1.9" fill="#3A2E24"/><circle cx="1.5" cy="-30" r="1.9" fill="#3A2E24"/></g>`;
+  return `<g class="${mode === "happy" ? "cat-happy" : "cat-breathe"}">
+    <g class="cat-tail"><path d="M10,-8 C21,-6 25,-16 20,-27" stroke="${ORANGE_D}" stroke-width="5" fill="none" stroke-linecap="round"/></g>
+    <path d="M-12,-2 C-15,-14 -10,-24 -1,-24 C9,-24 14,-13 11,-2 Q0,3 -12,-2 Z" fill="${ORANGE}"/>
+    <path d="M-9,-20 q-4,4 -3,8 M9,-19 q4,4 3,8" stroke="${ORANGE_D}" stroke-width="2.2" fill="none" opacity=".75" stroke-linecap="round"/>
+    <ellipse cx="-5" cy="-1.5" rx="4" ry="2.6" fill="${CREAM}"/>
+    <ellipse cx="4" cy="-1.5" rx="4" ry="2.6" fill="${CREAM}"/>
+    <circle cx="-3" cy="-31" r="10.5" fill="${ORANGE}"/>
+    <path d="M-12,-37 l-1.5,-9 l7.5,4 Z" fill="${ORANGE_D}"/><path d="M-11.2,-38.5 l-.8,-5 l4.2,2.3 Z" fill="#E8A07A"/>
+    <path d="M4,-39 l3,-8.5 l5,7 Z" fill="${ORANGE_D}"/><path d="M5,-39.6 l1.8,-4.8 l2.8,4 Z" fill="#E8A07A"/>
+    <path d="M-6,-40 q1,3 2,0 M-1,-41 q1,3 2,0" stroke="${ORANGE_D}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    ${eyes}
+    <path d="M-3.6,-26.5 l1.6,-1.6 l1.6,1.6 Z" fill="#E8837B"/>
+    <path d="M-2,-25 q-2,2.4 -4.6,1.4 M-2,-25 q2,2.4 4.6,1.4" stroke="#7C4A1F" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path d="M-14,-27 l-5,-1 M-14,-24.5 l-5,.8 M9,-27 l5,-1 M9,-24.5 l5,.8" stroke="#B98E62" stroke-width="1" stroke-linecap="round"/>
+    </g>`;
+}
+
+function worldSVG(svgEl, opts = {}) {
+  const N = S.roomSize;
+  const minX = -N * TW/2 - 24, w = N * TW + 48;
+  const minY = -WALL_H - 42, h = WALL_H + 42 + N * TH + 56;
+  svgEl.setAttribute("viewBox", `${minX} ${minY} ${w} ${h}`);
+  const uid = svgEl.id;
+  let s = `<defs><clipPath id="winclip-${uid}"><polygon points="${pt(0,1.25,89)} ${pt(0,2.75,89)} ${pt(0,2.75,46)} ${pt(0,1.25,46)}"/></clipPath></defs>`;
+
+  /* ground shadow of the diorama */
+  s += `<ellipse cx="0" cy="${N*TH + 6}" rx="${N*TW*.55}" ry="24" fill="rgba(110,80,48,.13)"/>`;
+
+  /* floor slab */
+  s += poly([pt(0,N,0), pt(N,N,0), pt(N,N,-12), pt(0,N,-12)], "#B98F5F");
+  s += poly([pt(N,0,0), pt(N,N,0), pt(N,N,-12), pt(N,0,-12)], "#A37C50");
+  /* wood tiles */
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    const c = (x + y) % 2 ? "#DFBA88" : "#E7C598";
+    s += poly([pt(x,y), pt(x+1,y), pt(x+1,y+1), pt(x,y+1)], c, 'stroke="#D3AC78" stroke-width="1"');
+  }
+
+  /* walls */
+  s += poly([pt(-0.16,0,WALL_H), pt(0,0,WALL_H), pt(0,N,WALL_H), pt(-0.16,N,WALL_H)], "#F7EFE0");  /* top edge L */
+  s += poly([pt(0,-0.16,WALL_H), pt(N,-0.16,WALL_H), pt(N,0,WALL_H), pt(0,0,WALL_H)], "#EFE5D2");  /* top edge R */
+  s += poly([pt(0,0,WALL_H), pt(0,N,WALL_H), pt(0,N,0), pt(0,0,0)], "#F1E7D6");                    /* left wall */
+  s += poly([pt(0,0,WALL_H), pt(N,0,WALL_H), pt(N,0,0), pt(0,0,0)], "#E8DCC6");                    /* right wall */
+  s += poly([pt(0,0,7), pt(0,N,7), pt(0,N,0), pt(0,0,0)], "#C7A171");   /* baseboards */
+  s += poly([pt(0,0,7), pt(N,0,7), pt(N,0,0), pt(0,0,0)], "#B8935F");
+
+  /* window on left wall */
+  s += poly([pt(0,1.1,96), pt(0,2.9,96), pt(0,2.9,40), pt(0,1.1,40)], "#FBF5E8");
+  s += poly([pt(0,1.25,89), pt(0,2.75,89), pt(0,2.75,46), pt(0,1.25,46)], "url(#sky)");
+  s += `<g clip-path="url(#winclip-${uid})">
+    <circle cx="${IX(0,2.35)}" cy="${IY(0,2.35)-70}" r="11" fill="rgba(255,244,214,.55)"/>
+    <circle cx="${IX(0,2.35)}" cy="${IY(0,2.35)-70}" r="7" fill="#FFF3D0"/>
+    <path d="M${IX(0,2.95)},${IY(0,2.95)-56} q22,-14 48,-3 L${IX(0,1.05)},${IY(0,1.05)-40} L${IX(0,2.95)},${IY(0,2.95)-40} Z" fill="#A9784A" opacity=".85"/>
+    </g>`;
+  s += `<line x1="${IX(0,2)}" y1="${IY(0,2)-89}" x2="${IX(0,2)}" y2="${IY(0,2)-46}" stroke="#FBF5E8" stroke-width="3"/>`;
+  s += `<line x1="${IX(0,1.25)}" y1="${IY(0,1.25)-67}" x2="${IX(0,2.75)}" y2="${IY(0,2.75)-67}" stroke="#FBF5E8" stroke-width="3"/>`;
+  s += poly([pt(0,1.02,40), pt(0,2.98,40), pt(0,2.98,35), pt(0,1.02,35)], "#EBDFC9");   /* sill */
+
+  /* little hanging shelf + plant on right wall */
+  s += poly([pt(2.4,0,74), pt(3.6,0,74), pt(3.6,0,70), pt(2.4,0,70)], "#B07B4F");
+  s += `<g transform="translate(${IX(3,0)},${IY(3,0)-74})">${leaf(0,0,-18,13,"#7FA26A")}${leaf(0,0,14,15,"#6F945C")}${leaf(0,0,-52,11,"#87AC72")}</g>`;
+
+  /* placement grid highlight */
+  if (opts.grid) {
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+      const ok = opts.grid.valid(x, y);
+      s += poly([pt(x,y), pt(x+1,y), pt(x+1,y+1), pt(x,y+1)],
+        ok ? "rgba(143,176,122,.28)" : "rgba(0,0,0,0)",
+        `stroke="${ok ? "#8FB07A" : "rgba(180,150,120,.35)"}" stroke-width="1" data-cell="${x},${y}" style="cursor:pointer"`);
+    }
+  }
+
+  /* items: flats under everything, rest depth-sorted with the cat */
+  const flats = S.placed.filter(p => byId(p.id).flat);
+  const solids = S.placed.filter(p => !byId(p.id).flat);
+  for (const p of flats) s += drawAsset(p);
+
+  const entries = solids.map(p => {
+    const f = itemFootprint(p);
+    return { depth: p.x + f.w/2 + p.y + f.d/2, svg: drawAsset(p) };
+  });
+  if (!opts.hideCat) {
+    const catMode = opts.catMode || "idle";
+    entries.push({ depth: S.cat.x + S.cat.y + 1, svg:
+      `<g id="mochi" transform="translate(${IX(S.cat.x+.5, S.cat.y+.5)},${IY(S.cat.x+.5, S.cat.y+.5)+4})">
+        <ellipse cx="0" cy="0" rx="14" ry="6" fill="rgba(80,58,36,.14)"/>${catSVG(catMode)}</g>` });
+  }
+  /* ghost item while placing */
+  if (opts.ghost) {
+    const p = opts.ghost;
+    const f = itemFootprint(p);
+    entries.push({ depth: p.x + f.w/2 + p.y + f.d/2 + .01, svg:
+      `<g opacity=".8">${drawAsset(p)}</g>` });
+  }
+  entries.sort((a, b) => a.depth - b.depth);
+  for (const e of entries) s += e.svg;
+
+  svgEl.innerHTML = s;
+}
+
+function previewSVG(svgEl, id) {
+  const a = byId(id);
+  const x0 = IX(0, a.d) - 10, x1 = IX(a.w, 0) + 10;
+  svgEl.setAttribute("viewBox", `${x0} ${-(a.ph + 10)} ${x1 - x0} ${a.ph + 10 + IY(a.w, a.d) + 16}`);
+  svgEl.innerHTML = DRAW[id](a.w, a.d);
+}
+
+/* ---------- screen manager ---------- */
+const $ = s => document.querySelector(s);
+const screens = ["home","focus","complete","shop","place","profile"];
+let current = "home";
+function show(name) {
+  current = name;
+  for (const n of screens) $("#screen-" + n).classList.toggle("active", n === name);
+  const navShown = ["home","shop","profile"].includes(name) || (name === "focus" && !session);
+  $("#nav").classList.toggle("hidden", !navShown);
+  document.querySelectorAll("#nav button").forEach(b =>
+    b.classList.toggle("on", b.dataset.nav === name));
+  if (name === "home") renderHome();
+  if (name === "shop") renderShop();
+  if (name === "profile") renderProfile();
+  if (name === "focus" && !session) renderFocusReady();
+}
+document.querySelectorAll("#nav button").forEach(b =>
+  b.addEventListener("click", () => show(b.dataset.nav)));
+
+function ask(msg, okLabel, cancelLabel, onOk) {
+  $("#dlg-msg").textContent = msg;
+  $("#dlg-ok").textContent = okLabel;
+  $("#dlg-cancel").textContent = cancelLabel;
+  $("#dlg").classList.add("show");
+  $("#dlg-ok").onclick = () => { $("#dlg").classList.remove("show"); onOk(); };
+  $("#dlg-cancel").onclick = () => $("#dlg").classList.remove("show");
+}
+function toast(msg, ms = 2200) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+/* ---------- home ---------- */
+function nextUnlockInfo() {
+  const locked = CATALOG.filter(a => a.unlock > S.totalMin).sort((a,b) => a.unlock - b.unlock);
+  if (!locked.length) return null;
+  const nxt = locked[0];
+  const prev = Math.max(0, ...CATALOG.map(a => a.unlock).filter(u => u <= S.totalMin));
+  return { item: nxt, left: nxt.unlock - S.totalMin,
+    pct: Math.min(100, Math.round((S.totalMin - prev) / (nxt.unlock - prev) * 100)) };
+}
+function renderHome() {
+  const h = new Date().getHours();
+  $("#greeting").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  $("#energy-pill").textContent = S.energy;
+  $("#streak-pill").textContent = S.streak + " day focus streak";
+  $("#today-min").textContent = S.todayMin + " min";
+  const nu = nextUnlockInfo();
+  $("#next-unlock").innerHTML = nu ? `Next unlock: <b>${nu.left} min</b>` : "Everything unlocked ✦";
+  $("#unlock-fill").style.width = (nu ? nu.pct : 100) + "%";
+  worldSVG($("#world"));
+  const mochi = $("#mochi");
+  if (mochi) mochi.addEventListener("click", petMochi);
+}
+function petMochi(ev) {
+  worldSVG($("#world"), { catMode:"happy" });
+  $("#mochi").addEventListener("click", petMochi);
+  const heart = document.createElement("div");
+  heart.className = "heart-float"; heart.textContent = "🧡";
+  const pr = $("#phone").getBoundingClientRect();
+  heart.style.left = (ev.clientX - pr.left - 10) + "px";
+  heart.style.top = (ev.clientY - pr.top - 30) + "px";
+  $("#phone").appendChild(heart);
+  setTimeout(() => heart.remove(), 1000);
+  setTimeout(() => { if (current === "home") renderHome(); }, 1400);
+}
+$("#btn-focus").addEventListener("click", () => show("focus"));
+$("#btn-back-home").addEventListener("click", () => show("home"));
+
+/* ---------- focus session ---------- */
+let session = null;   /* {durMin, remainMs, lastTick, paused} */
+let demoSpeed = 1;
+let tickHandle = null;
+let chosenMin = 25;
+
+document.querySelectorAll("#dur-chips .chip").forEach(c => c.addEventListener("click", () => {
+  chosenMin = +c.dataset.min;
+  document.querySelectorAll("#dur-chips .chip").forEach(x => x.classList.toggle("on", x === c));
+  $("#timer").textContent = fmt(chosenMin * 60000);
+}));
+$("#demo-toggle").addEventListener("click", () => {
+  demoSpeed = demoSpeed === 1 ? 60 : 1;
+  $("#demo-toggle").classList.toggle("on", demoSpeed !== 1);
+  toast(demoSpeed === 1 ? "Demo speed off" : "Demo speed ×60 — a minute passes each second");
+});
+function fmt(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  return String(Math.floor(t / 60)).padStart(2,"0") + ":" + String(t % 60).padStart(2,"0");
+}
+function focusScene(mode) {
+  const svg = $("#focus-scene");
+  svg.innerHTML = `
+    <ellipse cx="150" cy="138" rx="104" ry="26" fill="rgba(0,0,0,.25)"/>
+    <ellipse cx="150" cy="134" rx="96" ry="22" fill="#4A3F35"/>
+    <ellipse cx="150" cy="131" rx="84" ry="18" fill="#57493D"/>
+    <g transform="translate(206,120)">${leaf(0,0,-16,20,"#5F7A50")}${leaf(0,0,18,23,"#526B45")}${leaf(0,0,-48,16,"#5F7A50")}
+      <path d="M-8,0 h16 l-2.5,12 h-11 Z" fill="#8A5A38"/></g>
+    <ellipse class="glow-pulse" cx="96" cy="86" rx="40" ry="30" fill="url(#glowF)"/>
+    <rect x="94" y="86" width="3" height="42" fill="#6B5638"/>
+    <path d="M84,88 L89,74 L102,74 L107,88 Z" fill="#E8CFA4"/>
+    <ellipse cx="95.5" cy="130" rx="14" ry="4.5" fill="#3A322B"/>
+    <g transform="translate(152,128)">${catSVG(mode)}</g>`;
+}
+function renderFocusReady() {
+  $("#timer").textContent = fmt(chosenMin * 60000);
+  $("#focus-line").textContent = "Let’s focus together.";
+  $("#focus-sub").textContent = "Your room is waiting for you.";
+  $("#shield").style.visibility = "hidden";
+  $("#dur-chips").hidden = false;
+  $("#btn-start").hidden = false;
+  $("#btn-end").hidden = true;
+  $("#btn-back-home").hidden = false;
+  focusScene("idle");
+  syncPauseBtn();
+}
+$("#btn-start").addEventListener("click", startSession);
+function startSession() {
+  session = { durMin: chosenMin, remainMs: chosenMin * 60000, lastTick: performance.now(), paused: false };
+  $("#dur-chips").hidden = true;
+  $("#btn-start").hidden = true;
+  $("#btn-start").textContent = "START";
+  $("#btn-end").hidden = false;
+  $("#btn-back-home").hidden = true;
+  $("#shield").style.visibility = "visible";
+  $("#focus-line").textContent = "Let’s focus together.";
+  $("#focus-sub").textContent = "Your room is waiting for you.";
+  $("#nav").classList.add("hidden");
+  focusScene("sleep");
+  syncPauseBtn();
+  runTimer();
+}
+function runTimer() {
+  clearInterval(tickHandle);
+  tickHandle = setInterval(() => {
+    if (!session || session.paused) return;
+    const now = performance.now();
+    session.remainMs -= (now - session.lastTick) * demoSpeed;
+    session.lastTick = now;
+    $("#timer").textContent = fmt(session.remainMs);
+    if (session.remainMs <= 0) completeSession(session.durMin, true);
+  }, 200);
+}
+/* PAUSE via the primary slot: reuse START button as PAUSE/RESUME */
+$("#btn-start").insertAdjacentHTML("afterend",
+  `<button class="btn btn-primary" id="btn-pause" hidden>PAUSE</button>`);
+const btnPause = $("#btn-pause");
+function syncPauseBtn() {
+  btnPause.hidden = !session;
+  if (session) btnPause.textContent = session.paused ? "RESUME" : "PAUSE";
+}
+btnPause.addEventListener("click", () => {
+  if (!session) return;
+  session.paused = !session.paused;
+  session.lastTick = performance.now();
+  $("#focus-line").textContent = session.paused ? "Paused — take a breath." : "Let’s focus together.";
+  focusScene(session.paused ? "idle" : "sleep");
+  syncPauseBtn();
+});
+$("#btn-end").addEventListener("click", () => {
+  if (!session) return;
+  const focusedMin = Math.floor((session.durMin * 60000 - session.remainMs) / 60000);
+  if (focusedMin >= 1) {
+    ask(`End the session early? You'll keep ${focusedMin} Focus Energy for the ${focusedMin} min you focused.`,
+      "END SESSION", "Keep going", () => completeSession(focusedMin, false));
+  } else {
+    clearInterval(tickHandle); session = null; syncPauseBtn();
+    toast("No worries — Mochi will wait for you. 🧡");
+    show("home");
+  }
+});
+
+function completeSession(minutes, full) {
+  clearInterval(tickHandle);
+  session = null; syncPauseBtn();
+  const prevTotal = S.totalMin;
+  S.energy += minutes;
+  S.totalMin += minutes;
+  S.todayMin += minutes;
+  S.weekMin += minutes;
+  S.sessions += 1;
+  if (S.lastStreakDay !== dayStamp()) {   /* first completed session today */
+    if (S.lastStreakDay) S.streak += 1;   /* seeded streak already counts today's 85 min */
+    S.lastStreakDay = dayStamp();
+    S.daysActive = Math.min(7, S.daysActive + 1);
+  }
+  save();
+  /* newly unlocked item */
+  const news = CATALOG.filter(a => a.unlock > prevTotal && a.unlock <= S.totalMin)
+                      .sort((a,b) => a.unlock - b.unlock);
+  renderComplete(minutes, full, news[0] || null);
+  show("complete");
+  confetti();
+}
+
+let rewardItem = null;
+function renderComplete(minutes, full, item) {
+  rewardItem = item;
+  $("#complete-min").textContent = minutes + " MIN FOCUSED";
+  $("#complete-energy").textContent = "+" + minutes + " Focus Energy";
+  $("#complete-grew").textContent = full ? "Your world grew a little." : "Every minute counts.";
+  const card = $("#reward-card"), primary = $("#btn-reward-primary"), later = $("#btn-reward-later");
+  if (item) {
+    /* the milestone item is a gift — the focus time itself paid for it */
+    card.hidden = false;
+    previewSVG($("#reward-svg"), item.id);
+    $("#reward-name").textContent = item.name;
+    $("#reward-tag").textContent = "New item unlocked — you earned it";
+    primary.disabled = false;
+    if (item.special === "grow") {
+      primary.textContent = "ADD IT";
+      primary.onclick = () => {
+        S.roomSize = Math.min(9, S.roomSize + 1);
+        save(); toast("Your room grew a corner! 🏡"); show("home");
+      };
+    } else {
+      primary.textContent = "PLACE IT";
+      primary.onclick = () => enterPlace(item.id);
+    }
+    later.textContent = "Later";
+    later.onclick = () => {
+      if (item.special !== "grow" && !S.inventory.includes(item.id)) { S.inventory.push(item.id); save(); }
+      show("home");
+    };
+  } else {
+    card.hidden = true;
+    const nu = nextUnlockInfo();
+    primary.disabled = false;
+    primary.textContent = "BACK TO YOUR ROOM";
+    primary.onclick = () => show("home");
+    later.textContent = nu ? `Next unlock: ${nu.item.name} in ${nu.left} min` : "Everything unlocked ✦";
+    later.onclick = () => show("home");
+  }
+}
+
+function confetti() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cols = ["#E97845","#8FB07A","#E9B145","#F6DECB","#C85A2E"];
+  for (let i = 0; i < 26; i++) {
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.left = (4 + Math.random() * 92) + "%";
+    c.style.background = cols[i % cols.length];
+    c.style.animationDuration = (1.3 + Math.random() * 1.1) + "s";
+    c.style.animationDelay = (Math.random() * .5) + "s";
+    c.style.width = (6 + Math.random() * 6) + "px";
+    $("#phone").appendChild(c);
+    setTimeout(() => c.remove(), 3200);
+  }
+}
+
+/* ---------- shop ---------- */
+let shopCat = "all";
+function renderShop() {
+  $("#energy-pill-shop").textContent = S.energy;
+  $("#cats").innerHTML = CATS.map(c =>
+    `<button class="cat-chip ${c === shopCat ? "on" : ""}" data-cat="${c}">${c.toUpperCase()}</button>`).join("");
+  document.querySelectorAll(".cat-chip").forEach(b =>
+    b.addEventListener("click", () => { shopCat = b.dataset.cat; renderShop(); }));
+
+  const items = CATALOG.filter(a => shopCat === "all" || a.cat === shopCat);
+  let html = "";
+  if (shopCat === "pets" || shopCat === "all") {
+    html += `<div class="item-card">
+      <svg viewBox="-30 -60 60 68"><g transform="translate(0,4)">${catSVG("idle")}</g></svg>
+      <div class="nm">Mochi</div><div class="pr" style="color:var(--leaf-deep)">Your companion</div>
+      <div class="owned-note">Adopted ♥</div></div>`;
+  }
+  for (const a of items) {
+    if (a.special === "grow" && S.roomSize >= 9) continue;
+    const locked = a.unlock > S.totalMin;
+    const owned = S.inventory.includes(a.id);
+    let action;
+    if (locked) action = `<div class="lock-note">Focus ${a.unlock - S.totalMin} min to unlock</div>`;
+    else if (owned) action = `<button class="btn place-owned" data-place="${a.id}">PLACE</button>`;
+    else if (S.energy >= a.price) action = `<button class="btn buy" data-buy="${a.id}">${a.special === "grow" ? "EXPAND" : "BUY"}</button>`;
+    else action = `<button class="btn cant" disabled>Need ✦ ${a.price - S.energy} more</button>`;
+    html += `<div class="item-card ${locked ? "locked" : ""}">
+      <svg data-preview="${a.id}"></svg>
+      <div class="nm">${a.name}</div>
+      <div class="pr"><span>✦</span> ${a.price}</div>
+      ${action}</div>`;
+  }
+  $("#shop-grid").innerHTML = html;
+  document.querySelectorAll("[data-preview]").forEach(svg => previewSVG(svg, svg.dataset.preview));
+  document.querySelectorAll("[data-buy]").forEach(b => b.addEventListener("click", () => buyItem(b.dataset.buy)));
+  document.querySelectorAll("[data-place]").forEach(b => b.addEventListener("click", () => {
+    S.inventory = S.inventory.filter(x => x !== b.dataset.place);
+    enterPlace(b.dataset.place);
+  }));
+}
+function buyItem(id) {
+  const a = byId(id);
+  if (S.energy < a.price) return;
+  S.energy -= a.price;
+  if (a.special === "grow") {
+    S.roomSize = Math.min(9, S.roomSize + 1);
+    save();
+    toast("Your room grew a corner! 🏡");
+    show("home");
+    return;
+  }
+  save();
+  enterPlace(id);
+}
+
+/* ---------- placement ---------- */
+let placing = null; /* {id,x,y,rot} */
+function occupied(exceptGhost) {
+  const cells = new Set();
+  for (const p of S.placed) {
+    if (byId(p.id).flat) continue;
+    const f = itemFootprint(p);
+    for (let dx = 0; dx < f.w; dx++) for (let dy = 0; dy < f.d; dy++)
+      cells.add((p.x + dx) + "," + (p.y + dy));
+  }
+  return cells;
+}
+function fits(p) {
+  const a = byId(p.id), f = itemFootprint(p), N = S.roomSize;
+  if (p.x < 0 || p.y < 0 || p.x + f.w > N || p.y + f.d > N) return false;
+  if (a.flat) {
+    for (const q of S.placed) {
+      if (!byId(q.id).flat) continue;
+      const g = itemFootprint(q);
+      if (p.x < q.x + g.w && q.x < p.x + f.w && p.y < q.y + g.d && q.y < p.y + f.d) return false;
+    }
+    return true;
+  }
+  const occ = occupied();
+  for (let dx = 0; dx < f.w; dx++) for (let dy = 0; dy < f.d; dy++)
+    if (occ.has((p.x + dx) + "," + (p.y + dy))) return false;
+  return true;
+}
+function firstFreeSpot(id) {
+  const N = S.roomSize, cx = Math.floor(N/2);
+  const spots = [];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++)
+    spots.push({ x, y, d: Math.abs(x - cx) + Math.abs(y - cx) });
+  spots.sort((a,b) => a.d - b.d);
+  for (const sp of spots) { const p = { id, x: sp.x, y: sp.y, rot: 0 }; if (fits(p)) return p; }
+  return { id, x: 0, y: 0, rot: 0 };
+}
+function enterPlace(id) {
+  placing = firstFreeSpot(id);
+  show("place");
+  renderPlace();
+}
+function renderPlace() {
+  const svg = $("#place-world");
+  worldSVG(svg, {
+    ghost: placing,
+    grid: { valid: (x, y) => fits({ ...placing, x, y }) },
+  });
+  $("#btn-place-done").disabled = !fits(placing);
+  svg.querySelectorAll("[data-cell]").forEach(el =>
+    el.addEventListener("click", () => {
+      const [x, y] = el.dataset.cell.split(",").map(Number);
+      const cand = { ...placing, x, y };
+      if (fits(cand)) { placing = cand; renderPlace(); }
+    }));
+}
+$("#btn-rotate").addEventListener("click", () => {
+  if (!placing) return;
+  const cand = { ...placing, rot: placing.rot ? 0 : 1 };
+  placing = fits(cand) ? cand : cand;   /* allow rotate; DONE stays gated on fit */
+  renderPlace();
+});
+$("#btn-place-done").addEventListener("click", () => {
+  if (!placing || !fits(placing)) return;
+  /* if the cat sits there, she politely moves */
+  const f = itemFootprint(placing);
+  if (!byId(placing.id).flat &&
+      S.cat.x >= placing.x && S.cat.x < placing.x + f.w &&
+      S.cat.y >= placing.y && S.cat.y < placing.y + f.d) {
+    const spot = firstFreeSpot("yarn");   /* any 1×1 free tile */
+    S.cat = { x: spot.x, y: spot.y };
+  }
+  S.placed.push(placing);
+  placing = null;
+  save();
+  toast("It looks lovely here. ✨");
+  show("home");
+});
+
+/* ---------- profile ---------- */
+function renderProfile() {
+  $("#st-min").textContent = S.weekMin;
+  $("#st-ses").textContent = S.sessions;
+  $("#st-days").textContent = S.daysActive;
+  $("#streak-pill-2").textContent = S.streak + " day streak";
+  const counts = { plants:0, furniture:0, decor:0, lighting:0, pets:0, rooms:0 };
+  for (const p of S.placed) counts[byId(p.id).cat]++;
+  const rows = [
+    ["🌱 Plants", counts.plants], ["🪑 Furniture", counts.furniture],
+    ["🖼️ Decor", counts.decor], ["💡 Lighting", counts.lighting],
+    ["🐱 Companion", 1], ["🏠 Rooms", 1 + (S.roomSize - 7)],
+  ];
+  $("#world-inventory").innerHTML = rows.map(([n, v]) =>
+    `<div class="world-row"><span>${n}</span><span>${v}</span></div>`).join("");
+  $("#profile-cat").innerHTML = catSVG("idle");
+}
+$("#reset-link").addEventListener("click", () => {
+  ask("Reset the prototype to its starting state?", "RESET", "Cancel", () => {
+    try { localStorage.removeItem(KEY); } catch(e){}
+    S = seedState(); save(); show("home");
+    toast("Fresh start. 🌱");
+  });
+});
+
+/* ---------- boot ---------- */
+renderHome();
+/* deep links for quick preview: index.html#shop, #focus, #profile, #complete */
+const hash = location.hash.slice(1);
+if (["focus","shop","profile"].includes(hash)) show(hash);
+else if (hash === "complete") { renderComplete(25, true, byId("monstera")); show("complete"); confetti(); }
+else if (hash === "place") enterPlace("monstera");
+else if (hash === "running") { show("focus"); startSession(); }
+</script>
+
+</body>
+</html>
