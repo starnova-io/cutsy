@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="A cozy little world that grows when you focus.">
+<meta name="theme-color" content="#F6F1E8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Hearth">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-512.png">
+<link rel="icon" type="image/png" href="./icon-512.png">
 <title>Hearth</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap">
 <style>
@@ -93,7 +101,8 @@
   /* ---------- focus ---------- */
   #screen-focus{background:linear-gradient(180deg,var(--dusk) 0%, var(--dusk-2) 100%); color:var(--dusk-ink);}
   #focus-inner{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:space-between;
-    padding:calc(20px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom)); text-align:center;}
+    padding:calc(20px + env(safe-area-inset-top)) 24px calc(88px + env(safe-area-inset-bottom)); text-align:center;}
+  #screen-focus.running #focus-inner{padding-bottom:calc(24px + env(safe-area-inset-bottom));}
   #focus-top{display:flex; flex-direction:column; align-items:center; gap:10px;}
   #shield{
     display:inline-flex; gap:7px; align-items:center; font-size:12.5px; font-weight:700; color:var(--dusk-muted);
@@ -126,7 +135,7 @@
   #screen-complete{align-items:center; text-align:center;}
   #complete-inner{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
     padding:24px; width:100%;}
-  #complete-spark{font-size:38px; animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both;}
+  #complete-spark{animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both; line-height:0;}
   #complete-min{font-family:var(--font-display); font-weight:700; font-size:34px; letter-spacing:.02em;}
   #complete-energy{
     font-weight:800; font-size:17px; color:var(--terra-deep);
@@ -190,7 +199,7 @@
   #place-bar .done:disabled{background:#D8CDBB; box-shadow:none;}
 
   /* ---------- profile ---------- */
-  #profile .card{
+  #screen-profile .card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg);
     box-shadow:0 3px 12px rgba(60,45,30,.05); padding:16px 18px; margin:0 20px 12px;
   }
@@ -203,24 +212,51 @@
   .world-row + .world-row{border-top:1px dashed var(--line);}
   .world-row span:last-child{color:var(--muted); font-weight:800;}
   #reset-link{background:none; border:none; color:var(--muted); font-size:12px; font-weight:700; text-decoration:underline; cursor:pointer; font-family:var(--font-ui); padding:8px;}
+  .pet-opts{display:flex; gap:10px;}
+  .pet-opt{
+    flex:1; border:2px solid var(--line); border-radius:var(--r-md); background:var(--cream);
+    padding:12px 6px 9px; display:flex; flex-direction:column; align-items:center; gap:2px;
+    cursor:pointer; font-family:var(--font-ui); transition:border-color .2s, background .2s;
+  }
+  .pet-opt svg{width:64px; height:60px;}
+  .pet-opt .pn{font-family:var(--font-display); font-weight:600; font-size:15px; color:var(--ink);}
+  .pet-opt .ps{font-size:10.5px; font-weight:800; letter-spacing:.1em; color:var(--muted); text-transform:uppercase;}
+  .pet-opt.on{border-color:var(--terra); background:var(--terra-soft);}
+  .pet-opt.on .ps{color:var(--terra-deep);}
+  .pet-opt:focus-visible{outline:3px solid var(--terra); outline-offset:2px;}
+  #pet-desc{font-size:12.5px; color:var(--muted); font-weight:600; text-align:center; margin-top:10px;}
   .foot-note{margin:2px 20px 20px; font-size:11.5px; color:var(--muted); text-align:center; line-height:1.5;}
 
   /* ---------- nav ---------- */
   #nav{
     position:absolute; left:14px; right:14px; bottom:calc(10px + env(safe-area-inset-bottom));
-    background:rgba(255,253,248,.93); backdrop-filter:blur(10px);
+    background:rgba(255,253,248,.94); backdrop-filter:blur(10px);
     border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow);
-    display:flex; padding:5px; z-index:20;
+    display:flex; padding:6px; gap:4px; z-index:20;
   }
   #nav.hidden{display:none;}
   #nav button{
-    flex:1; background:none; border:none; cursor:pointer; font-family:var(--font-ui);
-    font-size:10.5px; font-weight:800; letter-spacing:.1em; color:var(--muted);
-    display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 0 6px; border-radius:999px;
+    flex:1 1 0; background:none; border:none; cursor:pointer; font-family:var(--font-ui);
+    font-size:11.5px; font-weight:800; letter-spacing:.08em; color:var(--muted);
+    display:flex; align-items:center; justify-content:center; padding:12px 0; border-radius:999px;
+    transition:flex-grow .32s cubic-bezier(.4,0,.2,1), background .25s, color .25s;
+    white-space:nowrap; overflow:hidden;
   }
-  #nav button svg{width:21px; height:21px;}
-  #nav button.on{color:var(--terra-deep); background:var(--terra-soft);}
+  #nav button svg{width:22px; height:22px; flex:none;}
+  #nav button .lbl{
+    display:inline-block; max-width:0; opacity:0; margin-left:0;
+    transition:max-width .32s cubic-bezier(.4,0,.2,1), opacity .22s, margin-left .32s;
+  }
+  #nav button.on{
+    flex-grow:2.1; background:var(--terra); color:#FFF7EF;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.12), 0 4px 12px rgba(201,90,46,.28);
+  }
+  #nav button.on .lbl{max-width:76px; opacity:1; margin-left:7px;}
   #nav button:focus-visible{outline:3px solid var(--terra); outline-offset:-2px;}
+
+  /* small inline icons (pills, rows) */
+  .pill svg{width:15px; height:15px; flex:none;}
+  .row-ic{width:17px; height:17px; flex:none; color:var(--terra-deep);}
 
   /* ---------- toast / confetti ---------- */
   #dlg{
@@ -297,7 +333,7 @@
         <span class="pill"><span class="spark">✦</span><span id="energy-pill">0</span></span>
       </div>
       <div id="home-pills">
-        <span class="pill">🔥 <span id="streak-pill">7 day focus streak</span></span>
+        <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E97845"/><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#E9B145"/></svg><span id="streak-pill">7 day focus streak</span></span>
       </div>
     </header>
     <div id="world-wrap"><svg id="world" role="img" aria-label="Your cozy room"></svg></div>
@@ -316,7 +352,7 @@
     <button id="demo-toggle" title="Speed up time for this prototype">DEMO ×60</button>
     <div id="focus-inner">
       <div id="focus-top">
-        <span id="shield">🌙 Distracting apps silenced</span>
+        <span id="shield"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.8A8.6 8.6 0 0 1 9.2 3.8a8.6 8.6 0 1 0 11 11Z" fill="#A99C8C"/></svg> Distracting apps silenced</span>
         <div id="timer">25:00</div>
         <div id="focus-line">Let’s focus together.</div>
         <div id="focus-sub">Your room is waiting for you.</div>
@@ -338,7 +374,11 @@
   <!-- COMPLETE -->
   <section class="screen" id="screen-complete">
     <div id="complete-inner">
-      <div id="complete-spark">✨</div>
+      <div id="complete-spark"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M30 8l3.4 15.6L49 27l-15.6 3.4L30 46l-3.4-15.6L11 27l15.6-3.4Z" fill="#E9B145"/>
+        <path d="M48 38l1.9 7.1L57 47l-7.1 1.9L48 56l-1.9-7.1L39 47l7.1-1.9Z" fill="#E97845"/>
+        <path d="M14 42l1.4 5.1L20.5 48.5l-5.1 1.4L14 55l-1.4-5.1L7.5 48.5l5.1-1.4Z" fill="#8FB07A"/>
+      </svg></div>
       <div id="complete-min">25 MIN FOCUSED</div>
       <div id="complete-energy">+25 Focus Energy</div>
       <div id="complete-grew">Your world grew a little.</div>
@@ -380,7 +420,7 @@
   <!-- PROFILE -->
   <section class="screen" id="screen-profile">
     <header class="sheet-head"><h1>Your world</h1>
-      <span class="pill">🔥 <span id="streak-pill-2">7</span></span>
+      <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E97845"/><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#E9B145"/></svg><span id="streak-pill-2">7</span></span>
     </header>
     <div class="scroll">
       <div class="card" id="profile">
@@ -395,10 +435,10 @@
         <h2>Your room</h2>
         <div id="world-inventory"></div>
       </div>
-      <div class="card" style="text-align:center;">
-        <div style="font-family:var(--font-display); font-size:16px; margin-bottom:2px;">Mochi</div>
-        <div style="font-size:12.5px; color:var(--muted); font-weight:600;">Your companion. Sleeps beside you while you focus.</div>
-        <svg id="profile-cat" viewBox="-40 -66 80 74" style="width:86px; height:80px; margin-top:6px;"></svg>
+      <div class="card">
+        <h2>Companion</h2>
+        <div class="pet-opts" id="pet-opts"></div>
+        <div id="pet-desc"></div>
       </div>
       <p class="foot-note">Prototype — everything stays on this device.<br>
         In the real app, focus sessions silence distracting apps via Screen&nbsp;Time&nbsp;/&nbsp;Focus APIs.</p>
@@ -410,10 +450,18 @@
 
   <!-- NAV -->
   <nav id="nav" aria-label="Main">
-    <button data-nav="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>HOME</button>
-    <button data-nav="focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9.2M12 2.5h0M9.5 2.5h5"/></svg>FOCUS</button>
-    <button data-nav="shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8h15l-1.2 12h-12.6z"/><path d="M8.5 10.5V6a3.5 3.5 0 0 1 7 0v4.5"/></svg>SHOP</button>
-    <button data-nav="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8.2" r="4.2"/><path d="M4.5 20.5c1.4-3.6 4.2-5.3 7.5-5.3s6.1 1.7 7.5 5.3"/></svg>PROFILE</button>
+    <button data-nav="home" class="on" aria-label="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 11.4 12 4.8l7.8 6.6"/><path d="M6.3 10v8.2a1.9 1.9 0 0 0 1.9 1.9h7.6a1.9 1.9 0 0 0 1.9-1.9V10"/><path d="M10.1 20.1v-4.3a1.9 1.9 0 0 1 3.8 0v4.3"/></svg>
+      <span class="lbl">HOME</span></button>
+    <button data-nav="focus" aria-label="Focus">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.4" r="7.1"/><path d="M12 13.4v-3.5"/><path d="M9.9 2.8h4.2"/><path d="M12 2.8v2.5"/><path d="M17.6 8l1.5-1.5"/></svg>
+      <span class="lbl">FOCUS</span></button>
+    <button data-nav="shop" aria-label="Shop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.7 8.7h12.6l-.85 9.8a2 2 0 0 1-2 1.8H8.55a2 2 0 0 1-2-1.8z"/><path d="M9.1 10.9V6.8a2.9 2.9 0 0 1 5.8 0v4.1"/></svg>
+      <span class="lbl">SHOP</span></button>
+    <button data-nav="profile" aria-label="Profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.3" r="4"/><path d="M5.3 20.2c1.4-3.4 3.9-5.1 6.7-5.1s5.3 1.7 6.7 5.1"/></svg>
+      <span class="lbl">PROFILE</span></button>
   </nav>
 
   <div id="dlg" role="alertdialog">
@@ -690,7 +738,7 @@ const CATALOG = [
   { id:"desklamp",  name:"Desk Lamp",      cat:"lighting",  price:80,  unlock:40,  w:1, d:1, ph:42 },
   { id:"floorlamp", name:"Floor Lamp",     cat:"lighting",  price:120, unlock:75,  w:1, d:1, ph:102 },
   { id:"yarn",      name:"Yarn Ball",      cat:"pets",      price:40,  unlock:90,  w:1, d:1, ph:24 },
-  { id:"catbed",    name:"Cat Bed",        cat:"pets",      price:200, unlock:200, w:1, d:1, ph:28 },
+  { id:"catbed",    name:"Pet Bed",        cat:"pets",      price:200, unlock:200, w:1, d:1, ph:28 },
   { id:"roomext",   name:"Room Corner",    cat:"rooms",     price:300, unlock:300, w:0, d:0, ph:44, special:"grow" },
   { id:"grass",     name:"Garden Patch",   cat:"rooms",     price:250, unlock:500, w:2, d:2, ph:34, flat:true },
 ];
@@ -712,13 +760,14 @@ function seedState() {
       { id:"monstera",  x:0, y:0, rot:0 },
       { id:"floorlamp", x:5, y:0, rot:0 },
     ],
-    inventory: [], cat: { x:4, y:2 },
+    inventory: [], cat: { x:4, y:2 }, pet: "cat",
   };
 }
 function dayStamp(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || seedState(); } catch(e){ S = seedState(); }
 if (S.lastDay !== dayStamp()) { S.todayMin = 0; S.lastDay = dayStamp(); }
+if (!S.pet) S.pet = "cat";
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 
 /* ---------- world rendering ---------- */
@@ -771,6 +820,51 @@ function catSVG(mode) {
     <path d="M-14,-27 l-5,-1 M-14,-24.5 l-5,.8 M9,-27 l5,-1 M9,-24.5 l5,.8" stroke="#B98E62" stroke-width="1" stroke-linecap="round"/>
     </g>`;
 }
+
+function dogSVG(mode) {
+  /* local coords, feet at (0,0). modes: idle | sleep | happy */
+  const BODY = "#D29A5B", DARK = "#B3773B", EAR = "#A96F38", CREAM = "#F6E4C8";
+  if (mode === "sleep") {
+    return `<g class="cat-breathe">
+      <ellipse cx="0" cy="-8" rx="18" ry="9" fill="${BODY}"/>
+      <path d="M14,-6 q7,2 4,6 q-4,3 -9,-1" fill="${DARK}" opacity=".9"/>
+      <circle cx="-9" cy="-13" r="9.5" fill="${BODY}"/>
+      <path d="M-16,-19 C-20,-17 -20,-10 -16,-8 C-13,-10 -13,-15 -13,-19 Z" fill="${EAR}"/>
+      <path d="M-4,-20 C0,-18 0,-11 -4,-9 C-7,-11 -7,-16 -7,-20 Z" fill="${EAR}"/>
+      <ellipse cx="-11" cy="-9.5" rx="5" ry="3.8" fill="${CREAM}"/>
+      <ellipse cx="-13" cy="-12" rx="2" ry="1.5" fill="#3A2E24"/>
+      <path d="M-15,-15 q2,1.4 4,0" stroke="#7C4A1F" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      </g>
+      <text class="zz" x="6" y="-30" font-size="11">z</text>
+      <text class="zz zz2" x="13" y="-36" font-size="9">z</text>`;
+  }
+  const eyes = mode === "happy"
+    ? `<path d="M-9.5,-33 q2.4,-3 4.8,0 M-.5,-33 q2.4,-3 4.8,0" stroke="#3A2E24" stroke-width="1.7" fill="none" stroke-linecap="round"/>`
+    : `<g class="cat-blink"><circle cx="-7" cy="-33" r="1.9" fill="#3A2E24"/><circle cx="2" cy="-33" r="1.9" fill="#3A2E24"/></g>`;
+  const mouth = mode === "happy"
+    ? `<path d="M-8,-26.5 q5.5,4.5 11,0" stroke="#7C4A1F" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+       <rect x="-4.2" y="-26.5" width="4.4" height="5.4" rx="2.2" fill="#E8837B"/>`
+    : `<path d="M-2.5,-27.5 q-2,2.2 -4.4,1.2 M-2.5,-27.5 q2,2.2 4.4,1.2" stroke="#7C4A1F" stroke-width="1.1" fill="none" stroke-linecap="round"/>`;
+  return `<g class="${mode === "happy" ? "cat-happy" : "cat-breathe"}">
+    <g class="cat-tail"><path d="M11,-7 C20,-5 23,-13 19,-21" stroke="${DARK}" stroke-width="5.5" fill="none" stroke-linecap="round"/></g>
+    <path d="M-13,-2 C-16,-15 -10,-26 0,-26 C10,-26 15,-14 12,-2 Q0,4 -13,-2 Z" fill="${BODY}"/>
+    <ellipse cx="-1" cy="-8" rx="6.5" ry="8" fill="${CREAM}"/>
+    <ellipse cx="-5.5" cy="-1.5" rx="4" ry="2.6" fill="${CREAM}"/>
+    <ellipse cx="4.5" cy="-1.5" rx="4" ry="2.6" fill="${CREAM}"/>
+    <circle cx="-2.5" cy="-34" r="11" fill="${BODY}"/>
+    <path d="M-13,-42 C-18.5,-40 -19,-31 -14.5,-27 C-11.5,-29.5 -10.5,-36 -11,-42 Z" fill="${EAR}"/>
+    <path d="M8,-42 C13.5,-40 14,-31 9.5,-27 C6.5,-29.5 5.5,-36 6,-42 Z" fill="${EAR}"/>
+    <ellipse cx="-2.5" cy="-28.5" rx="6.6" ry="5.2" fill="${CREAM}"/>
+    ${eyes}
+    <ellipse cx="-2.5" cy="-31" rx="2.3" ry="1.8" fill="#3A2E24"/>
+    ${mouth}
+    </g>`;
+}
+const PETS = {
+  cat: { name: "Mochi", line: "Curls up beside your desk while you focus." },
+  dog: { name: "Miso",  line: "Naps at your feet while you focus." },
+};
+function petSVG(mode) { return S.pet === "dog" ? dogSVG(mode) : catSVG(mode); }
 
 function worldSVG(svgEl, opts = {}) {
   const N = S.roomSize;
@@ -836,10 +930,17 @@ function worldSVG(svgEl, opts = {}) {
     return { depth: p.x + f.w/2 + p.y + f.d/2, svg: drawAsset(p) };
   });
   if (!opts.hideCat) {
-    const catMode = opts.catMode || "idle";
-    entries.push({ depth: S.cat.x + S.cat.y + 1, svg:
-      `<g id="mochi" transform="translate(${IX(S.cat.x+.5, S.cat.y+.5)},${IY(S.cat.x+.5, S.cat.y+.5)+4})">
-        <ellipse cx="0" cy="0" rx="14" ry="6" fill="rgba(80,58,36,.14)"/>${catSVG(catMode)}</g>` });
+    /* if a pet bed is placed, the companion naps in it (a tap wakes them) */
+    const bed = S.placed.find(p => p.id === "catbed");
+    let px = S.cat.x, py = S.cat.y, mode = opts.catMode || "idle", dy = 4, sc = 1, shadowSvg =
+      `<ellipse cx="0" cy="0" rx="14" ry="6" fill="rgba(80,58,36,.14)"/>`;
+    if (bed) {
+      px = bed.x; py = bed.y; dy = -3; shadowSvg = "";
+      if (!opts.catMode) { mode = "sleep"; sc = .86; }
+    }
+    entries.push({ depth: px + py + 1.03, svg:
+      `<g id="pet" transform="translate(${IX(px+.5, py+.5)},${IY(px+.5, py+.5)+dy})">
+        ${shadowSvg}<g transform="scale(${sc})">${petSVG(mode)}</g></g>` });
   }
   /* ghost item while placing */
   if (opts.ghost) {
@@ -913,14 +1014,15 @@ function renderHome() {
   $("#next-unlock").innerHTML = nu ? `Next unlock: <b>${nu.left} min</b>` : "Everything unlocked ✦";
   $("#unlock-fill").style.width = (nu ? nu.pct : 100) + "%";
   worldSVG($("#world"));
-  const mochi = $("#mochi");
-  if (mochi) mochi.addEventListener("click", petMochi);
+  const pet = $("#pet");
+  if (pet) pet.addEventListener("click", onPetTap);
 }
-function petMochi(ev) {
+function onPetTap(ev) {
   worldSVG($("#world"), { catMode:"happy" });
-  $("#mochi").addEventListener("click", petMochi);
+  $("#pet").addEventListener("click", onPetTap);
   const heart = document.createElement("div");
-  heart.className = "heart-float"; heart.textContent = "🧡";
+  heart.className = "heart-float";
+  heart.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 20.6S5.2 16.2 3 12A5.3 5.3 0 0 1 12 6.7 5.3 5.3 0 0 1 21 12c-2.2 4.2-9 8.6-9 8.6Z" fill="#E97845"/></svg>`;
   const pr = $("#phone").getBoundingClientRect();
   heart.style.left = (ev.clientX - pr.left - 10) + "px";
   heart.style.top = (ev.clientY - pr.top - 30) + "px";
@@ -930,6 +1032,32 @@ function petMochi(ev) {
 }
 $("#btn-focus").addEventListener("click", () => show("focus"));
 $("#btn-back-home").addEventListener("click", () => show("home"));
+
+/* ---------- gentle audio (created on a user gesture, chimes on completion) ---------- */
+let AC = null;
+function audio() {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+  } catch (e) {}
+  return AC;
+}
+function chime() {
+  const ctx = audio();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime + .04;
+    [[523.25, 0], [659.25, .13], [783.99, .26], [1046.5, .44]].forEach(([f, dt]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t + dt);
+      g.gain.linearRampToValueAtTime(.06, t + dt + .025);
+      g.gain.exponentialRampToValueAtTime(.0001, t + dt + 1.1);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t + dt); o.stop(t + dt + 1.2);
+    });
+  } catch (e) {}
+}
 
 /* ---------- focus session ---------- */
 let session = null;   /* {durMin, remainMs, lastTick, paused} */
@@ -963,7 +1091,7 @@ function focusScene(mode) {
     <rect x="94" y="86" width="3" height="42" fill="#6B5638"/>
     <path d="M84,88 L89,74 L102,74 L107,88 Z" fill="#E8CFA4"/>
     <ellipse cx="95.5" cy="130" rx="14" ry="4.5" fill="#3A322B"/>
-    <g transform="translate(152,128)">${catSVG(mode)}</g>`;
+    <g transform="translate(152,128)">${petSVG(mode)}</g>`;
 }
 function renderFocusReady() {
   $("#timer").textContent = fmt(chosenMin * 60000);
@@ -974,11 +1102,13 @@ function renderFocusReady() {
   $("#btn-start").hidden = false;
   $("#btn-end").hidden = true;
   $("#btn-back-home").hidden = false;
+  $("#screen-focus").classList.remove("running");
   focusScene("idle");
   syncPauseBtn();
 }
 $("#btn-start").addEventListener("click", startSession);
 function startSession() {
+  audio();   /* unlock the audio context while we still have a user gesture */
   session = { durMin: chosenMin, remainMs: chosenMin * 60000, lastTick: performance.now(), paused: false };
   $("#dur-chips").hidden = true;
   $("#btn-start").hidden = true;
@@ -989,6 +1119,7 @@ function startSession() {
   $("#focus-line").textContent = "Let’s focus together.";
   $("#focus-sub").textContent = "Your room is waiting for you.";
   $("#nav").classList.add("hidden");
+  $("#screen-focus").classList.add("running");
   focusScene("sleep");
   syncPauseBtn();
   runTimer();
@@ -1028,7 +1159,7 @@ $("#btn-end").addEventListener("click", () => {
       "END SESSION", "Keep going", () => completeSession(focusedMin, false));
   } else {
     clearInterval(tickHandle); session = null; syncPauseBtn();
-    toast("No worries — Mochi will wait for you. 🧡");
+    toast(`No worries — ${PETS[S.pet].name} will wait for you.`);
     show("home");
   }
 });
@@ -1054,6 +1185,7 @@ function completeSession(minutes, full) {
   renderComplete(minutes, full, news[0] || null);
   show("complete");
   confetti();
+  chime();
 }
 
 let rewardItem = null;
@@ -1074,7 +1206,7 @@ function renderComplete(minutes, full, item) {
       primary.textContent = "ADD IT";
       primary.onclick = () => {
         S.roomSize = Math.min(9, S.roomSize + 1);
-        save(); toast("Your room grew a corner! 🏡"); show("home");
+        save(); toast("Your room grew a corner!"); show("home");
       };
     } else {
       primary.textContent = "PLACE IT";
@@ -1124,10 +1256,16 @@ function renderShop() {
   const items = CATALOG.filter(a => shopCat === "all" || a.cat === shopCat);
   let html = "";
   if (shopCat === "pets" || shopCat === "all") {
-    html += `<div class="item-card">
-      <svg viewBox="-30 -60 60 68"><g transform="translate(0,4)">${catSVG("idle")}</g></svg>
-      <div class="nm">Mochi</div><div class="pr" style="color:var(--leaf-deep)">Your companion</div>
-      <div class="owned-note">Adopted ♥</div></div>`;
+    for (const k of ["cat", "dog"]) {
+      const active = S.pet === k;
+      html += `<div class="item-card">
+        <svg viewBox="-30 -60 60 68"><g transform="translate(0,4)">${k === "dog" ? dogSVG("idle") : catSVG("idle")}</g></svg>
+        <div class="nm">${PETS[k].name}</div>
+        <div class="pr" style="color:var(--leaf-deep)">${active ? "Your companion" : "Would love a home"}</div>
+        ${active ? `<div class="owned-note">Adopted</div>`
+                 : `<button class="btn place-owned" data-adopt="${k}">ADOPT</button>`}
+      </div>`;
+    }
   }
   for (const a of items) {
     if (a.special === "grow" && S.roomSize >= 9) continue;
@@ -1147,6 +1285,10 @@ function renderShop() {
   $("#shop-grid").innerHTML = html;
   document.querySelectorAll("[data-preview]").forEach(svg => previewSVG(svg, svg.dataset.preview));
   document.querySelectorAll("[data-buy]").forEach(b => b.addEventListener("click", () => buyItem(b.dataset.buy)));
+  document.querySelectorAll("[data-adopt]").forEach(b => b.addEventListener("click", () => {
+    S.pet = b.dataset.adopt; save(); renderShop();
+    toast(`${PETS[S.pet].name} is happy to join you.`);
+  }));
   document.querySelectorAll("[data-place]").forEach(b => b.addEventListener("click", () => {
     S.inventory = S.inventory.filter(x => x !== b.dataset.place);
     enterPlace(b.dataset.place);
@@ -1159,7 +1301,7 @@ function buyItem(id) {
   if (a.special === "grow") {
     S.roomSize = Math.min(9, S.roomSize + 1);
     save();
-    toast("Your room grew a corner! 🏡");
+    toast("Your room grew a corner!");
     show("home");
     return;
   }
@@ -1242,7 +1384,7 @@ $("#btn-place-done").addEventListener("click", () => {
   S.placed.push(placing);
   placing = null;
   save();
-  toast("It looks lovely here. ✨");
+  toast("It looks lovely here.");
   show("home");
 });
 
@@ -1254,20 +1396,41 @@ function renderProfile() {
   $("#streak-pill-2").textContent = S.streak + " day streak";
   const counts = { plants:0, furniture:0, decor:0, lighting:0, pets:0, rooms:0 };
   for (const p of S.placed) counts[byId(p.id).cat]++;
+  const RICO = {
+    leaf: `<svg class="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 18.5C5.5 10.5 10.5 5.5 18.5 5.5c0 8-5 13-13 13Z"/><path d="M5.5 18.5c2.6-4.4 5.8-7.6 9.4-10"/></svg>`,
+    chair: `<svg class="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 10.4V5.6h8v4.8"/><path d="M6 10.4h10.4v3.6H6Z"/><path d="M7.2 14v4.4M15.2 14v4.4"/></svg>`,
+    frame: `<svg class="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4" width="15" height="16" rx="1.8"/><path d="M6.2 16.5l3.8-4 3 3.1 1.8-1.9 3 3.1"/><circle cx="9.6" cy="9.2" r="1.3"/></svg>`,
+    bulb: `<svg class="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a6.1 6.1 0 0 1 3.6 11c-.8.6-1.1 1.4-1.1 2.2h-5c0-.8-.3-1.6-1.1-2.2A6.1 6.1 0 0 1 12 3.2Z"/><path d="M9.6 19.6h4.8M10.6 21.8h2.8"/></svg>`,
+    paw: `<svg class="row-ic" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.8" rx="4.6" ry="3.7"/><circle cx="6.3" cy="11.2" r="1.9"/><circle cx="9.9" cy="8.4" r="1.9"/><circle cx="14.1" cy="8.4" r="1.9"/><circle cx="17.7" cy="11.2" r="1.9"/></svg>`,
+    house: `<svg class="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 11.4 12 4.8l7.8 6.6"/><path d="M6.3 10v8.2a1.9 1.9 0 0 0 1.9 1.9h7.6a1.9 1.9 0 0 0 1.9-1.9V10"/></svg>`,
+  };
   const rows = [
-    ["🌱 Plants", counts.plants], ["🪑 Furniture", counts.furniture],
-    ["🖼️ Decor", counts.decor], ["💡 Lighting", counts.lighting],
-    ["🐱 Companion", 1], ["🏠 Rooms", 1 + (S.roomSize - 7)],
+    [RICO.leaf, "Plants", counts.plants], [RICO.chair, "Furniture", counts.furniture],
+    [RICO.frame, "Decor", counts.decor], [RICO.bulb, "Lighting", counts.lighting],
+    [RICO.paw, "Companion", 1], [RICO.house, "Rooms", 1 + (S.roomSize - 7)],
   ];
-  $("#world-inventory").innerHTML = rows.map(([n, v]) =>
-    `<div class="world-row"><span>${n}</span><span>${v}</span></div>`).join("");
-  $("#profile-cat").innerHTML = catSVG("idle");
+  $("#world-inventory").innerHTML = rows.map(([ic, n, v]) =>
+    `<div class="world-row"><span style="display:flex;align-items:center;gap:10px;">${ic}${n}</span><span>${v}</span></div>`).join("");
+  /* companion picker */
+  $("#pet-opts").innerHTML = ["cat", "dog"].map(k => `
+    <button class="pet-opt ${S.pet === k ? "on" : ""}" data-pet="${k}">
+      <svg viewBox="-27 -52 54 58">${k === "dog" ? dogSVG("idle") : catSVG("idle")}</svg>
+      <span class="pn">${PETS[k].name}</span>
+      <span class="ps">${S.pet === k ? "Your companion" : "Choose"}</span>
+    </button>`).join("");
+  document.querySelectorAll(".pet-opt").forEach(b => b.addEventListener("click", () => {
+    if (S.pet !== b.dataset.pet) {
+      S.pet = b.dataset.pet; save(); renderProfile();
+      toast(`${PETS[S.pet].name} is happy to join you.`);
+    }
+  }));
+  $("#pet-desc").textContent = PETS[S.pet].line;
 }
 $("#reset-link").addEventListener("click", () => {
   ask("Reset the prototype to its starting state?", "RESET", "Cancel", () => {
     try { localStorage.removeItem(KEY); } catch(e){}
     S = seedState(); save(); show("home");
-    toast("Fresh start. 🌱");
+    toast("Fresh start.");
   });
 });
 

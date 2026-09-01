@@ -10,7 +10,7 @@ statically.
 ## What works
 
 - **Home** — the isometric room is the screen: streak, today's minutes, next
-  unlock, and Mochi the cat (tap her).
+  unlock, and your companion (tap them for a happy hop).
 - **Focus** — 15/25/50-minute sessions with pause and early-end (early ends
   still bank the minutes — never punish). A `DEMO ×60` toggle makes a minute
   pass per second so the loop can be felt in seconds.
@@ -22,8 +22,22 @@ statically.
   occupancy checks.
 - **Economy** — one currency, 1 focused minute = 1 Focus Energy. Unlock
   thresholds follow total minutes focused. Room can grow (Room Corner).
+- **Companion** — choose Mochi the cat or Miso the dog (Profile or Shop →
+  Pets). Once a Pet Bed is placed, the companion naps in it; a tap wakes them.
+- **Reward audio** — a soft WebAudio chime on completion (no audio assets).
 - **State** — persisted in `localStorage`; "Reset prototype data" lives in
   Profile.
+
+## Install as an app (PWA)
+
+`manifest.webmanifest` + `icon-512.png` make the page installable: serve the
+folder over HTTPS, open it on a phone, and use "Add to Home Screen" — it then
+runs standalone with the Hearth icon. No service worker yet, so it needs a
+network connection to load.
+
+For a true native wrap, follow the same recipe as `sayly`: a Capacitor shell
+around this page, with the focus-session app-blocking implemented natively
+(Screen Time / `FamilyControls` on iOS).
 
 ## Architecture notes
 
