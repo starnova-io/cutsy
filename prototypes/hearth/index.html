@@ -361,6 +361,18 @@
   .zz{font-family:var(--font-display); font-style:italic; fill:var(--dusk-muted); animation:zzFloat 3s ease-in-out infinite;}
   .zz2{animation-delay:1.5s;}
   @keyframes zzFloat{0%{opacity:0; transform:translate(0,0);} 25%{opacity:1;} 100%{opacity:0; transform:translate(9px,-22px);}}
+  /* weather & time of day */
+  .cloud{animation:cloudDrift 16s ease-in-out infinite alternate;}
+  .cloud2{animation-duration:22s; animation-delay:-8s;}
+  @keyframes cloudDrift{from{transform:translateX(-5px);} to{transform:translateX(7px);}}
+  .rainfall{animation:rainFall .8s linear infinite;}
+  @keyframes rainFall{from{transform:translateY(-22px);} to{transform:translateY(22px);}}
+  .ff{animation:ffTw 3.4s ease-in-out infinite;}
+  .ff2{animation-delay:1.2s;} .ff3{animation-delay:2.3s;}
+  @keyframes ffTw{0%,100%{opacity:0;} 50%{opacity:.95;}}
+  .star{animation:starTw 4.5s ease-in-out infinite;}
+  .star2{animation-delay:1.6s;} .star3{animation-delay:3s;}
+  @keyframes starTw{0%,100%{opacity:.35;} 50%{opacity:.9;}}
   .heart-float{position:absolute; font-size:20px; pointer-events:none; z-index:35; animation:heartUp 1s ease-out both;}
   @keyframes heartUp{from{opacity:1; transform:translateY(0) scale(.7);} to{opacity:0; transform:translateY(-46px) scale(1.25);}}
 
@@ -390,6 +402,7 @@
       </div>
       <div id="home-pills">
         <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E97845"/><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#E9B145"/></svg><span id="streak-pill">7 day focus streak</span></span>
+        <span class="pill" id="weather-pill"></span>
       </div>
     </header>
     <div id="world-wrap"><svg id="world" role="img" aria-label="Your cozy room"></svg></div>
@@ -1026,6 +1039,82 @@ const PETS = {
 };
 function petSVG(mode) { return S.pet === "dog" ? dogSVG(mode) : catSVG(mode); }
 
+/* ---------- time of day & daily weather (ambience only — never touches the economy) ---------- */
+const PHASES = {
+  dawn:  { top:"#F9E0C8", mid:"#F4C9A6", bot:"#EBAF8E", hill:"#B08050", tint:"rgba(255,190,150,.06)" },
+  day:   { top:"#DCEAE2", mid:"#C6DECF", bot:"#B0CFBA", hill:"#8FA86B", tint:"" },
+  dusk:  { top:"#FBE7BC", mid:"#F6C08A", bot:"#EC9A6C", hill:"#A9784A", tint:"rgba(233,120,69,.05)" },
+  night: { top:"#2E3A5C", mid:"#3C4A6E", bot:"#4A5878", hill:"#272D3E", tint:"rgba(45,55,100,.14)" },
+};
+let phaseOverride = null, weatherOverride = null;
+function dayPhase() {
+  const h = new Date().getHours();
+  return h >= 5 && h < 8 ? "dawn" : h < 16 ? "day" : h < 19 ? "dusk" : "night";
+}
+function todayWeather() {
+  let h = 0;
+  for (const c of dayStamp()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const r = h % 100;
+  return r < 45 ? "clear" : r < 75 ? "cloudy" : "rain";
+}
+const curPhase = () => phaseOverride || dayPhase();
+const curWeather = () => weatherOverride || todayWeather();
+
+function windowScene(uid) {
+  const P = PHASES[curPhase()], W = curWeather(), night = curPhase() === "night";
+  let s = `<defs>
+    <linearGradient id="sky-${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${P.top}"/><stop offset="58%" stop-color="${P.mid}"/><stop offset="100%" stop-color="${P.bot}"/>
+    </linearGradient></defs>`;
+  s += `<g id="win" style="cursor:pointer">`;
+  s += poly([pt(0,1.1,96), pt(0,2.9,96), pt(0,2.9,40), pt(0,1.1,40)], "#FBF5E8");
+  s += poly([pt(0,1.25,89), pt(0,2.75,89), pt(0,2.75,46), pt(0,1.25,46)], `url(#sky-${uid})`);
+  s += `<g clip-path="url(#winclip-${uid})">`;
+  const sx = IX(0,2.35), sy = IY(0,2.35) - 70;
+  if (night) {
+    s += `<circle cx="${sx}" cy="${sy}" r="7" fill="#F4EAC8"/>
+      <circle cx="${sx+3.4}" cy="${sy-2}" r="6" fill="${P.top}"/>
+      <circle class="star"  cx="${IX(0,1.6)}"  cy="${IY(0,1.6)-80}"  r="1.1" fill="#F4EAC8"/>
+      <circle class="star2 star" cx="${IX(0,2.7)}" cy="${IY(0,2.7)-76}" r="1" fill="#F4EAC8"/>
+      <circle class="star3 star" cx="${IX(0,2.05)}" cy="${IY(0,2.05)-58}" r=".9" fill="#F4EAC8"/>`;
+  } else if (W !== "rain") {
+    const sunCol = curPhase() === "day" ? "#FFF6D8" : curPhase() === "dawn" ? "#FFD9A0" : "#FFF3D0";
+    const sunY = curPhase() === "day" ? sy - 6 : sy;
+    s += `<circle cx="${sx}" cy="${sunY}" r="11" fill="${sunCol}" opacity=".45"/>
+          <circle cx="${sx}" cy="${sunY}" r="7" fill="${sunCol}" opacity="${W === "cloudy" ? ".6" : "1"}"/>`;
+  }
+  s += `<path d="M${IX(0,2.95)},${IY(0,2.95)-56} q22,-14 48,-3 L${IX(0,1.05)},${IY(0,1.05)-40} L${IX(0,2.95)},${IY(0,2.95)-40} Z" fill="${P.hill}" opacity=".85"/>`;
+  if (W === "cloudy" || W === "rain") {
+    const cc = W === "rain" ? (night ? "#3A4258" : "#AFA99C") : (night ? "#465070" : "#FFFFFF");
+    s += `<g class="cloud" fill="${cc}" opacity=".85">
+        <ellipse cx="${IX(0,1.75)}" cy="${IY(0,1.75)-76}" rx="12" ry="4.5"/>
+        <ellipse cx="${IX(0,1.95)}" cy="${IY(0,1.95)-80}" rx="9" ry="4"/></g>
+      <g class="cloud cloud2" fill="${cc}" opacity=".65">
+        <ellipse cx="${IX(0,2.55)}" cy="${IY(0,2.55)-62}" rx="10" ry="3.8"/></g>`;
+  }
+  if (W === "rain") {
+    let drops = "";
+    for (let i = 0; i < 9; i++) {
+      const rx = IX(0,1.3 + (i % 5) * .32) - 2, ry0 = IY(0,1.3)-92 + (i * 17) % 44;
+      drops += `<line x1="${rx}" y1="${ry0}" x2="${rx-2}" y2="${ry0+8}" stroke="${night ? "rgba(180,195,225,.5)" : "rgba(255,255,255,.65)"}" stroke-width="1.3" stroke-linecap="round"/>`;
+    }
+    s += `<g class="rainfall">${drops}</g><g class="rainfall" style="animation-delay:-.4s">${drops}</g>`;
+    for (const [gx,gy] of [[1.45,60],[2.2,52],[2.6,72],[1.9,66]])
+      s += `<circle cx="${IX(0,gx)}" cy="${IY(0,gx)-gy}" r="1.2" fill="rgba(255,255,255,.5)"/>`;
+  }
+  if (night && W !== "rain") {
+    s += `<circle class="ff"  cx="${IX(0,1.5)}" cy="${IY(0,1.5)-52}" r="1.3" fill="#F2CE72"/>
+      <circle class="ff2 ff" cx="${IX(0,2.5)}" cy="${IY(0,2.5)-48}" r="1.1" fill="#F2CE72"/>
+      <circle class="ff3 ff" cx="${IX(0,2.1)}" cy="${IY(0,2.1)-60}" r="1.2" fill="#F2CE72"/>`;
+  }
+  s += `</g>`;   /* end clip */
+  s += `<line x1="${IX(0,2)}" y1="${IY(0,2)-89}" x2="${IX(0,2)}" y2="${IY(0,2)-46}" stroke="#FBF5E8" stroke-width="3"/>`;
+  s += `<line x1="${IX(0,1.25)}" y1="${IY(0,1.25)-67}" x2="${IX(0,2.75)}" y2="${IY(0,2.75)-67}" stroke="#FBF5E8" stroke-width="3"/>`;
+  s += poly([pt(0,1.02,40), pt(0,2.98,40), pt(0,2.98,35), pt(0,1.02,35)], "#EBDFC9");
+  s += `</g>`;
+  return s;
+}
+
 function worldSVG(svgEl, opts = {}) {
   const N = S.roomSize;
   const minX = -N * TW/2 - 24, w = N * TW + 48;
@@ -1054,17 +1143,8 @@ function worldSVG(svgEl, opts = {}) {
   s += poly([pt(0,0,7), pt(0,N,7), pt(0,N,0), pt(0,0,0)], "#C7A171");   /* baseboards */
   s += poly([pt(0,0,7), pt(N,0,7), pt(N,0,0), pt(0,0,0)], "#B8935F");
 
-  /* window on left wall */
-  s += poly([pt(0,1.1,96), pt(0,2.9,96), pt(0,2.9,40), pt(0,1.1,40)], "#FBF5E8");
-  s += poly([pt(0,1.25,89), pt(0,2.75,89), pt(0,2.75,46), pt(0,1.25,46)], "url(#sky)");
-  s += `<g clip-path="url(#winclip-${uid})">
-    <circle cx="${IX(0,2.35)}" cy="${IY(0,2.35)-70}" r="11" fill="rgba(255,244,214,.55)"/>
-    <circle cx="${IX(0,2.35)}" cy="${IY(0,2.35)-70}" r="7" fill="#FFF3D0"/>
-    <path d="M${IX(0,2.95)},${IY(0,2.95)-56} q22,-14 48,-3 L${IX(0,1.05)},${IY(0,1.05)-40} L${IX(0,2.95)},${IY(0,2.95)-40} Z" fill="#A9784A" opacity=".85"/>
-    </g>`;
-  s += `<line x1="${IX(0,2)}" y1="${IY(0,2)-89}" x2="${IX(0,2)}" y2="${IY(0,2)-46}" stroke="#FBF5E8" stroke-width="3"/>`;
-  s += `<line x1="${IX(0,1.25)}" y1="${IY(0,1.25)-67}" x2="${IX(0,2.75)}" y2="${IY(0,2.75)-67}" stroke="#FBF5E8" stroke-width="3"/>`;
-  s += poly([pt(0,1.02,40), pt(0,2.98,40), pt(0,2.98,35), pt(0,1.02,35)], "#EBDFC9");   /* sill */
+  /* window on left wall — sky follows the real clock and today's weather */
+  s += windowScene(uid);
 
   /* little hanging shelf + plant on right wall */
   s += poly([pt(2.4,0,74), pt(3.6,0,74), pt(3.6,0,70), pt(2.4,0,70)], "#B07B4F");
@@ -1111,6 +1191,12 @@ function worldSVG(svgEl, opts = {}) {
   }
   entries.sort((a, b) => a.depth - b.depth);
   for (const e of entries) s += e.svg;
+
+  /* time-of-day color grade, clipped to the diorama's silhouette */
+  const tint = PHASES[curPhase()].tint;
+  if (tint) s += poly(
+    [pt(0,0,WALL_H+8), pt(N,0,WALL_H+8), pt(N,0,0), pt(N,N,-12), pt(0,N,-12), pt(0,N,WALL_H+8)],
+    tint, 'pointer-events="none"');
 
   svgEl.innerHTML = s;
 }
@@ -1165,11 +1251,24 @@ function nextUnlockInfo() {
   return { item: nxt, left: nxt.unlock - S.totalMin,
     pct: Math.min(100, Math.round((S.totalMin - prev) / (nxt.unlock - prev) * 100)) };
 }
+const WICON = {
+  sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="#E9B145"/><g stroke="#E9B145" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v2.3M12 18.7V21M3 12h2.3M18.7 12H21M5.7 5.7l1.6 1.6M16.7 16.7l1.6 1.6M18.3 5.7l-1.6 1.6M7.3 16.7l-1.6 1.6"/></g></svg>`,
+  moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.3 8.3 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5Z" fill="#8C857B"/></svg>`,
+  cloud: `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#B9B2A4"><circle cx="9" cy="12.5" r="4"/><circle cx="14.2" cy="11" r="4.8"/><rect x="5.6" y="12.5" width="13.2" height="4.4" rx="2.2"/></g></svg>`,
+  rain: `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#9AA5B5"><circle cx="9" cy="10.5" r="3.6"/><circle cx="13.8" cy="9.2" r="4.2"/><rect x="6" y="10.5" width="12" height="3.8" rx="1.9"/></g><path d="M8.6 17.6l-1 2.6M12.4 17.6l-1 2.6M16.2 17.6l-1 2.6" stroke="#7FA8C9" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>`,
+};
+function weatherPillHTML() {
+  const W = curWeather(), night = curPhase() === "night";
+  if (W === "rain")   return WICON.rain  + "Rainy day";
+  if (W === "cloudy") return WICON.cloud + "Soft clouds";
+  return night ? WICON.moon + "Clear night" : WICON.sun + "Clear skies";
+}
 function renderHome() {
   const h = new Date().getHours();
   $("#greeting").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   $("#energy-pill").textContent = S.energy;
   $("#streak-pill").textContent = S.streak + " day focus streak";
+  $("#weather-pill").innerHTML = weatherPillHTML();
   $("#today-min").textContent = S.todayMin + " min";
   const nu = nextUnlockInfo();
   $("#next-unlock").innerHTML = nu ? `Next unlock: <b>${nu.left} min</b>` : "Everything unlocked ✦";
@@ -1177,6 +1276,14 @@ function renderHome() {
   worldSVG($("#world"));
   const pet = $("#pet");
   if (pet) pet.addEventListener("click", onPetTap);
+  /* demo: tap the window to cycle today's weather */
+  const win = $("#win");
+  if (win) win.addEventListener("click", () => {
+    const order = ["clear", "cloudy", "rain"];
+    weatherOverride = order[(order.indexOf(curWeather()) + 1) % order.length];
+    renderHome();
+    toast(`Weather demo: ${weatherOverride}`, 1400);
+  });
 }
 function onPetTap(ev) {
   worldSVG($("#world"), { catMode:"happy" });
@@ -1220,6 +1327,34 @@ function chime() {
   } catch (e) {}
 }
 
+/* soft rain loop for rainy-day sessions: filtered noise, no audio assets */
+let rainNode = null;
+function startRain() {
+  const ctx = audio();
+  if (!ctx || rainNode) return;
+  try {
+    const len = 2 * ctx.sampleRate;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const filt = ctx.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 850; filt.Q.value = .6;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(filt); filt.connect(g); g.connect(ctx.destination);
+    src.start();
+    g.gain.linearRampToValueAtTime(.035, ctx.currentTime + 2);
+    rainNode = { src, g };
+  } catch (e) {}
+}
+function stopRain() {
+  if (!rainNode) return;
+  const n = rainNode; rainNode = null;
+  try {
+    n.g.gain.linearRampToValueAtTime(0, AC.currentTime + .8);
+    setTimeout(() => { try { n.src.stop(); } catch (e) {} }, 900);
+  } catch (e) {}
+}
+
 /* ---------- focus session ---------- */
 let session = null;   /* {durMin, remainMs, lastTick, paused} */
 let demoSpeed = 1;
@@ -1254,10 +1389,12 @@ function focusScene(mode) {
     <ellipse cx="95.5" cy="130" rx="14" ry="4.5" fill="#3A322B"/>
     <g transform="translate(152,128)">${petSVG(mode)}</g>`;
 }
+const focusSubLine = () =>
+  curWeather() === "rain" ? "Rain outside, warm inside." : "Your room is waiting for you.";
 function renderFocusReady() {
   $("#timer").textContent = fmt(chosenMin * 60000);
   $("#focus-line").textContent = "Let’s focus together.";
-  $("#focus-sub").textContent = "Your room is waiting for you.";
+  $("#focus-sub").textContent = focusSubLine();
   $("#shield").style.visibility = "hidden";
   $("#dur-chips").hidden = false;
   $("#btn-start").hidden = false;
@@ -1278,7 +1415,8 @@ function startSession() {
   $("#btn-back-home").hidden = true;
   $("#shield").style.visibility = "visible";
   $("#focus-line").textContent = "Let’s focus together.";
-  $("#focus-sub").textContent = "Your room is waiting for you.";
+  $("#focus-sub").textContent = focusSubLine();
+  if (curWeather() === "rain") startRain();
   $("#nav").classList.add("hidden");
   $("#screen-focus").classList.add("running");
   focusScene("sleep");
@@ -1309,6 +1447,8 @@ btnPause.addEventListener("click", () => {
   session.paused = !session.paused;
   session.lastTick = performance.now();
   $("#focus-line").textContent = session.paused ? "Paused — take a breath." : "Let’s focus together.";
+  if (session.paused) stopRain();
+  else if (curWeather() === "rain") startRain();
   focusScene(session.paused ? "idle" : "sleep");
   syncPauseBtn();
 });
@@ -1319,7 +1459,7 @@ $("#btn-end").addEventListener("click", () => {
     ask(`End the session early? You'll keep ${focusedMin} Focus Energy for the ${focusedMin} min you focused.`,
       "END SESSION", "Keep going", () => completeSession(focusedMin, false));
   } else {
-    clearInterval(tickHandle); session = null; syncPauseBtn();
+    clearInterval(tickHandle); stopRain(); session = null; syncPauseBtn();
     toast(`No worries — ${PETS[S.pet].name} will wait for you.`);
     show("home");
   }
@@ -1327,6 +1467,7 @@ $("#btn-end").addEventListener("click", () => {
 
 function completeSession(minutes, full) {
   clearInterval(tickHandle);
+  stopRain();
   session = null; syncPauseBtn();
   const prevTotal = S.totalMin;
   S.energy += minutes;
@@ -1660,8 +1801,15 @@ $("#reset-link").addEventListener("click", () => {
 
 /* ---------- boot ---------- */
 renderHome();
-/* deep links for quick preview: index.html#shop, #focus, #profile, #complete */
+/* deep links for quick preview: index.html#shop, #focus, #profile, #complete,
+   plus ambience overrides: #night, #rain, #nightrain, #day, #dawn */
 const hash = location.hash.slice(1);
+if (hash.includes("night")) phaseOverride = "night";
+if (hash.includes("day")) phaseOverride = "day";
+if (hash.includes("dawn")) phaseOverride = "dawn";
+if (hash.includes("rain")) weatherOverride = "rain";
+if (hash.includes("cloud")) weatherOverride = "cloudy";
+if (phaseOverride || weatherOverride) renderHome();
 if (["focus","shop","profile","paywall"].includes(hash)) show(hash);
 else if (hash === "complete") { renderComplete(25, true, byId("monstera")); show("complete"); confetti(); }
 else if (hash === "place") enterPlace("monstera");

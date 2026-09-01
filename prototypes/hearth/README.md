@@ -33,6 +33,13 @@ statically.
 - **Companion** — choose Mochi the cat or Miso the dog (Profile or Shop →
   Pets). Once a Pet Bed is placed, the companion naps in it; a tap wakes them.
 - **Reward audio** — a soft WebAudio chime on completion (no audio assets).
+- **Time of day & weather (ambience only)** — the window sky follows the real
+  clock (dawn / day / dusk / night with moon, stars and fireflies) and a
+  daily-seeded forecast (clear / cloudy / rain with streaks on the glass);
+  the room gets a matching color grade, Home shows a weather pill, and rainy
+  focus sessions play a filtered-noise rain loop. Weather never touches the
+  economy. Tap the window to cycle weather; URL hashes #night / #rain /
+  #dawn / #nightrain preview states.
 - **State** — persisted in `localStorage`; "Reset prototype data" lives in
   Profile.
 
