@@ -22,6 +22,14 @@ statically.
   occupancy checks.
 - **Economy** — one currency, 1 focused minute = 1 Focus Energy. Unlock
   thresholds follow total minutes focused. Room can grow (Room Corner).
+- **Premium (mock paywall)** — six premium items (Stone Hearth, Koi Pond,
+  Parlor Palm, Cozy Armchair, Wooden Radio, Candle Trio) sit behind a
+  subscription. The paywall (Shop banner or Profile) offers monthly $4.99 /
+  yearly $29.99 with 7-day trial / lifetime $59.99. Core rule: money only
+  opens the catalog — premium items still cost Focus Energy, Energy is never
+  for sale, and premium items never appear as milestone gifts for free users.
+  Subscribing is simulated (no billing); Profile can cancel the demo
+  membership.
 - **Companion** — choose Mochi the cat or Miso the dog (Profile or Shop →
   Pets). Once a Pet Bed is placed, the companion naps in it; a tap wakes them.
 - **Reward audio** — a soft WebAudio chime on completion (no audio assets).
