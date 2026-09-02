@@ -31,7 +31,11 @@ statically.
   Subscribing is simulated (no billing); Profile can cancel the demo
   membership.
 - **Companion** — choose Mochi the cat or Miso the dog (Profile or Shop →
-  Pets). Once a Pet Bed is placed, the companion naps in it; a tap wakes them.
+  Pets). They wander the room on their own — every few seconds they may walk
+  to a nearby free tile (with a little bob, facing the way they're headed).
+  Once a Pet Bed is placed they nap in it, occasionally getting up to stretch
+  their legs before padding back; a tap wakes them. Wandering respects
+  prefers-reduced-motion and never blocks placement or focus.
 - **Reward audio** — a soft WebAudio chime on completion (no audio assets).
 - **Time of day & weather (ambience only)** — the window sky follows the real
   clock (dawn / day / dusk / night with moon, stars and fireflies) and a

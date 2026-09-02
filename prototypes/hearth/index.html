@@ -358,6 +358,9 @@
   .cat-blink{transform-box:fill-box; transform-origin:50% 50%; animation:blink 5s infinite;}
   @keyframes blink{0%,94%,100%{transform:scaleY(1);} 96.5%{transform:scaleY(.08);}}
   .cat-happy{transform-box:fill-box; transform-origin:50% 100%; animation:hop .55s ease-in-out 2;}
+  .pet-bob{transform-box:fill-box; transform-origin:50% 100%;}
+  #pet.walking .pet-bob{animation:walkBob .34s ease-in-out infinite;}
+  @keyframes walkBob{0%,100%{transform:translateY(0) rotate(-1.6deg);} 50%{transform:translateY(-3.5px) rotate(1.6deg);}}
   @keyframes hop{0%,100%{transform:translateY(0);} 40%{transform:translateY(-11px);}}
   .zz{font-family:var(--font-display); font-style:italic; fill:var(--dusk-muted); animation:zzFloat 3s ease-in-out infinite;}
   .zz2{animation-delay:1.5s;}
@@ -1194,17 +1197,18 @@ function worldSVG(svgEl, opts = {}) {
     return { depth: p.x + f.w/2 + p.y + f.d/2, svg: drawAsset(p) };
   });
   if (!opts.hideCat) {
-    /* if a pet bed is placed, the companion naps in it (a tap wakes them) */
+    /* if a pet bed is placed, the companion naps in it (a tap wakes them);
+       petOut means they're up for a stroll around the room */
     const bed = S.placed.find(p => p.id === "catbed");
     let px = S.cat.x, py = S.cat.y, mode = opts.catMode || "idle", dy = 4, sc = 1, shadowSvg =
       `<ellipse cx="0" cy="0" rx="14" ry="6" fill="rgba(80,58,36,.14)"/>`;
-    if (bed) {
+    if (bed && !petOut) {
       px = bed.x; py = bed.y; dy = -3; shadowSvg = "";
       if (!opts.catMode) { mode = "sleep"; sc = .86; }
     }
     entries.push({ depth: px + py + 1.03, svg:
       `<g id="pet" transform="translate(${IX(px+.5, py+.5)},${IY(px+.5, py+.5)+dy})">
-        ${shadowSvg}<g transform="scale(${sc})">${petSVG(mode)}</g></g>` });
+        ${shadowSvg}<g class="pet-face" transform="scale(${petFace*sc},${sc})"><g class="pet-bob">${petSVG(mode)}</g></g></g>` });
   }
   /* ghost item while placing */
   if (opts.ghost) {
@@ -1309,7 +1313,63 @@ function renderHome() {
     toast(`Weather demo: ${weatherOverride}`, 1400);
   });
 }
+/* ---------- the companion wanders the room ---------- */
+let petFace = 1, petBusy = false, petOut = false;
+function walkPet(from, to, onDone) {
+  const pet = document.querySelector("#screen-home #pet");
+  if (!pet) { petBusy = false; onDone && onDone(); return; }
+  const x0 = IX(from.x + .5, from.y + .5), y0 = IY(from.x + .5, from.y + .5) + from.dy;
+  const x1 = IX(to.x + .5, to.y + .5),   y1 = IY(to.x + .5, to.y + .5) + to.dy;
+  petFace = x1 > x0 ? -1 : 1;
+  const face = pet.querySelector(".pet-face");
+  if (face) face.setAttribute("transform", `scale(${petFace},1)`);
+  pet.classList.add("walking");
+  const dur = 430 * Math.max(1, Math.hypot(to.x - from.x, to.y - from.y));
+  const t0 = performance.now();
+  (function step() {
+    const k = Math.min(1, (performance.now() - t0) / dur);
+    pet.setAttribute("transform", `translate(${x0 + (x1 - x0) * k},${y0 + (y1 - y0) * k})`);
+    if (k < 1 && current === "home") requestAnimationFrame(step);
+    else { pet.classList.remove("walking"); onDone && onDone(); }
+  })();
+}
+function petStroll() {
+  if (petBusy || current !== "home" || session || placing) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const bed = S.placed.find(p => p.id === "catbed");
+  if (bed && !petOut && Math.random() < .5) return;   /* often just keeps napping */
+  const occ = occupied(), N = S.roomSize;
+  const cur = bed && !petOut ? { x: bed.x, y: bed.y } : { x: S.cat.x, y: S.cat.y };
+  const opts = [];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    if (occ.has(x + "," + y)) continue;
+    const d = Math.abs(x - cur.x) + Math.abs(y - cur.y);
+    if (d >= 1 && d <= 4) opts.push({ x, y });
+  }
+  if (!opts.length) return;
+  const target = opts[Math.floor(Math.random() * opts.length)];
+  petBusy = true;
+  const fromDy = bed && !petOut ? -3 : 4;
+  if (bed && !petOut) { petOut = true; S.cat = { x: bed.x, y: bed.y }; renderHome(); }
+  walkPet({ ...S.cat, dy: fromDy }, { ...target, dy: 4 }, () => {
+    S.cat = target; save(); petBusy = false;
+    if (current === "home") renderHome();
+    if (bed) setTimeout(() => {   /* stretch the legs, then back to the nap */
+      const b = S.placed.find(p => p.id === "catbed");
+      if (!b || !petOut) { petOut = false; return; }
+      if (current !== "home" || petBusy || session) { petOut = false; return; }
+      petBusy = true;
+      walkPet({ ...S.cat, dy: 4 }, { x: b.x, y: b.y, dy: -3 }, () => {
+        petOut = false; petBusy = false;
+        if (current === "home") renderHome();
+      });
+    }, 5000 + Math.random() * 4000);
+  });
+}
+setInterval(() => { if (Math.random() < .65) petStroll(); }, 6000);
+
 function onPetTap(ev) {
+  if (petBusy) return;
   worldSVG($("#world"), { catMode:"happy" });
   $("#pet").addEventListener("click", onPetTap);
   const heart = document.createElement("div");
