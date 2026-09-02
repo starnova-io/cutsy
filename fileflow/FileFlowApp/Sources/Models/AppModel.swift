@@ -180,12 +180,11 @@ final class AppModel {
             try renamer.undo(journal)
             undoJournal = nil
             lastOutcome = nil
+            // The journal only covers changed files, so reload the folder
+            // rather than reconstructing paths from it.
             if case let .folder(folderRoot, files) = selection {
-                let restored = zip(journal.entries, files).map { entry, url in
-                    url.deletingLastPathComponent().appendingPathComponent(entry.originalName)
-                }
-                // Journal only covers changed files; reload the folder to be safe.
-                selection = .folder(root: folderRoot, files: restored.isEmpty ? files : restored)
+                let reloaded = (try? FolderLoader.loadFiles(in: folderRoot)) ?? files
+                selection = .folder(root: folderRoot, files: reloaded)
             }
         } catch {
             lastError = friendlyMessage(for: error)
