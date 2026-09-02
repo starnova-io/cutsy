@@ -361,6 +361,8 @@
   .pet-bob{transform-box:fill-box; transform-origin:50% 100%;}
   #pet.walking .pet-bob{animation:walkBob .34s ease-in-out infinite;}
   @keyframes walkBob{0%,100%{transform:translateY(0) rotate(-1.6deg);} 50%{transform:translateY(-3.5px) rotate(1.6deg);}}
+  .yarn-play{transform-box:fill-box; transform-origin:50% 80%; animation:yarnWiggle .5s ease-in-out 5;}
+  @keyframes yarnWiggle{0%,100%{transform:translateX(0) rotate(0deg);} 30%{transform:translateX(-3.5px) rotate(-10deg);} 70%{transform:translateX(3.5px) rotate(10deg);}}
   @keyframes hop{0%,100%{transform:translateY(0);} 40%{transform:translateY(-11px);}}
   .zz{font-family:var(--font-display); font-style:italic; fill:var(--dusk-muted); animation:zzFloat 3s ease-in-out infinite;}
   .zz2{animation-delay:1.5s;}
@@ -959,9 +961,9 @@ function drawAsset(p) {
   let tf = `translate(${IX(p.x, p.y)},${IY(p.x, p.y)})`;
   if (p.rot) {
     const c1 = IX(a.w/2, a.d/2), c2 = IX(a.d/2, a.w/2);
-    return `<g transform="${tf}"><g transform="translate(${c2},0) scale(-1,1) translate(${-c1},0)">${inner}</g></g>`;
+    return `<g data-item="${a.id}" transform="${tf}"><g transform="translate(${c2},0) scale(-1,1) translate(${-c1},0)">${inner}</g></g>`;
   }
-  return `<g transform="${tf}">${inner}</g>`;
+  return `<g data-item="${a.id}" transform="${tf}">${inner}</g>`;
 }
 
 function catSVG(mode) {
@@ -1313,58 +1315,137 @@ function renderHome() {
     toast(`Weather demo: ${weatherOverride}`, 1400);
   });
 }
-/* ---------- the companion wanders the room ---------- */
+/* ---------- the companion wanders the room (BFS around furniture) ---------- */
 let petFace = 1, petBusy = false, petOut = false;
-function walkPet(from, to, onDone) {
+const tileKey = (x, y) => x + "," + y;
+function floodFrom(cur) {
+  /* BFS over free tiles; the start tile itself may be occupied (the pet bed) */
+  const N = S.roomSize, occ = occupied();
+  const prev = new Map(), dist = new Map(), q = [cur];
+  prev.set(tileKey(cur.x, cur.y), null);
+  dist.set(tileKey(cur.x, cur.y), 0);
+  while (q.length) {
+    const c = q.shift(), d = dist.get(tileKey(c.x, c.y));
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = c.x + dx, ny = c.y + dy, kk = tileKey(nx, ny);
+      if (nx < 0 || ny < 0 || nx >= N || ny >= N || occ.has(kk) || prev.has(kk)) continue;
+      prev.set(kk, c); dist.set(kk, d + 1); q.push({ x: nx, y: ny });
+    }
+  }
+  return { prev, dist, occ };
+}
+function rebuildPath(prev, target) {
+  const path = []; let c = target;
+  while (c) { path.unshift({ x: c.x, y: c.y }); c = prev.get(tileKey(c.x, c.y)); }
+  return path;
+}
+function freeNeighbors(pos, occ) {
+  const N = S.roomSize, out = [];
+  for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+    const nx = pos.x + dx, ny = pos.y + dy;
+    if (nx >= 0 && ny >= 0 && nx < N && ny < N && !occ.has(tileKey(nx, ny))) out.push({ x: nx, y: ny });
+  }
+  return out;
+}
+function walkPetAlong(tiles, fromDy, toDy, onDone) {
   const pet = document.querySelector("#screen-home #pet");
-  if (!pet) { petBusy = false; onDone && onDone(); return; }
-  const x0 = IX(from.x + .5, from.y + .5), y0 = IY(from.x + .5, from.y + .5) + from.dy;
-  const x1 = IX(to.x + .5, to.y + .5),   y1 = IY(to.x + .5, to.y + .5) + to.dy;
-  petFace = x1 > x0 ? -1 : 1;
+  if (!pet || tiles.length < 2) { onDone && onDone(); return; }
+  const pts = tiles.map((p, i) => ({
+    x: IX(p.x + .5, p.y + .5),
+    y: IY(p.x + .5, p.y + .5) + (i === 0 ? fromDy : i === tiles.length - 1 ? toDy : 4),
+  }));
   const face = pet.querySelector(".pet-face");
-  if (face) face.setAttribute("transform", `scale(${petFace},1)`);
+  const setFace = (a, b) => {
+    petFace = b.x > a.x ? -1 : 1;
+    if (face) face.setAttribute("transform", `scale(${petFace},1)`);
+  };
   pet.classList.add("walking");
-  const dur = 430 * Math.max(1, Math.hypot(to.x - from.x, to.y - from.y));
-  const t0 = performance.now();
+  let seg = 0, t0 = performance.now();
+  const SEG_MS = 360;
+  setFace(pts[0], pts[1]);
   (function step() {
-    const k = Math.min(1, (performance.now() - t0) / dur);
-    pet.setAttribute("transform", `translate(${x0 + (x1 - x0) * k},${y0 + (y1 - y0) * k})`);
-    if (k < 1 && current === "home") requestAnimationFrame(step);
-    else { pet.classList.remove("walking"); onDone && onDone(); }
+    if (current !== "home" || !pet.isConnected) { pet.classList.remove("walking"); onDone && onDone(); return; }
+    const k = Math.min(1, (performance.now() - t0) / SEG_MS);
+    const a = pts[seg], b = pts[seg + 1];
+    pet.setAttribute("transform", `translate(${a.x + (b.x - a.x) * k},${a.y + (b.y - a.y) * k})`);
+    if (k >= 1) {
+      seg++;
+      if (seg >= pts.length - 1) { pet.classList.remove("walking"); onDone && onDone(); return; }
+      t0 = performance.now();
+      setFace(pts[seg], pts[seg + 1]);
+    }
+    requestAnimationFrame(step);
   })();
+}
+function playYarn(yarnPos, done) {
+  /* bat the yarn ball around for a moment */
+  petFace = IX(yarnPos.x + .5, yarnPos.y + .5) > IX(S.cat.x + .5, S.cat.y + .5) ? -1 : 1;
+  worldSVG($("#world"), { catMode: "happy" });
+  const pet = $("#pet");
+  if (pet) pet.addEventListener("click", onPetTap);
+  const yarn = document.querySelector('#world [data-item="yarn"]');
+  if (yarn) yarn.classList.add("yarn-play");
+  setTimeout(done, 2600);
 }
 function petStroll() {
   if (petBusy || current !== "home" || session || placing) return;
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const bed = S.placed.find(p => p.id === "catbed");
+  const yarn = S.placed.find(p => p.id === "yarn");
   if (bed && !petOut && Math.random() < .5) return;   /* often just keeps napping */
-  const occ = occupied(), N = S.roomSize;
   const cur = bed && !petOut ? { x: bed.x, y: bed.y } : { x: S.cat.x, y: S.cat.y };
-  const opts = [];
-  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
-    if (occ.has(x + "," + y)) continue;
-    const d = Math.abs(x - cur.x) + Math.abs(y - cur.y);
-    if (d >= 1 && d <= 4) opts.push({ x, y });
+  const { prev, dist, occ } = floodFrom(cur);
+  let path = null, after = null;
+  /* sometimes head over to the yarn ball and play */
+  if (yarn && Math.random() < .45) {
+    const spots = freeNeighbors(yarn, occ)
+      .filter(t => dist.has(tileKey(t.x, t.y)) && dist.get(tileKey(t.x, t.y)) >= 1)
+      .sort((a, b) => dist.get(tileKey(a.x, a.y)) - dist.get(tileKey(b.x, b.y)));
+    if (spots.length) {
+      path = rebuildPath(prev, spots[0]);
+      after = done => playYarn(yarn, done);
+    }
   }
-  if (!opts.length) return;
-  const target = opts[Math.floor(Math.random() * opts.length)];
+  if (!path) {
+    const cands = [];
+    for (const [kk, d] of dist) if (d >= 1 && d <= 5) {
+      const [x, y] = kk.split(",").map(Number);
+      cands.push({ x, y });
+    }
+    if (!cands.length) return;
+    path = rebuildPath(prev, cands[Math.floor(Math.random() * cands.length)]);
+  }
   petBusy = true;
   const fromDy = bed && !petOut ? -3 : 4;
   if (bed && !petOut) { petOut = true; S.cat = { x: bed.x, y: bed.y }; renderHome(); }
-  walkPet({ ...S.cat, dy: fromDy }, { ...target, dy: 4 }, () => {
-    S.cat = target; save(); petBusy = false;
-    if (current === "home") renderHome();
-    if (bed) setTimeout(() => {   /* stretch the legs, then back to the nap */
-      const b = S.placed.find(p => p.id === "catbed");
-      if (!b || !petOut) { petOut = false; return; }
-      if (current !== "home" || petBusy || session) { petOut = false; return; }
-      petBusy = true;
-      walkPet({ ...S.cat, dy: 4 }, { x: b.x, y: b.y, dy: -3 }, () => {
-        petOut = false; petBusy = false;
-        if (current === "home") renderHome();
-      });
-    }, 5000 + Math.random() * 4000);
+  walkPetAlong(path, fromDy, 4, () => {
+    S.cat = path[path.length - 1]; save();
+    const finish = () => {
+      petBusy = false;
+      if (current === "home") renderHome();
+      if (bed) scheduleBedReturn();
+    };
+    if (after && current === "home") after(finish); else finish();
   });
+}
+function scheduleBedReturn() {
+  setTimeout(() => {
+    const b = S.placed.find(p => p.id === "catbed");
+    if (!b || !petOut) { petOut = false; return; }
+    if (current !== "home" || petBusy || session) { petOut = false; return; }
+    const { prev, dist, occ } = floodFrom({ x: S.cat.x, y: S.cat.y });
+    const spots = freeNeighbors(b, occ)
+      .filter(t => dist.has(tileKey(t.x, t.y)))
+      .sort((a, c) => dist.get(tileKey(a.x, a.y)) - dist.get(tileKey(c.x, c.y)));
+    if (!spots.length) { petOut = false; return; }
+    const path = rebuildPath(prev, spots[0]);
+    path.push({ x: b.x, y: b.y });                 /* final hop into the bed */
+    petBusy = true;
+    walkPetAlong(path, 4, -3, () => {
+      petOut = false; petBusy = false;
+      if (current === "home") renderHome();
+    });
+  }, 5000 + Math.random() * 4000);
 }
 setInterval(() => { if (Math.random() < .65) petStroll(); }, 6000);
 

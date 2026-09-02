@@ -32,7 +32,9 @@ statically.
   membership.
 - **Companion** — choose Mochi the cat or Miso the dog (Profile or Shop →
   Pets). They wander the room on their own — every few seconds they may walk
-  to a nearby free tile (with a little bob, facing the way they're headed).
+  to a nearby free tile, pathfinding around furniture (BFS over free tiles,
+  tile-by-tile with a little bob, facing the way they're headed). If a Yarn
+  Ball is placed they sometimes trot over and bat it around for a moment.
   Once a Pet Bed is placed they nap in it, occasionally getting up to stretch
   their legs before padding back; a tap wakes them. Wandering respects
   prefers-reduced-motion and never blocks placement or focus.
