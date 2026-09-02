@@ -8,6 +8,15 @@ export const C3 = {
   /* autumn: what deciduous leaves turn into, and the drier grass under them */
   fall: [0xE3B04B, 0xD98E3F, 0xC96A4A, 0xB0603C],
   grassFall: [0x9DA766, 0x94A05F, 0xA8B073],
+  /* spring: fresh grass, blossom dots on the trees, drifting petals */
+  grassSpring: [0x8FBF6E, 0x86B566, 0x9AC77C],
+  petal: [0xF6C9D8, 0xFBE3EC, 0xF3B7CC],
+  blossom: 0xF4A8C4,
+  /* winter: snow-covered ground, frosted beach, icy water tint */
+  grassWinter: [0xE9EFF1, 0xE0E8EB, 0xF1F5F7],
+  sandWinter: 0xE0D8C2,
+  snow: 0xF4F8FA,
+  ice: 0x8FB6C8,
   water: { day: 0x679690, dawn: 0x84A093, dusk: 0x81948B, night: 0x35485A } as Record<Phase, number>,
 };
 

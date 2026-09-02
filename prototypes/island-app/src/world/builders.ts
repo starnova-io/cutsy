@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { C3 } from "./palette";
+import { curSeason } from "../game/weather";
 import type { PetKind } from "../game/types";
+
+const winter = () => curSeason() === "winter";
+const spring = () => curSeason() === "spring";
 
 type Emis = { c: number; i: number };
 
@@ -41,13 +45,19 @@ export function grp3(...ms: THREE.Object3D[]): THREE.Group {
 /* ---------- item builders (footprint-centered, ground y=0) ---------- */
 export const B3: Record<string, () => THREE.Group> = {
   pine() {
-    return grp3(cyl3(.07, .1, .3, C3.woodD, 0, .15), cone3(.36, .55, C3.leafD, 0, .62),
+    const g = grp3(cyl3(.07, .1, .3, C3.woodD, 0, .15), cone3(.36, .55, C3.leafD, 0, .62),
       cone3(.28, .45, C3.leaf, 0, .98), cone3(.19, .34, C3.leafL, 0, 1.3));
+    if (winter()) g.add(cone3(.3, .22, C3.snow, 0, .78), cone3(.23, .2, C3.snow, 0, 1.12),
+      cone3(.16, .2, C3.snow, 0, 1.42));
+    return g;
   },
   oak() {
     const c1 = sph3(.42, C3.leaf, 0, .82, 0, 1, .85, 1), c2 = sph3(.3, C3.leafL, .18, 1.05, .1);
     c1.name = "leaf"; c2.name = "leaf";
     const g = grp3(cyl3(.09, .12, .55, C3.woodD, 0, .27), c1, c2);
+    if (winter()) g.add(sph3(.33, C3.snow, 0, 1.0, 0, 1, .45, 1), sph3(.24, C3.snow, .18, 1.18, .1, 1, .4, 1));
+    if (spring()) ([[.28, .98, .22], [-.3, .9, .18], [.05, 1.15, .28], [-.15, 1.05, -.28], [.35, .75, -.15], [.3, 1.22, .2]] as const)
+      .forEach(([x, y, z]) => g.add(sph3(.065, C3.blossom, x, y, z)));
     g.userData.deciduous = { h: 1.1 };
     return g;
   },
@@ -70,6 +80,9 @@ export const B3: Record<string, () => THREE.Group> = {
     const c1 = sph3(.3, C3.leaf, 0, .26, 0, 1, .8, 1), c2 = sph3(.22, C3.leafL, .16, .34, .1);
     c1.name = "leaf"; c2.name = "leaf";
     const g = grp3(c1, c2);
+    if (winter()) g.add(sph3(.24, C3.snow, 0, .4, 0, 1, .45, 1), sph3(.17, C3.snow, .16, .46, .1, 1, .4, 1));
+    if (spring()) ([[.2, .4, .2], [-.18, .35, .15], [.05, .5, -.15], [.3, .42, -.05]] as const)
+      .forEach(([x, y, z]) => g.add(sph3(.055, C3.blossom, x, y, z)));
     g.userData.deciduous = { h: .45 };
     return g;
   },
@@ -85,27 +98,44 @@ export const B3: Record<string, () => THREE.Group> = {
     const m = shade(new THREE.Mesh(new THREE.DodecahedronGeometry(.3), M(C3.stone)));
     m.position.y = .16;
     m.scale.set(1, .72, .85);
-    return grp3(m, sph3(.12, 0x86A872, .22, .1, .14, 1, .55, 1));
+    const g = grp3(m, sph3(.12, 0x86A872, .22, .1, .14, 1, .55, 1));
+    if (winter()) g.add(sph3(.24, C3.snow, 0, .3, 0, 1, .45, .8));
+    return g;
   },
-  stump() { return grp3(cyl3(.24, .28, .3, C3.wood, 0, .15, 0, 12), cyl3(.2, .2, .02, C3.woodL, 0, .31, 0, 12)); },
+  stump() {
+    const g = grp3(cyl3(.24, .28, .3, C3.wood, 0, .15, 0, 12), cyl3(.2, .2, .02, C3.woodL, 0, .31, 0, 12));
+    if (winter()) g.add(cyl3(.2, .2, .04, C3.snow, 0, .34, 0, 12));
+    return g;
+  },
   fence() {
     const g = new THREE.Group();
     [-.36, 0, .36].forEach(px => g.add(box3(.08, .5, .08, C3.wood, px, .25, 0)));
     g.add(box3(.9, .06, .05, C3.woodL, 0, .38, 0), box3(.9, .06, .05, C3.woodL, 0, .2, 0));
+    if (winter()) g.add(box3(.92, .04, .07, C3.snow, 0, .43, 0));
     return g;
   },
-  sign() { return grp3(box3(.07, .5, .07, C3.wood, 0, .25, 0), box3(.5, .3, .05, C3.woodL, 0, .5, .02)); },
+  sign() {
+    const g = grp3(box3(.07, .5, .07, C3.wood, 0, .25, 0), box3(.5, .3, .05, C3.woodL, 0, .5, .02));
+    if (winter()) g.add(box3(.52, .04, .07, C3.snow, 0, .67, .02));
+    return g;
+  },
   bench() {
-    return grp3(box3(.8, .06, .3, C3.woodL, 0, .28, 0), box3(.8, .26, .05, C3.woodL, 0, .48, -.14),
+    const g = grp3(box3(.8, .06, .3, C3.woodL, 0, .28, 0), box3(.8, .26, .05, C3.woodL, 0, .48, -.14),
       box3(.07, .28, .26, C3.wood, -.32, .14, 0), box3(.07, .28, .26, C3.wood, .32, .14, 0));
+    if (winter()) g.add(box3(.82, .04, .3, C3.snow, 0, .33, 0), box3(.82, .04, .07, C3.snow, 0, .63, -.14));
+    return g;
   },
   lantern() {
-    return grp3(cyl3(.12, .16, .1, C3.stoneD, 0, .05, 0, 6), cyl3(.05, .05, .35, C3.stoneD, 0, .3, 0, 6),
+    const g = grp3(cyl3(.12, .16, .1, C3.stoneD, 0, .05, 0, 6), cyl3(.05, .05, .35, C3.stoneD, 0, .3, 0, 6),
       box3(.2, .18, .2, C3.cream, 0, .55, 0, { c: 0xFFC978, i: .8 }), cone3(.2, .14, C3.stoneD, 0, .7, 0, 4));
+    if (winter()) g.add(cone3(.17, .1, C3.snow, 0, .79, 0, 4));
+    return g;
   },
   mailbox() {
-    return grp3(box3(.07, .45, .07, C3.wood, 0, .22, 0), box3(.32, .2, .2, C3.terra, 0, .55, 0),
+    const g = grp3(box3(.07, .45, .07, C3.wood, 0, .22, 0), box3(.32, .2, .2, C3.terra, 0, .55, 0),
       box3(.03, .12, .03, C3.gold, .14, .68, 0));
+    if (winter()) g.add(box3(.34, .05, .22, C3.snow, 0, .67, 0));
+    return g;
   },
   campfire() {
     const g = new THREE.Group();
@@ -124,9 +154,15 @@ export const B3: Record<string, () => THREE.Group> = {
   well() {
     const roof = cone3(.42, .26, C3.terra, 0, .85, 0, 4);
     roof.rotation.y = Math.PI / 4;
-    return grp3(cyl3(.34, .36, .3, C3.stone, 0, .15, 0, 10), cyl3(.26, .26, .3, 0x4E6E78, 0, .16, 0, 10),
+    const g = grp3(cyl3(.34, .36, .3, C3.stone, 0, .15, 0, 10), cyl3(.26, .26, .3, 0x4E6E78, 0, .16, 0, 10),
       box3(.06, .5, .06, C3.wood, -.3, .5, 0), box3(.06, .5, .06, C3.wood, .3, .5, 0),
       roof, box3(.5, .04, .04, C3.woodD, 0, .62, 0));
+    if (winter()) {
+      const sr = cone3(.34, .18, C3.snow, 0, .92, 0, 4);
+      sr.rotation.y = Math.PI / 4;
+      g.add(sr);
+    }
+    return g;
   },
   house() {
     const roof = cone3(1.18, .6, C3.terra, 0, 1.1, 0, 4);
@@ -136,14 +172,25 @@ export const B3: Record<string, () => THREE.Group> = {
       box3(.3, .3, .06, 0xBFD8DC, .35, .5, .66, { c: 0xFFDF9E, i: 0 }),
       box3(.2, .5, .2, C3.stoneD, .5, 1.15, -.3), roof);
     g.userData.homeWindow = g.children[2];
+    if (winter()) {
+      const sr = cone3(1.06, .46, C3.snow, 0, 1.24, 0, 4);
+      sr.rotation.y = Math.PI / 4;
+      g.add(sr, box3(.24, .06, .24, C3.snow, .5, 1.43, -.3));
+    }
     return g;
   },
   cabin() {
     const roof = cone3(1.15, .62, C3.leafD, 0, 1.06, 0, 4);
     roof.rotation.y = Math.PI / 4;
-    return grp3(box3(1.5, .7, 1.3, C3.wood, 0, .35, 0),
+    const g = grp3(box3(1.5, .7, 1.3, C3.wood, 0, .35, 0),
       box3(.38, .5, .06, C3.woodD, 0, .25, .66), box3(1.56, .1, 1.36, C3.woodD, 0, .72, 0),
       roof, cone3(.3, .5, C3.leafD, .62, .28, .5, 6));
+    if (winter()) {
+      const sr = cone3(.92, .42, C3.snow, 0, 1.21, 0, 4);
+      sr.rotation.y = Math.PI / 4;
+      g.add(sr, cone3(.2, .2, C3.snow, .62, .48, .5, 6));
+    }
+    return g;
   },
   dock() {
     const g = new THREE.Group();

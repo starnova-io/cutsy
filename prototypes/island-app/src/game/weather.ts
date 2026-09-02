@@ -1,14 +1,15 @@
-import type { Phase, Weather } from "./types";
+import type { Phase, Season, Weather } from "./types";
 
 export const dayStamp = (): string => {
   const d = new Date();
   return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 };
 
-/* URL-hash overrides for demos: #night, #day, #dawn, #rain, #cloud, #autumn, #summer */
+/* URL-hash overrides for demos: #night, #day, #dawn, #rain, #cloud,
+   and seasons #spring, #summer, #autumn, #winter */
 let phaseOverride: Phase | null = null;
 let weatherOverride: Weather | null = null;
-let autumnOverride: boolean | null = null;
+let seasonOverride: Season | null = null;
 {
   const h = typeof location !== "undefined" ? location.hash : "";
   if (h.includes("night")) phaseOverride = "night";
@@ -16,8 +17,10 @@ let autumnOverride: boolean | null = null;
   else if (h.includes("day")) phaseOverride = "day";
   if (h.includes("rain")) weatherOverride = "rain";
   else if (h.includes("cloud")) weatherOverride = "cloudy";
-  if (h.includes("autumn") || h.includes("fall")) autumnOverride = true;
-  else if (h.includes("summer") || h.includes("green")) autumnOverride = false;
+  if (h.includes("spring")) seasonOverride = "spring";
+  else if (h.includes("summer") || h.includes("green")) seasonOverride = "summer";
+  else if (h.includes("autumn") || h.includes("fall")) seasonOverride = "autumn";
+  else if (h.includes("winter") || h.includes("snow")) seasonOverride = "winter";
 }
 export const setWeatherOverride = (w: Weather | null) => { weatherOverride = w; };
 
@@ -36,9 +39,10 @@ export function todayWeather(): Weather {
 export const curPhase = (): Phase => phaseOverride ?? dayPhase();
 export const curWeather = (): Weather => weatherOverride ?? todayWeather();
 
-/* September–November: deciduous leaves turn and fall. */
-export const isAutumn = (): boolean => {
-  if (autumnOverride !== null) return autumnOverride;
+/* the real calendar drives the island's season */
+export function curSeason(): Season {
+  if (seasonOverride) return seasonOverride;
   const m = new Date().getMonth(); /* 0-based */
-  return m >= 8 && m <= 10;
-};
+  return m >= 2 && m <= 4 ? "spring" : m <= 7 ? "summer" : m <= 10 ? "autumn" : "winter";
+}
+export const isAutumn = (): boolean => curSeason() === "autumn";

@@ -45,14 +45,26 @@ The island is a real 3D scene: drag to orbit (and tilt), pinch or scroll to
 zoom, double-tap to reset the camera — quick taps still pet the companion,
 pick up items, and send the companion walking.
 
-In September–November the island turns autumn: deciduous leaves (oak, bush)
-slowly change from green to gold and rust, then detach and tumble down on the
-wind — more of them on a breezy cloudy day, only a few in the rain — and the
-grass dries to a warmer olive. Pines and palms stay evergreen.
+The real calendar drives four seasons on the island:
+
+- **Spring** (Mar–May) — fresh bright grass, blossom dots on oak and bush,
+  pink petals drifting across the island.
+- **Summer** (Jun–Aug) — the deep-green baseline; on clear and cloudy
+  nights fireflies wander over the grass.
+- **Autumn** (Sep–Nov) — deciduous leaves slowly turn from green to gold
+  and rust, then detach and tumble down on the wind — more of them on a
+  breezy cloudy day, only a few in the rain — and the grass dries to a
+  warmer olive. Pines and palms stay evergreen.
+- **Winter** (Dec–Feb) — snow blankets the grass, caps every roof, fence
+  and tree, the water turns icy; "rain" days fall as silent snow, and on
+  clear nights a bigger moon, denser stars and the odd shooting star.
+
+Weather still modulates each season's particles (calm / breezy / rain).
 
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
 per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience, and
-`#autumn` / `#summer` force the season.
+`#spring` / `#summer` / `#autumn` / `#winter` force the season (combine
+like `#winter-night`).
 
 ## Economy rules
 

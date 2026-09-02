@@ -2,10 +2,30 @@ import * as THREE from "three";
 import { B3, buildPet, box3, grp3 } from "./builders";
 import { C3, PH3 } from "./palette";
 import { GW, GH, MASKS, BRIDGE_TILES, WCX, WCZ, isBeach, placeOK } from "./island";
-import { curPhase, curWeather, isAutumn } from "../game/weather";
+import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
 import { byId } from "../game/catalog";
 import { itemFootprint } from "../game/economy";
-import type { GameState, PetKind, PlacedItem } from "../game/types";
+import type { GameState, PetKind, PlacedItem, Season, Weather } from "../game/types";
+
+/* ambient falling particles per season: autumn leaves, spring petals, snow */
+interface PConf {
+  n: number; w: number; h: number; cols: number[];
+  vy: number; vyR: number; rainVy: number; sway: number;
+  settle: number; settleR: number;
+  want: Record<Weather, number>;
+  /** leaves wait for the colour turn; petals and snow start at once */
+  gate: number;
+  /** share spawned from a real canopy vs drifting in high on the wind */
+  treeShare: number;
+}
+const PCONF: Partial<Record<Season, PConf>> = {
+  autumn: { n: 44, w: .13, h: .17, cols: C3.fall, vy: .35, vyR: .3, rainVy: .45, sway: .5,
+    settle: 2.5, settleR: 3.5, want: { clear: 26, cloudy: 40, rain: 10 }, gate: .45, treeShare: .6 },
+  spring: { n: 40, w: .11, h: .14, cols: C3.petal, vy: .22, vyR: .18, rainVy: .3, sway: .7,
+    settle: 2, settleR: 3, want: { clear: 22, cloudy: 30, rain: 8 }, gate: 0, treeShare: .4 },
+  winter: { n: 70, w: .08, h: .08, cols: [0xFFFFFF, 0xF0F6FA, 0xE4EEF4], vy: .3, vyR: .22, rainVy: .3,
+    sway: .35, settle: 4, settleR: 3, want: { clear: 38, cloudy: 55, rain: 70 }, gate: 0, treeShare: 0 },
+};
 
 export interface WorldOpts {
   ghost?: PlacedItem | null;
@@ -62,11 +82,16 @@ class World {
   private lastT = performance.now();
   private isletAnim: { t: number } | null = null;
   private yarnWobble = 0;
-  /* autumn: leaves turn (autumnK 0→1), then detach and fall */
-  private autumn = false;
+  /* seasons: autumn leaves turn (autumnK 0→1) then fall; petals, snow, fireflies */
+  private season: Season = "summer";
+  private pconf: PConf | null = null;
   private autumnK = 0;
   private turnDelay = 1.2;
   private leavesG!: THREE.Group;
+  private firefliesG!: THREE.Group;
+  private shootPts!: THREE.Points;
+  private shootT = -1;
+  private shootV = new THREE.Vector3();
   private canopies: { x: number; z: number; h: number; r: number }[] = [];
   private grassSpots: { x: number; z: number }[] = [];
   private popQueue: string | null = null;
@@ -194,23 +219,47 @@ class World {
       new THREE.PointsMaterial({ color: 0xFFF4D8, size: .09, transparent: true, opacity: .9 }));
     this.scene.add(this.starPts);
 
-    this.autumn = isAutumn();
+    this.season = curSeason();
+    this.pconf = PCONF[this.season] ?? null;
     this.leavesG = new THREE.Group();
-    for (let i = 0; i < 44; i++) {
-      const leaf = new THREE.Mesh(new THREE.PlaneGeometry(.13, .17),
-        new THREE.MeshLambertMaterial({
-          color: C3.fall[i % C3.fall.length], side: THREE.DoubleSide,
-          transparent: true, opacity: .95,
-        }));
-      leaf.visible = false;
-      leaf.userData.st = { live: false, settle: 0, vy: 0, rx: 0, rz: 0, ph: 0, swf: 0 };
-      this.leavesG.add(leaf);
+    if (this.pconf) {
+      const cf = this.pconf;
+      for (let i = 0; i < cf.n; i++) {
+        const leaf = new THREE.Mesh(new THREE.PlaneGeometry(cf.w, cf.h),
+          new THREE.MeshLambertMaterial({
+            color: cf.cols[i % cf.cols.length], side: THREE.DoubleSide,
+            transparent: true, opacity: .95,
+          }));
+        leaf.visible = false;
+        leaf.userData.st = { live: false, settle: 0, vy: 0, rx: 0, rz: 0, ph: 0, swf: 0 };
+        this.leavesG.add(leaf);
+      }
     }
     this.scene.add(this.leavesG);
     MASKS.main.forEach(k => {
       const [x, y] = k.split(",").map(Number);
       if (!isBeach(x, y)) this.grassSpots.push({ x: WCX(x), z: WCZ(y) });
     });
+
+    /* summer nights: fireflies wandering over the grass */
+    this.firefliesG = new THREE.Group();
+    for (let i = 0; i < 14; i++) {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(.035, 6, 5),
+        new THREE.MeshBasicMaterial({ color: 0xFFE9A8, transparent: true, opacity: .8 }));
+      const b = this.grassSpots[(i * 7) % this.grassSpots.length] ?? { x: 0, z: 0 };
+      f.userData.fly = { bx: b.x, bz: b.z, ph: i * 1.7, f1: .35 + (i % 5) * .08, f2: .28 + (i % 4) * .09, amp: .8 + (i % 3) * .4 };
+      this.firefliesG.add(f);
+    }
+    this.firefliesG.visible = false;
+    this.scene.add(this.firefliesG);
+
+    /* clear winter nights: the odd shooting star */
+    const shootGeo = new THREE.BufferGeometry();
+    shootGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6 * 3), 3));
+    this.shootPts = new THREE.Points(shootGeo,
+      new THREE.PointsMaterial({ color: 0xFFFFFF, size: .12, transparent: true, opacity: 0 }));
+    this.shootPts.visible = false;
+    this.scene.add(this.shootPts);
 
     const cel = new THREE.Mesh(new THREE.SphereGeometry(.55, 14, 12),
       new THREE.MeshLambertMaterial({ color: 0xFFE9B0 }));
@@ -235,8 +284,10 @@ class World {
   private buildTiles(mask: Set<string>, into: THREE.Group): void {
     mask.forEach(k => {
       const [x, y] = k.split(",").map(Number);
-      const grass = isAutumn() ? C3.grassFall : C3.grass;
-      const top = isBeach(x, y) ? C3.sand : grass[(x * 7 + y * 13) % 3];
+      const sn = curSeason();
+      const grass = sn === "autumn" ? C3.grassFall : sn === "spring" ? C3.grassSpring
+        : sn === "winter" ? C3.grassWinter : C3.grass;
+      const top = isBeach(x, y) ? (sn === "winter" ? C3.sandWinter : C3.sand) : grass[(x * 7 + y * 13) % 3];
       const side = new THREE.MeshLambertMaterial({ color: C3.dirt });
       const sideD = new THREE.MeshLambertMaterial({ color: C3.dirtD });
       const mats = [side, sideD, new THREE.MeshLambertMaterial({ color: top }), sideD, side, sideD];
@@ -309,14 +360,21 @@ class World {
     this.sunL.color.set(P.sun);
     this.sunL.intensity = P.int * (W === "rain" ? .55 : W === "cloudy" ? .8 : 1);
     this.sunL.position.set(...P.dir);
-    (this.seaMesh.material as THREE.MeshLambertMaterial).color.set(C3.water[curPhase()]);
+    const wintry = this.season === "winter";
+    const wc = new THREE.Color(C3.water[curPhase()]);
+    if (wintry) wc.lerp(new THREE.Color(C3.ice), .45);
+    (this.seaMesh.material as THREE.MeshLambertMaterial).color.copy(wc);
     this.celestial.visible = W !== "rain";
     const cm = this.celestial.material as THREE.MeshLambertMaterial;
     cm.color.set(night ? 0xE8EEF8 : 0xFFE9B0);
     cm.emissive.set(night ? 0xC9D6EE : 0xFFE9B0);
     this.celestial.position.set(night ? 7 : -8, 7.2, -7);
+    /* winter: a big low moon and denser stars; "rain" falls as snow instead */
+    this.celestial.scale.setScalar(wintry && night ? 1.35 : 1);
+    (this.starPts.material as THREE.PointsMaterial).size = wintry ? .12 : .09;
     this.starPts.visible = night;
-    this.rainPts.visible = W === "rain";
+    this.rainPts.visible = W === "rain" && !wintry;
+    this.firefliesG.visible = night && this.season === "summer" && W !== "rain";
     this.cloudsG.children.forEach(c => c.traverse(o => {
       const m = (o as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
       if (!m) return;
@@ -341,7 +399,7 @@ class World {
         mesh.material = (mesh.material as THREE.Material).clone();
         (mesh.material as THREE.Material).transparent = true;
         (mesh.material as THREE.Material).opacity = .55;
-        if (this.autumn && o.name === "leaf")
+        if (this.season === "autumn" && o.name === "leaf")
           (mesh.material as THREE.MeshLambertMaterial).color.set(C3.fall[(lj++ * 3) % C3.fall.length]);
       }
     });
@@ -447,7 +505,7 @@ class World {
   /* lerp deciduous foliage from summer green toward its turn color;
      each tree turns on a slightly different clock */
   private applyAutumnTint(): void {
-    if (!this.autumn) return;
+    if (this.season !== "autumn") return;
     this.itemsG.children.forEach(wrap => {
       const pidx = (wrap.userData.pidx as number) ?? 0;
       const k = Math.min(1, Math.max(0, this.autumnK * 1.5 - ((pidx * 7) % 4) * .12));
@@ -464,8 +522,9 @@ class World {
   }
 
   private updateLeaves(dt: number, t: number): void {
+    const cf = this.pconf!;
     const W = curWeather();
-    const want = this.autumnK > .45 ? (W === "rain" ? 10 : W === "cloudy" ? 40 : 26) : 0;
+    const want = this.autumnK >= cf.gate ? cf.want[W] : 0;
     const wind = W === "cloudy" ? .55 : W === "rain" ? .12 : .25;
     let any = false;
     this.leavesG.children.forEach((leaf, i) => {
@@ -473,14 +532,14 @@ class World {
       const mat = (leaf as THREE.Mesh).material as THREE.MeshLambertMaterial;
       if (!st.live) {
         if (i < want && Math.random() < dt * .35) {
-          /* 60% shed from a deciduous canopy, the rest drift in high on the wind */
-          const c = this.canopies.length && Math.random() < .6
+          /* shed from a real canopy, or drift in high on the wind */
+          const c = this.canopies.length && Math.random() < cf.treeShare
             ? this.canopies[Math.floor(Math.random() * this.canopies.length)]
             : { ...this.grassSpots[Math.floor(Math.random() * this.grassSpots.length)], h: 2.2 + Math.random() * 1.4, r: .45 };
           leaf.position.set(c.x + (Math.random() - .5) * 2 * c.r, c.h + Math.random() * .3, c.z + (Math.random() - .5) * 2 * c.r);
           leaf.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
           st.live = true; st.settle = 0;
-          st.vy = (W === "rain" ? .8 : .35) + Math.random() * .3;
+          st.vy = cf.vy + Math.random() * cf.vyR + (W === "rain" ? cf.rainVy : 0);
           st.rx = (Math.random() - .5) * 4; st.rz = (Math.random() - .5) * 4;
           st.ph = Math.random() * 6.28; st.swf = 1.2 + Math.random() * 1.4;
           mat.opacity = .95;
@@ -496,24 +555,57 @@ class World {
         return;
       }
       leaf.position.y -= st.vy * dt;
-      leaf.position.x += (wind + Math.sin(t * st.swf + st.ph) * .5) * dt;
+      leaf.position.x += (wind + Math.sin(t * st.swf + st.ph) * cf.sway) * dt;
       leaf.position.z += Math.cos(t * .6 + st.ph) * .2 * dt;
       leaf.rotation.x += st.rx * dt;
       leaf.rotation.z += st.rz * dt;
       if (leaf.position.y <= .05) {
         leaf.position.y = .05;
         leaf.rotation.set(-Math.PI / 2 + (Math.random() - .5) * .25, 0, Math.random() * 6.28);
-        st.settle = 2.5 + Math.random() * 3.5;
+        st.settle = cf.settle + Math.random() * cf.settleR;
       }
     });
     this.leavesG.visible = any || want > 0;
   }
 
+  private updateFireflies(t: number): void {
+    if (!this.firefliesG.visible) return;
+    this.firefliesG.children.forEach(f => {
+      const d = f.userData.fly as { bx: number; bz: number; ph: number; f1: number; f2: number; amp: number };
+      f.position.set(
+        d.bx + Math.sin(t * d.f1 + d.ph) * d.amp,
+        .45 + .35 * Math.sin(t * .8 + d.ph * 2),
+        d.bz + Math.cos(t * d.f2 + d.ph) * d.amp * .8);
+      ((f as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = .25 + .65 * Math.abs(Math.sin(t * 1.4 + d.ph * 3));
+    });
+  }
+
+  private updateShooting(dt: number): void {
+    if (this.shootT < 0) {
+      const ok = this.season === "winter" && curPhase() === "night" && curWeather() === "clear";
+      if (!ok || Math.random() > dt / 14) return;
+      this.shootT = 0;
+      this.shootPts.position.set(-2 + Math.random() * 10, 8 + Math.random() * 2.5, -9);
+      this.shootV.set(-4.5, -2.2, 0);
+      const a = this.shootPts.geometry.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < 6; i++) a.setXYZ(i, i * .22, i * .11, 0); /* trail behind the head */
+      a.needsUpdate = true;
+      this.shootPts.visible = true;
+    }
+    this.shootT += dt;
+    this.shootPts.position.addScaledVector(this.shootV, dt);
+    (this.shootPts.material as THREE.PointsMaterial).opacity = Math.sin(Math.PI * Math.min(1, this.shootT / 1.1));
+    if (this.shootT > 1.1) { this.shootT = -1; this.shootPts.visible = false; }
+  }
+
   /** test/debug hook */
-  get autumnInfo(): { autumn: boolean; k: number; leaves: number } {
+  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; fireflies: boolean } {
     let n = 0;
     this.leavesG?.children.forEach(l => { if ((l.userData.st as { live: boolean }).live) n++; });
-    return { autumn: this.autumn, k: this.autumnK, leaves: n };
+    return {
+      season: this.season, autumn: this.season === "autumn", k: this.autumnK,
+      leaves: n, fireflies: !!this.firefliesG?.visible,
+    };
   }
 
   /* ---------- input: drag = orbit, pinch/wheel = zoom, quick tap = interact ---------- */
@@ -677,14 +769,16 @@ class World {
         this.bridgeG.children.forEach(p => (p.position.y = 0));
       }
     }
-    if (this.autumn) {
+    if (this.season === "autumn") {
       if (this.turnDelay > 0) this.turnDelay -= dt;
       else if (this.autumnK < 1) {
         this.autumnK = Math.min(1, this.autumnK + dt / 5);
         this.applyAutumnTint();
       }
-      this.updateLeaves(dt, t);
     }
+    if (this.pconf) this.updateLeaves(dt, t);
+    this.updateFireflies(t);
+    this.updateShooting(dt);
     this.frameCamera();
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(n => this.loop(n));

@@ -4,7 +4,7 @@ import { getState, mutate, useGame } from "./game/store";
 import { fits, firstFreeSpot, itemFootprint } from "./game/economy";
 import { commitPlacement, completeSession, pickUpPlaced } from "./game/actions";
 import { audio, startRain, stopRain } from "./game/audio";
-import { curWeather } from "./game/weather";
+import { curSeason, curWeather } from "./game/weather";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { registerFeedback, toast, ask as askFeedback, confettiBurst, heartAt } from "./ui/feedback";
@@ -125,9 +125,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!session]);
 
+  /* in winter, "rain" days fall as silent snow */
+  const rainy = () => curWeather() === "rain" && curSeason() !== "winter";
   const startSession = () => {
     audio();
-    if (curWeather() === "rain") startRain();
+    if (rainy()) startRain();
     remainRef.current = chosenMin * 60000;
     lastTickRef.current = performance.now();
     setSession({ durMin: chosenMin, remainMs: remainRef.current, paused: false });
@@ -136,7 +138,7 @@ export default function App() {
     setSession(s => {
       if (!s) return s;
       const paused = !s.paused;
-      if (paused) stopRain(); else if (curWeather() === "rain") startRain();
+      if (paused) stopRain(); else if (rainy()) startRain();
       lastTickRef.current = performance.now();
       return { ...s, paused };
     });
