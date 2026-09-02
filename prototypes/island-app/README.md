@@ -64,8 +64,14 @@ Falling particles are one `InstancedMesh` (hundreds of leaves in a single
 draw call); landed ones rest where they fell and build up a carpet before
 slowly recycling. In leafy seasons, tapping an oak or bush (or a snowy
 tree in winter) shakes it and sheds a burst of leaves — move those trees
-via arrange mode. The sea is a small shader: gentle interference waves
-plus expanding ripple rings when you tap the water or a leaf lands on it.
+via arrange mode. The sea is alive twice over: a surface shader
+(interference waves + expanding ripple rings on taps and leaf landings)
+backed by a real GPU fluid simulation — velocity and pressure fields on
+ping-pong half-float render targets (advection, divergence, a Jacobi
+pressure solve, gradient subtraction) with a dye field advected along the
+flow. Sweeping a finger or pointer across open water stirs milky swirls
+that drift and dissipate; taps and landing leaves splat into the same
+fluid. Requires WebGL2; the surface shader alone is the fallback.
 
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
 per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience, and

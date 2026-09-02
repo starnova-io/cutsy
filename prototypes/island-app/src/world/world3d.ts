@@ -3,6 +3,7 @@ import { B3, buildPet, box3, grp3 } from "./builders";
 import { C3, PH3 } from "./palette";
 import { GW, GH, MASKS, BRIDGE_TILES, WCX, WCZ, isBeach, placeOK } from "./island";
 import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
+import { FluidSim, FLUID_WORLD } from "./fluid";
 import { byId } from "../game/catalog";
 import { itemFootprint } from "../game/economy";
 import type { GameState, PetKind, PlacedItem, Season, Weather } from "../game/types";
@@ -110,6 +111,8 @@ class World {
   private leafDummy = new THREE.Object3D();
   private seaMat!: THREE.ShaderMaterial;
   private ripples: { x: number; z: number; t0: number; s: number }[] = [];
+  private fluid: FluidSim | null = null;
+  private lastSplat: { sx: number; sy: number; x: number; z: number } | null = null;
   private firefliesG!: THREE.Group;
   private shootPts!: THREE.Points;
   private shootT = -1;
@@ -169,11 +172,18 @@ class World {
     /* living water: gentle interference waves + expanding tap/landing ripples,
        colour-only in the fragment shader (after ksenia-k's liquid pens, scaled
        down to cozy) */
+    try {
+      if (this.renderer.capabilities.isWebGL2) this.fluid = new FluidSim(this.renderer);
+    } catch { this.fluid = null; }
+    const blankTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1, THREE.RGBAFormat);
+    blankTex.needsUpdate = true;
     this.seaMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
         uColor: { value: new THREE.Color(C3.water.day) },
         uRipples: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -99, 0)) },
+        uFluid: { value: blankTex },
+        uFluidVel: { value: blankTex },
       },
       vertexShader: `
         varying vec2 vXZ;
@@ -185,10 +195,17 @@ class World {
         uniform float uTime;
         uniform vec3 uColor;
         uniform vec4 uRipples[8];
+        uniform sampler2D uFluid;
+        uniform sampler2D uFluidVel;
         varying vec2 vXZ;
         void main() {
-          float w = sin(vXZ.x * 1.4 + uTime * .7) * sin(vXZ.y * 1.1 - uTime * .55)
-                  + .5 * sin(vXZ.x * 2.3 - uTime * .9) * sin(vXZ.y * 2.7 + uTime * .8);
+          vec2 fuv = (vXZ + ${FLUID_WORLD}.) / ${FLUID_WORLD * 2}.;
+          vec2 fvel = texture2D(uFluidVel, fuv).xy;
+          float dye = texture2D(uFluid, fuv).x;
+          /* the fluid's flow bends the ambient wave pattern */
+          vec2 p = vXZ + fvel * 14.;
+          float w = sin(p.x * 1.4 + uTime * .7) * sin(p.y * 1.1 - uTime * .55)
+                  + .5 * sin(p.x * 2.3 - uTime * .9) * sin(p.y * 2.7 + uTime * .8);
           vec3 col = uColor * (1. + w * .045);
           float foam = 0.;
           for (int i = 0; i < 8; i++) {
@@ -199,7 +216,8 @@ class World {
             float ring = age * 1.7 + .1;
             foam += smoothstep(.16, .0, abs(d - ring)) * (1. - age / 2.4) * r.w;
           }
-          gl_FragColor = vec4(mix(col, vec3(.96, .98, 1.), clamp(foam, 0., 1.) * .65), 1.);
+          foam = clamp(foam, 0., 1.) * .65 + clamp(dye, 0., 1.2) * .55;
+          gl_FragColor = vec4(mix(col, vec3(.95, .98, 1.), clamp(foam, 0., .85)), 1.);
         }`,
     });
     this.seaMesh = new THREE.Mesh(new THREE.CircleGeometry(30, 48), this.seaMat);
@@ -662,7 +680,11 @@ class World {
           st.ry = 0;
           st.rz = Math.random() * 6.28;
           st.ph = 2; st.age = 0;
-          if (floor < 0) { st.water = true; this.addRipple(st.x, st.z, .45); }
+          if (floor < 0) {
+            st.water = true;
+            this.addRipple(st.x, st.z, .45);
+            this.fluid?.splat(st.x, st.z, 0, 0, .4);
+          }
           this.settledQ.push(i);
           while (this.settledQ.length > cf.carpet) {
             const old = this.settledQ.shift()!;
@@ -753,7 +775,7 @@ class World {
   }
 
   /** test/debug hook */
-  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean } {
+  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean; fluid: number; splats: number } {
     let air = 0, carpet = 0;
     this.leafSt.forEach(s => { if (s.ph === 1) air++; else if (s.ph === 2) carpet++; });
     return {
@@ -761,6 +783,8 @@ class World {
       leaves: air, carpet,
       ripples: this.ripples.filter(r => this.t - r.t0 < 2.4).length,
       fireflies: !!this.firefliesG?.visible,
+      fluid: this.fluid ? this.fluid.frames : -1,
+      splats: this.fluid ? this.fluid.splats : -1,
     };
   }
 
@@ -778,7 +802,31 @@ class World {
     }
   }
 
+  /** moving the pointer over open water stirs the fluid under it */
+  private hoverSplat(ev: PointerEvent): void {
+    if (!this.fluid) return;
+    const last = this.lastSplat;
+    if (last && Math.hypot(ev.clientX - last.sx, ev.clientY - last.sy) < 6) return;
+    const r = this.canvas.getBoundingClientRect();
+    this.ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+    this.ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+    this.ray.setFromCamera(this.ndc, this.camera);
+    const land = this.ray.intersectObjects(
+      [...this.tilesG.children, ...this.itemsG.children], true);
+    if (land.length) { this.lastSplat = null; return; }
+    const hit = this.ray.intersectObject(this.seaMesh, false);
+    if (!hit.length) { this.lastSplat = null; return; }
+    const p = hit[0].point;
+    if (last) {
+      const dx = p.x - last.x, dz = p.z - last.z;
+      const len = Math.hypot(dx, dz);
+      if (len > .02 && len < 6) this.fluid.splat(p.x, p.z, dx, dz, Math.min(.9, len * .7));
+    }
+    this.lastSplat = { sx: ev.clientX, sy: ev.clientY, x: p.x, z: p.z };
+  }
+
   private onPointerMove(ev: PointerEvent): void {
+    this.hoverSplat(ev);
     if (!this.pointers.has(ev.pointerId)) return;
     this.pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (this.pinch && this.pointers.size >= 2) {
@@ -843,7 +891,10 @@ class World {
       return;
     }
     const seaHit = this.ray.intersectObject(this.seaMesh, false);
-    if (seaHit.length) this.addRipple(seaHit[0].point.x, seaHit[0].point.z, 1);
+    if (seaHit.length) {
+      this.addRipple(seaHit[0].point.x, seaHit[0].point.z, 1);
+      this.fluid?.splat(seaHit[0].point.x, seaHit[0].point.z, 0, 0, 1.1);
+    }
   }
 
   revealIslet(): void {
@@ -945,6 +996,11 @@ class World {
     this.updateFireflies(t);
     this.updateShooting(dt);
     if (this.seaMat) this.seaMat.uniforms.uTime.value = t;
+    if (this.fluid) {
+      this.fluid.step(dt);
+      this.seaMat.uniforms.uFluid.value = this.fluid.dyeTex;
+      this.seaMat.uniforms.uFluidVel.value = this.fluid.velTex;
+    }
     this.frameCamera();
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(n => this.loop(n));
