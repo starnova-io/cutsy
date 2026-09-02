@@ -20,8 +20,13 @@ statically.
   pass per second so the loop can be felt in seconds.
 - **Completion** — confetti, `+N Focus Energy`, and the milestone item as a
   gift with PLACE IT.
-- **Shop** — six categories; locked items say "Focus N min to unlock" instead
-  of a padlock.
+- **Shop ("Decorate")** — no e-commerce grid: the live room fills the top
+  half, a small item carousel sits below, and the selected item previews IN
+  the room — furniture as a ghost with a pulsing ring at the spot it would
+  take, wall themes repaint the whole preview, Room Corner previews the
+  bigger floor, and companions appear in the room before you adopt. Buying
+  pops the item into place with a soft chime; Move re-opens grid placement.
+  Locked items say "Focus N min to unlock" instead of a padlock.
 - **Placement** — items snap to the isometric grid, with rotate (mirror) and
   occupancy checks.
 - **Economy** — one currency, 1 focused minute = 1 Focus Energy. Unlock

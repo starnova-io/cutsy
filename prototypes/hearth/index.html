@@ -35,7 +35,7 @@
     margin:0; background:#DFD2D6; color:var(--ink);
     font-family:var(--font-ui); font-size:15px; line-height:1.45;
     display:flex; align-items:center; justify-content:center; min-height:100dvh;
-    overflow:hidden;
+    overflow-x:hidden; overflow-y:auto;
   }
   #phone{
     position:relative; width:min(430px,100vw); height:min(920px,100dvh);
@@ -94,7 +94,7 @@
   #home-title{font-family:var(--font-display); font-weight:500; font-size:16px; color:var(--muted);}
   #world-wrap{flex:1; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; padding:0; overflow:visible;}
   #world{width:117%; max-width:none; flex:none; height:100%; display:block; user-select:none;}
-  #home-cta{padding:0 20px calc(12px + env(safe-area-inset-bottom) + 62px); display:flex; flex-direction:column; gap:9px;}
+  #home-cta{padding:0 20px calc(12px + env(safe-area-inset-bottom) + 84px); display:flex; flex-direction:column; gap:9px;}
   #streak-line{
     display:flex; align-items:center; justify-content:center; gap:5px;
     font-size:13px; font-weight:700; color:var(--muted);
@@ -177,6 +177,38 @@
     cursor:pointer; font-family:var(--font-ui);
   }
   .cat-chip.on{background:var(--ink); border-color:var(--ink); color:var(--cream);}
+  #screen-shop .sheet-head{padding-bottom:6px;}
+  #shop-world-wrap{flex:1; min-height:0; display:flex; align-items:center; justify-content:center; overflow:visible;}
+  #shop-world{width:108%; max-width:none; flex:none; height:100%; display:block;}
+  #strip{display:flex; gap:9px; overflow-x:auto; padding:6px 20px 4px; scrollbar-width:none;}
+  #strip::-webkit-scrollbar{display:none;}
+  .sitem{
+    flex:none; width:94px; background:var(--card); border:2px solid var(--line); border-radius:14px;
+    padding:8px 6px 7px; display:flex; flex-direction:column; align-items:center; gap:1px;
+    cursor:pointer; font-family:var(--font-ui); position:relative; transition:border-color .15s, background .15s;
+  }
+  .sitem svg{width:66px; height:52px;}
+  .sitem span{font-size:10.5px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:84px;}
+  .sitem b{font-size:10.5px; font-weight:800; color:var(--energy);}
+  .sitem.on{border-color:var(--terra); background:var(--terra-soft);}
+  .sitem.dim svg{filter:grayscale(.8) opacity(.6);}
+  .sitem .pb{top:4px; right:7px; font-size:11px;}
+  #shop-action{
+    display:flex; align-items:center; gap:10px;
+    padding:6px 20px calc(8px + env(safe-area-inset-bottom) + 84px);
+  }
+  #sa-info{flex:1; min-width:0;}
+  #sa-name{display:block; font-family:var(--font-display); font-weight:600; font-size:16.5px; line-height:1.2;}
+  #sa-note{font-size:11.5px; font-weight:700; color:var(--muted);}
+  #sa-btns{display:flex; gap:8px; flex:none;}
+  #sa-btns .btn{padding:12px 17px; font-size:14px; font-weight:800;}
+  .buy-main{background:var(--terra); color:#FCF3F7; box-shadow:inset 0 -3px 0 rgba(0,0,0,.14);}
+  .buy-main:disabled{background:#D9CDD3; box-shadow:none; color:#FCFAF9; cursor:default;}
+  .move-btn{background:var(--card); border:1px solid var(--line); color:var(--ink);}
+  .pop-in{transform-box:fill-box; transform-origin:50% 100%; animation:popPlace .55s cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes popPlace{from{transform:scale(.15);} to{transform:scale(1);}}
+  .ghost-glow .ring{animation:ringPulse 1.6s ease-in-out infinite;}
+  @keyframes ringPulse{0%,100%{opacity:.45;} 50%{opacity:1;}}
   #shop-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:2px 20px calc(20px + env(safe-area-inset-bottom) + 66px);}
   .item-card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg);
@@ -470,14 +502,19 @@
     </div>
   </section>
 
-  <!-- SHOP -->
+  <!-- SHOP: preview in the room, not an e-commerce grid -->
   <section class="screen" id="screen-shop">
     <header class="sheet-head">
       <div><h1>Decorate</h1><div class="sheet-sub">Your focus buys it — 1 minute = 1 ✦</div></div>
       <span class="pill"><span class="spark">✦</span><span id="energy-pill-shop">0</span></span>
     </header>
+    <div id="shop-world-wrap"><svg id="shop-world" aria-label="Preview in your room"></svg></div>
     <div id="cats"></div>
-    <div class="scroll"><div id="shop-grid"></div></div>
+    <div id="strip"></div>
+    <div id="shop-action">
+      <div id="sa-info"><b id="sa-name"></b><span id="sa-note"></span></div>
+      <div id="sa-btns"></div>
+    </div>
   </section>
 
   <!-- PLACE -->
@@ -520,7 +557,7 @@
       <div class="card" id="prem-card"></div>
       <p class="foot-note">Prototype — everything stays on this device.<br>
         In the real app, focus sessions silence distracting apps via Screen&nbsp;Time&nbsp;/&nbsp;Focus APIs.</p>
-      <div style="text-align:center; padding-bottom:calc(20px + env(safe-area-inset-bottom) + 66px);">
+      <div style="text-align:center; padding-bottom:calc(20px + env(safe-area-inset-bottom) + 88px);">
         <button id="reset-link">Reset prototype data</button>
       </div>
     </div>
@@ -1087,7 +1124,10 @@ const PETS = {
   cat: { name: "Mochi", line: "Curls up beside your desk while you focus." },
   dog: { name: "Miso",  line: "Naps at your feet while you focus." },
 };
-function petSVG(mode) { return S.pet === "dog" ? dogSVG(mode) : catSVG(mode); }
+function petSVG(mode) {
+  const k = (typeof previewPet !== "undefined" && previewPet) || S.pet;
+  return k === "dog" ? dogSVG(mode) : catSVG(mode);
+}
 
 /* ---------- time of day & daily weather (ambience only — never touches the economy) ---------- */
 const PHASES = {
@@ -1117,7 +1157,7 @@ const THEMES = {
   honey:   { name:"Honey Walls",  wallL:"#F5E8C6", wallR:"#EDDBAE", topL:"#F9EFD4", topR:"#F1E3BC", base:"#C6A566", base2:"#B69556" },
   dusk:    { name:"Dusk Walls",   wallL:"#E8DCE6", wallR:"#DBC9D7", topL:"#F0E7EE", topR:"#E3D5E0", base:"#B294A8", base2:"#A28498" },
 };
-const curTheme = () => THEMES[S.roomTheme] || THEMES.plaster;
+const curTheme = () => THEMES[(typeof previewTheme !== "undefined" && previewTheme) || S.roomTheme] || THEMES.plaster;
 
 function windowScene(uid) {
   const P = PHASES[curPhase()], W = curWeather(), night = curPhase() === "night";
@@ -1175,7 +1215,7 @@ function windowScene(uid) {
 }
 
 function worldSVG(svgEl, opts = {}) {
-  const N = S.roomSize;
+  const N = S.roomSize + ((typeof previewGrow !== "undefined" && previewGrow) ? 1 : 0);
   const minX = -N * TW/2 - 10, w = N * TW + 20;
   const minY = -WALL_H - 28, h = WALL_H + 28 + N * TH + 38;
   svgEl.setAttribute("viewBox", `${minX} ${minY} ${w} ${h}`);
@@ -1243,12 +1283,16 @@ function worldSVG(svgEl, opts = {}) {
       `<g id="pet" transform="translate(${IX(px+.5, py+.5)},${IY(px+.5, py+.5)+dy})">
         ${shadowSvg}<g class="pet-face" transform="scale(${petFace*sc},${sc})"><g class="pet-bob">${petSVG(mode)}</g></g></g>` });
   }
-  /* ghost item while placing */
+  /* ghost item while placing or previewing from the shop */
   if (opts.ghost) {
     const p = opts.ghost;
     const f = itemFootprint(p);
+    const gx = IX(p.x + f.w/2, p.y + f.d/2), gy = IY(p.x + f.w/2, p.y + f.d/2);
     entries.push({ depth: p.x + f.w/2 + p.y + f.d/2 + .01, svg:
-      `<g opacity=".8">${drawAsset(p)}</g>` });
+      `<g class="ghost-glow">
+        <ellipse class="ring" cx="${gx}" cy="${gy}" rx="${(f.w + f.d) * TW/4 * .8}" ry="${(f.w + f.d) * TH/4 * .8}"
+          fill="rgba(156,79,118,.14)" stroke="#9C4F76" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <g opacity=".82">${drawAsset(p)}</g></g>` });
   }
   entries.sort((a, b) => a.depth - b.depth);
   for (const e of entries) s += e.svg;
@@ -1275,6 +1319,7 @@ const screens = ["home","focus","complete","shop","place","profile","paywall"];
 let current = "home";
 function show(name) {
   current = name;
+  if (name !== "shop") { previewTheme = null; previewGrow = false; previewPet = null; }
   for (const n of screens) $("#screen-" + n).classList.toggle("active", n === name);
   const navShown = ["home","shop","profile"].includes(name) || (name === "focus" && !session);
   $("#nav").classList.toggle("hidden", !navShown);
@@ -1742,71 +1787,161 @@ function confetti() {
 }
 
 /* ---------- shop ---------- */
-let shopCat = "all";
+let shopCat = "all", shopSel = null, lastGhost = null;
+let previewTheme = null, previewGrow = false, previewPet = null;
+const selKey = x => x.petKey ? "pet-" + x.petKey : x.id;
+function shopList() {
+  const items = CATALOG.filter(a => shopCat === "all" || a.cat === shopCat)
+                       .filter(a => !(a.special === "grow" && S.roomSize >= 9));
+  const pets = (shopCat === "all" || shopCat === "pets")
+    ? ["cat", "dog"].map(k => ({ petKey: k })) : [];
+  return shopCat === "pets" ? [...pets, ...items] : [...items, ...pets];
+}
+function itemState(a) {
+  if (a.petKey) return S.pet === a.petKey ? "adopted" : "adopt";
+  if (a.special === "theme" && S.themesOwned.includes(a.theme))
+    return S.roomTheme === a.theme ? "themeon" : "themeuse";
+  if (a.premium && !S.premium) return "gated";
+  if (a.unlock > S.totalMin) return "locked";
+  if (S.inventory.includes(a.id)) return "inv";
+  return S.energy >= a.price ? "buy" : "poor";
+}
 function renderShop() {
   $("#energy-pill-shop").textContent = S.energy;
-  $("#cats").innerHTML = CATS.map(c =>
-    `<button class="cat-chip ${c === shopCat ? "on" : ""}" data-cat="${c}">${c[0].toUpperCase() + c.slice(1)}</button>`).join("");
-  document.querySelectorAll(".cat-chip").forEach(b =>
-    b.addEventListener("click", () => { shopCat = b.dataset.cat; renderShop(); }));
+  const list = shopList();
+  if (!shopSel || !list.some(x => selKey(x) === shopSel)) shopSel = list.length ? selKey(list[0]) : null;
+  const sel = list.find(x => selKey(x) === shopSel) || null;
 
-  const items = CATALOG.filter(a => shopCat === "all" || a.cat === shopCat);
-  let html = "";
-  if (!S.premium) {
-    html += `<button class="prem-banner" data-paywall>
-      <span><b>Hearth Premium</b> · new worlds to grow into</span>
-      <span class="chev">›</span></button>`;
-  }
-  if (shopCat === "pets" || shopCat === "all") {
-    for (const k of ["cat", "dog"]) {
-      const active = S.pet === k;
-      html += `<div class="item-card">
-        <svg viewBox="-30 -60 60 68"><g transform="translate(0,4)">${k === "dog" ? dogSVG("idle") : catSVG("idle")}</g></svg>
-        <div class="nm">${PETS[k].name}</div>
-        <div class="pr" style="color:var(--leaf-deep)">${active ? "Your companion" : "Would love a home"}</div>
-        ${active ? `<div class="owned-note">Adopted</div>`
-                 : `<button class="btn place-owned" data-adopt="${k}">Adopt</button>`}
-      </div>`;
-    }
-  }
-  for (const a of items) {
-    if (a.special === "grow" && S.roomSize >= 9) continue;
-    const themeOwned = a.special === "theme" && S.themesOwned.includes(a.theme);
-    const gated = a.premium && !S.premium && !themeOwned;
-    const locked = !gated && !themeOwned && a.unlock > S.totalMin;
-    const owned = S.inventory.includes(a.id);
-    let action;
-    if (themeOwned) action = S.roomTheme === a.theme
-      ? `<div class="owned-note">In use</div>`
-      : `<button class="btn place-owned" data-usetheme="${a.theme}">Use</button>`;
-    else if (gated) action = `<button class="btn see-prem" data-paywall>✦ Premium</button>`;
-    else if (locked) action = `<div class="lock-note">Focus ${a.unlock - S.totalMin} min to unlock</div>`;
-    else if (owned) action = `<button class="btn place-owned" data-place="${a.id}">Place</button>`;
-    else if (S.energy >= a.price) action = `<button class="btn buy" data-buy="${a.id}">${a.special === "grow" ? "Expand" : "Buy"}</button>`;
-    else action = `<button class="btn cant" disabled>Need ✦ ${a.price - S.energy} more</button>`;
-    html += `<div class="item-card ${locked ? "locked" : ""}">
-      ${a.premium ? `<span class="pb" title="Hearth Premium">✦</span>` : ""}
-      <svg data-preview="${a.id}"></svg>
-      <div class="nm">${a.name}</div>
-      <div class="pr"><span>✦</span> ${a.price}</div>
-      ${action}</div>`;
-  }
-  $("#shop-grid").innerHTML = html;
+  /* the selection previews live in the room */
+  previewTheme = sel && sel.special === "theme" ? sel.theme : null;
+  previewGrow  = !!(sel && sel.special === "grow");
+  previewPet   = sel && sel.petKey ? sel.petKey : null;
+
+  $("#cats").innerHTML = CATS.map(c =>
+    `<button class="cat-chip ${c === shopCat ? "on" : ""}" data-cat="${c}">${c[0].toUpperCase() + c.slice(1)}</button>`).join("")
+    + (!S.premium ? `<button class="cat-chip prem-banner" data-paywall>✦ Premium</button>` : "");
+  document.querySelectorAll(".cat-chip[data-cat]").forEach(b =>
+    b.addEventListener("click", () => { shopCat = b.dataset.cat; shopSel = null; renderShop(); }));
+
+  $("#strip").innerHTML = list.map(x => {
+    const k = selKey(x);
+    const st = x.petKey ? null : itemState(x);
+    return `<button class="sitem ${k === shopSel ? "on" : ""} ${st === "locked" ? "dim" : ""}" data-sel="${k}">
+      ${(!x.petKey && x.premium) ? `<span class="pb">✦</span>` : ""}
+      ${x.petKey ? `<svg data-pet-prev="${x.petKey}"></svg>` : `<svg data-preview="${x.id}"></svg>`}
+      <span>${x.petKey ? PETS[x.petKey].name : x.name}</span>
+      <b>${x.petKey ? (S.pet === x.petKey ? "with you" : "a friend") : "✦ " + x.price}</b>
+    </button>`;
+  }).join("");
   document.querySelectorAll("[data-preview]").forEach(svg => previewSVG(svg, svg.dataset.preview));
-  document.querySelectorAll("[data-buy]").forEach(b => b.addEventListener("click", () => buyItem(b.dataset.buy)));
-  document.querySelectorAll("[data-adopt]").forEach(b => b.addEventListener("click", () => {
-    S.pet = b.dataset.adopt; save(); renderShop();
-    toast(`${PETS[S.pet].name} is happy to join you.`);
-  }));
+  document.querySelectorAll("[data-pet-prev]").forEach(svg => {
+    svg.setAttribute("viewBox", "-27 -52 54 58");
+    svg.innerHTML = svg.dataset.petPrev === "dog" ? dogSVG("idle") : catSVG("idle");
+  });
+  document.querySelectorAll("[data-sel]").forEach(b =>
+    b.addEventListener("click", () => { shopSel = b.dataset.sel; renderShop();
+      const el = document.querySelector(`[data-sel="${b.dataset.sel}"]`);
+      if (el) el.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    }));
+
+  renderShopAction(sel);
+  renderShopWorld(sel);
   document.querySelectorAll("[data-paywall]").forEach(b => b.addEventListener("click", () => show("paywall")));
-  document.querySelectorAll("[data-usetheme]").forEach(b => b.addEventListener("click", () => {
-    S.roomTheme = b.dataset.usetheme; save(); renderShop();
-    toast("Fresh coat of paint!");
-  }));
-  document.querySelectorAll("[data-place]").forEach(b => b.addEventListener("click", () => {
+}
+function renderShopAction(sel) {
+  const name = $("#sa-name"), note = $("#sa-note"), btns = $("#sa-btns");
+  if (!sel) { name.textContent = ""; note.textContent = ""; btns.innerHTML = ""; return; }
+  if (sel.petKey) {
+    name.textContent = PETS[sel.petKey].name;
+    note.textContent = PETS[sel.petKey].line;
+    btns.innerHTML = S.pet === sel.petKey
+      ? `<button class="btn buy-main" disabled>Adopted</button>`
+      : `<button class="btn buy-main" data-adopt="${sel.petKey}">Adopt</button>`;
+  } else {
+    const st = itemState(sel);
+    const placedCount = S.placed.filter(p => p.id === sel.id).length;
+    name.textContent = sel.name;
+    note.textContent =
+      st === "gated"   ? "In the premium catalog" :
+      st === "locked"  ? `Focus ${sel.unlock - S.totalMin} more min to unlock` :
+      st === "themeon" ? "On your walls now" :
+      st === "themeuse"? "Yours — tap to repaint" :
+      st === "inv"     ? "Yours — waiting to be placed" :
+      placedCount      ? `In your room ×${placedCount}` :
+      st === "poor"    ? `Save ✦ ${sel.price - S.energy} more` : "Tap buy to bring it home";
+    let b = "";
+    if (st === "gated") b = `<button class="btn see-prem" data-paywall>✦ Premium</button>`;
+    else if (st === "locked") b = `<button class="btn buy-main" disabled>✦ ${sel.price}</button>`;
+    else if (st === "themeon") b = `<button class="btn buy-main" disabled>In use</button>`;
+    else if (st === "themeuse") b = `<button class="btn buy-main" data-usetheme="${sel.theme}">Use</button>`;
+    else if (st === "inv") b = `<button class="btn buy-main" data-place="${sel.id}">Place</button>`;
+    else if (st === "buy") b = `<button class="btn buy-main" data-buy="${sel.id}">${sel.special === "grow" ? "Expand" : sel.special === "theme" ? "Paint" : "Buy"} · ✦ ${sel.price}</button>`;
+    else b = `<button class="btn buy-main" disabled>✦ ${sel.price}</button>`;
+    if (placedCount && !sel.special) b = `<button class="btn move-btn" data-move="${sel.id}">Move</button>` + b;
+    btns.innerHTML = b;
+  }
+  btns.querySelectorAll("[data-buy]").forEach(b => b.addEventListener("click", () => shopBuyPlace(b.dataset.buy)));
+  btns.querySelectorAll("[data-move]").forEach(b => b.addEventListener("click", () => moveItem(b.dataset.move)));
+  btns.querySelectorAll("[data-place]").forEach(b => b.addEventListener("click", () => {
     S.inventory = S.inventory.filter(x => x !== b.dataset.place);
     enterPlace(b.dataset.place);
   }));
+  btns.querySelectorAll("[data-adopt]").forEach(b => b.addEventListener("click", () => {
+    S.pet = b.dataset.adopt; save(); renderShop();
+    toast(`${PETS[S.pet].name} is happy to join you.`);
+  }));
+  btns.querySelectorAll("[data-usetheme]").forEach(b => b.addEventListener("click", () => {
+    S.roomTheme = b.dataset.usetheme; save(); renderShop();
+    toast("Fresh coat of paint!");
+  }));
+}
+function renderShopWorld(sel) {
+  const svg = $("#shop-world");
+  const opts = {};
+  lastGhost = null;
+  if (sel && !sel.petKey && !sel.special) {
+    const spot = firstFreeSpot(sel.id);
+    lastGhost = { id: sel.id, x: spot.x, y: spot.y, rot: 0 };
+    opts.ghost = lastGhost;
+  }
+  worldSVG(svg, opts);
+}
+function plink() {
+  const ctx = audio();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(700, t);
+    o.frequency.exponentialRampToValueAtTime(1120, t + .09);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.05, t + .015);
+    g.gain.exponentialRampToValueAtTime(.0001, t + .35);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + .4);
+  } catch (e) {}
+}
+function shopBuyPlace(id) {
+  const a = byId(id);
+  if (a.special) { buyItem(id); return; }         /* themes & room growth apply instantly */
+  if (S.energy < a.price || !lastGhost) return;
+  S.energy -= a.price;
+  S.placed.push({ ...lastGhost });
+  save();
+  plink();
+  renderShop();
+  const els = document.querySelectorAll(`#shop-world [data-item="${id}"]`);
+  if (els.length) els[els.length - 1].classList.add("pop-in");
+  toast("It's yours!");
+}
+function moveItem(id) {
+  const idx = S.placed.map(p => p.id).lastIndexOf(id);
+  if (idx < 0) return;
+  placing = { ...S.placed.splice(idx, 1)[0] };
+  save();
+  show("place");
+  renderPlace();
 }
 function buyItem(id) {
   const a = byId(id);
@@ -1816,7 +1951,7 @@ function buyItem(id) {
     S.roomSize = Math.min(9, S.roomSize + 1);
     save();
     toast("Your room grew a corner!");
-    show("home");
+    if (current === "shop") { plink(); renderShop(); } else show("home");
     return;
   }
   if (a.special === "theme") {
@@ -1824,7 +1959,7 @@ function buyItem(id) {
     S.roomTheme = a.theme;
     save();
     toast("Fresh coat of paint!");
-    show("home");
+    if (current === "shop") { plink(); renderShop(); } else show("home");
     return;
   }
   save();
