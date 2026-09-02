@@ -41,6 +41,10 @@ npm run dev        # vite dev server
 npm run build      # tsc + vite → dist/index.html (single file)
 ```
 
+The island is a real 3D scene: drag to orbit (and tilt), pinch or scroll to
+zoom, double-tap to reset the camera — quick taps still pet the companion,
+pick up items, and send the companion walking.
+
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
 per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience.
 

@@ -90,6 +90,8 @@ export default function App() {
       worldVisible: () => screenRef.current === "home" || screenRef.current === "shop",
       blocked: () => !!sessionRef.current || !!placingRef.current,
     });
+    const t = window.setTimeout(() => toast("Drag to spin your island · pinch to zoom", 3200), 1200);
+    return () => window.clearTimeout(t);
   }, [startMove]);
 
   /* ---- the focus session engine ---- */

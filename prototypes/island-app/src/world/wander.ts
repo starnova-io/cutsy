@@ -157,3 +157,4 @@ setInterval(() => { if (Math.random() < .65) petStroll(); }, 6000);
 /* test hooks */
 (window as any).petStroll = petStroll;
 (window as any).__petView = petView;
+import("./world3d").then(m => { (window as any).__cameraPose = () => m.world.cameraPose; });

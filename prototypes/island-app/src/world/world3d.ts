@@ -62,6 +62,14 @@ class World {
   private yarnWobble = 0;
   private popQueue: string | null = null;
   private started = false;
+  /* orbit camera: azimuth, elevation, zoom (1 = default framing) */
+  private camTheta = Math.atan2(10, 11.3);
+  private camPhi = Math.asin(8.6 / 15.1);
+  private camZoom = 1;
+  private needProj = true;
+  private pointers = new Map<number, { x: number; y: number }>();
+  private drag: { x: number; y: number; sx: number; sy: number; moved: boolean; t: number } | null = null;
+  private pinch: { d0: number; z0: number } | null = null;
 
   /** the next sync scale-pops the newest item with this id */
   queuePop(id: string): void { this.popQueue = id; }
@@ -87,7 +95,7 @@ class World {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.canvas = this.renderer.domElement;
-    this.canvas.style.cssText = "width:100%;height:100%;display:block;";
+    this.canvas.style.cssText = "width:100%;height:100%;display:block;touch-action:none;";
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
 
@@ -184,7 +192,15 @@ class World {
     this.celestial = cel;
     this.scene.add(cel);
 
-    this.canvas.addEventListener("click", ev => this.onTap(ev));
+    this.canvas.addEventListener("pointerdown", ev => this.onPointerDown(ev));
+    this.canvas.addEventListener("pointermove", ev => this.onPointerMove(ev));
+    this.canvas.addEventListener("pointerup", ev => this.onPointerUp(ev));
+    this.canvas.addEventListener("pointercancel", ev => this.onPointerUp(ev, true));
+    this.canvas.addEventListener("wheel", ev => {
+      ev.preventDefault();
+      this.setZoom(this.camZoom * (ev.deltaY > 0 ? .92 : 1.08));
+    }, { passive: false });
+    this.canvas.addEventListener("dblclick", () => this.resetCamera());
     window.addEventListener("resize", () => this.resize());
     requestAnimationFrame(now => this.loop(now));
   }
@@ -215,7 +231,21 @@ class World {
   setOpts(opts: WorldOpts): void { this.opts = opts; this.sync(); }
 
   private viewHalf(): number {
-    try { return this.cb.getState().bridge ? 6.35 : 5.7; } catch { return 5.7; }
+    let base = 5.7;
+    try { base = this.cb.getState().bridge ? 6.35 : 5.7; } catch { /* pre-init */ }
+    return base / this.camZoom;
+  }
+
+  private setZoom(z: number): void {
+    this.camZoom = Math.min(1.9, Math.max(.55, z));
+    this.needProj = true;
+  }
+
+  resetCamera(): void {
+    this.camTheta = Math.atan2(10, 11.3);
+    this.camPhi = Math.asin(8.6 / 15.1);
+    this.camZoom = 1;
+    this.needProj = true;
   }
 
   resize(): void {
@@ -230,9 +260,14 @@ class World {
   }
 
   private frameCamera(): void {
-    this.resize();
-    const tz = this.cb.getState().bridge ? 0.2 : -1.3;
-    this.camera.position.set(10, 8.6, 10 + tz + 1.3);
+    if (this.needProj) { this.resize(); this.needProj = false; }
+    let tz = -1.3;
+    try { tz = this.cb.getState().bridge ? 0.2 : -1.3; } catch { /* pre-init */ }
+    const R = 15.1;
+    const x = R * Math.cos(this.camPhi) * Math.sin(this.camTheta);
+    const y = R * Math.sin(this.camPhi);
+    const z = R * Math.cos(this.camPhi) * Math.cos(this.camTheta);
+    this.camera.position.set(x, y, tz + z);
     this.camera.lookAt(0, 0, tz);
   }
 
@@ -359,10 +394,56 @@ class World {
     }
   }
 
-  /* ---------- taps ---------- */
+  /* ---------- input: drag = orbit, pinch/wheel = zoom, quick tap = interact ---------- */
+  private onPointerDown(ev: PointerEvent): void {
+    this.canvas.setPointerCapture(ev.pointerId);
+    this.pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (this.pointers.size === 1) {
+      this.drag = { x: ev.clientX, y: ev.clientY, sx: ev.clientX, sy: ev.clientY, moved: false, t: performance.now() };
+      this.pinch = null;
+    } else if (this.pointers.size === 2) {
+      const [a, b] = [...this.pointers.values()];
+      this.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: this.camZoom };
+      this.drag = null;
+    }
+  }
+
+  private onPointerMove(ev: PointerEvent): void {
+    if (!this.pointers.has(ev.pointerId)) return;
+    this.pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (this.pinch && this.pointers.size >= 2) {
+      const [a, b] = [...this.pointers.values()];
+      this.setZoom(this.pinch.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / this.pinch.d0));
+      return;
+    }
+    if (this.drag) {
+      const dx = ev.clientX - this.drag.x, dy = ev.clientY - this.drag.y;
+      this.drag.x = ev.clientX; this.drag.y = ev.clientY;
+      if (Math.hypot(ev.clientX - this.drag.sx, ev.clientY - this.drag.sy) > 7) this.drag.moved = true;
+      if (this.drag.moved) {
+        this.camTheta -= dx * .006;
+        this.camPhi = Math.min(1.15, Math.max(.28, this.camPhi + dy * .004));
+      }
+    }
+  }
+
+  private onPointerUp(ev: PointerEvent, cancelled = false): void {
+    const wasTap = this.drag && !this.drag.moved && performance.now() - this.drag.t < 400 && !cancelled;
+    this.pointers.delete(ev.pointerId);
+    if (this.pointers.size < 2) this.pinch = null;
+    if (this.pointers.size === 0) this.drag = null;
+    if (wasTap) this.tapAt(ev.clientX, ev.clientY);
+  }
+
+  /** camera debug/test hook */
+  get cameraPose(): { theta: number; phi: number; zoom: number } {
+    return { theta: this.camTheta, phi: this.camPhi, zoom: this.camZoom };
+  }
+
   private ray = new THREE.Raycaster();
   private ndc = new THREE.Vector2();
-  private onTap(ev: MouseEvent): void {
+  private tapAt(clientX: number, clientY: number): void {
+    const ev = { clientX, clientY };
     const r = this.canvas.getBoundingClientRect();
     this.ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     this.ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
@@ -462,6 +543,7 @@ class World {
         this.bridgeG.children.forEach(p => (p.position.y = 0));
       }
     }
+    this.frameCamera();
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(n => this.loop(n));
   }
