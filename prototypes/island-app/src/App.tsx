@@ -6,7 +6,7 @@ import { commitPlacement, completeSession, pickUpPlaced } from "./game/actions";
 import { audio, startRain, stopRain } from "./game/audio";
 import { curWeather } from "./game/weather";
 import { world, petView } from "./world/world3d";
-import { initPetPosition, isPetBusy, petGoTo, setWanderCtx } from "./world/wander";
+import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { registerFeedback, toast, ask as askFeedback, confettiBurst, heartAt } from "./ui/feedback";
 import { Nav } from "./components/Nav";
 import { Home } from "./screens/Home";
@@ -33,6 +33,7 @@ export default function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const [payload, setPayload] = useState<CompletePayload | null>(null);
+  const [arrange, setArrange] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
 
@@ -40,6 +41,7 @@ export default function App() {
   const screenRef = useRef(screen); screenRef.current = screen;
   const placingRef = useRef(placing); placingRef.current = placing;
   const sessionRef = useRef(session); sessionRef.current = session;
+  const arrangeRef = useRef(arrange); arrangeRef.current = arrange;
   const demoRef = useRef(demo); demoRef.current = demo;
 
   /* ---- feedback plumbing ---- */
@@ -73,7 +75,8 @@ export default function App() {
         heartAt(cx, cy);
       },
       onTapItem: idx => {
-        if (screenRef.current !== "home" || placingRef.current || isPetBusy()) return;
+        if (screenRef.current !== "home" || placingRef.current) return;
+        setArrange(false);
         startMove(idx);
       },
       onTapTile: (x, y) => {
@@ -82,7 +85,7 @@ export default function App() {
           if (fits(getState(), cand)) setPlacing(p => (p ? { ...p, item: cand } : p));
           return;
         }
-        if (screenRef.current === "home" && !sessionRef.current) petGoTo(x, y);
+        if (screenRef.current === "home" && !sessionRef.current && !arrangeRef.current) petGoTo(x, y);
       },
     });
     initPetPosition();
@@ -207,7 +210,15 @@ export default function App() {
 
   return (
     <div id="phone">
-      {screen === "home" && <Home chosenMin={chosenMin} onFocus={() => setScreen("focus")} />}
+      {screen === "home" && (
+        <Home chosenMin={chosenMin} onFocus={() => setScreen("focus")} arrange={arrange}
+          onToggleArrange={() => {
+            setArrange(a => {
+              if (!a) toast("Arrange mode — tap anything to pick it up");
+              return !a;
+            });
+          }} />
+      )}
       {screen === "focus" && (
         <Focus session={session} chosenMin={chosenMin} demo={demo}
           onPickMin={setChosenMin} onToggleDemo={() => { setDemo(d => !d); toast(demo ? "Demo speed off" : "Demo speed ×60 — a minute passes each second"); }}

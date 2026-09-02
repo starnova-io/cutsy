@@ -11,6 +11,8 @@ export interface WorldOpts {
   ghost?: PlacedItem | null;
   grid?: boolean;
   previewPet?: PetKind | null;
+  /** arrange mode: pulse a ring under every placed item */
+  highlight?: boolean;
 }
 
 export interface WorldCallbacks {
@@ -369,6 +371,18 @@ class World {
     while (this.ghostG.children.length) this.ghostG.remove(this.ghostG.children[0]);
     if (this.opts.ghost) this.ghostG.add(this.makeGhost(this.opts.ghost));
     while (this.gridG.children.length) this.gridG.remove(this.gridG.children[0]);
+    if (this.opts.highlight) {
+      S.placed.forEach(p => {
+        const f = itemFootprint(p);
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(.5 * Math.max(f.w, f.d), .58 * Math.max(f.w, f.d), 26),
+          new THREE.MeshBasicMaterial({ color: 0x9C4F76, transparent: true, opacity: .7, side: THREE.DoubleSide }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(WCX(p.x, f.w), .04, WCZ(p.y, f.d));
+        ring.userData.pulse = (p.x * 3 + p.y) % 6;
+        this.gridG.add(ring);
+      });
+    }
     if (this.opts.grid && this.opts.ghost) {
       for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
         if (!placeOK(S, x, y)) continue;
@@ -433,6 +447,14 @@ class World {
     if (this.pointers.size < 2) this.pinch = null;
     if (this.pointers.size === 0) this.drag = null;
     if (wasTap) this.tapAt(ev.clientX, ev.clientY);
+  }
+
+  /** project a tile center to client coordinates (used by tests) */
+  screenOfTile(x: number, y: number): { x: number; y: number } {
+    const v = new THREE.Vector3(WCX(x), .3, WCZ(y));
+    v.project(this.camera);
+    const r = this.canvas.getBoundingClientRect();
+    return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - (v.y + 1) / 2) * r.height };
   }
 
   /** camera debug/test hook */
@@ -528,6 +550,10 @@ class World {
       } else if (w.userData.yarn) { w.rotation.z = 0; w.position.y = 0; }
     });
     if (this.yarnWobble > 0) this.yarnWobble -= dt;
+    this.gridG.children.forEach(r => {
+      if (r.userData.pulse !== undefined)
+        ((r as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = .4 + .3 * Math.sin(t * 4 + (r.userData.pulse as number));
+    });
     const ghost = this.ghostG.children[0] as THREE.Group | undefined;
     const ring = ghost?.getObjectByName("ring") as THREE.Mesh | undefined;
     if (ring) (ring.material as THREE.MeshBasicMaterial).opacity = .45 + .35 * Math.sin(t * 4);
