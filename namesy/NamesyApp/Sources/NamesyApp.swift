@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct FileFlowApp: App {
+struct NamesyApp: App {
     @State private var model: AppModel
     @State private var entitlements: EntitlementStore
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false

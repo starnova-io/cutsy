@@ -63,7 +63,7 @@ public struct FolderRenamer: Sendable {
                 throw Error.sourceMissing(item.originalName)
             }
             let directory = url.deletingLastPathComponent()
-            let temp = directory.appendingPathComponent(".fileflow-tmp-\(UUID().uuidString)")
+            let temp = directory.appendingPathComponent(".namesy-tmp-\(UUID().uuidString)")
             let destination = directory.appendingPathComponent(item.newName)
             moves.append((url, temp, destination))
         }
@@ -99,7 +99,7 @@ public struct FolderRenamer: Sendable {
             guard fileManager.fileExists(atPath: current.path) else {
                 throw Error.sourceMissing(entry.newName)
             }
-            let temp = directory.appendingPathComponent(".fileflow-tmp-\(UUID().uuidString)")
+            let temp = directory.appendingPathComponent(".namesy-tmp-\(UUID().uuidString)")
             moves.append((current, temp, directory.appendingPathComponent(entry.originalName)))
         }
         for move in moves { try fileManager.moveItem(at: move.from, to: move.temp) }

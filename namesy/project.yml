@@ -1,6 +1,6 @@
 # XcodeGen spec — run `xcodegen generate` in this directory on a Mac,
-# then open FileFlow.xcodeproj.
-name: FileFlow
+# then open Namesy.xcodeproj.
+name: Namesy
 options:
   bundleIdPrefix: io.starnova
   deploymentTarget:
@@ -8,61 +8,61 @@ options:
   createIntermediateGroups: true
 
 packages:
-  FileFlowCore:
-    path: FileFlowCore
+  NamesyCore:
+    path: NamesyCore
 
 targets:
-  FileFlow:
+  Namesy:
     type: application
     platform: iOS
     sources:
-      - FileFlowApp/Sources
+      - NamesyApp/Sources
     dependencies:
-      - package: FileFlowCore
+      - package: NamesyCore
         product: RenameEngine
-      - package: FileFlowCore
+      - package: NamesyCore
         product: FileOps
     info:
-      path: FileFlowApp/Info.plist
+      path: NamesyApp/Info.plist
       properties:
-        CFBundleDisplayName: FileFlow
+        CFBundleDisplayName: Namesy
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         LSSupportsOpeningDocumentsInPlace: true
         UIFileSharingEnabled: true
         NSPhotoLibraryAddUsageDescription: >-
-          FileFlow never modifies your photo library; this permission is not requested.
+          Namesy never modifies your photo library; this permission is not requested.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.starnova.fileflow
+        PRODUCT_BUNDLE_IDENTIFIER: io.starnova.namesy
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: false
 
-  FileFlowUITests:
+  NamesyUITests:
     type: bundle.ui-testing
     platform: iOS
     sources:
-      - FileFlowUITests
+      - NamesyUITests
     dependencies:
-      - target: FileFlow
+      - target: Namesy
     settings:
       base:
-        TEST_TARGET_NAME: FileFlow
+        TEST_TARGET_NAME: Namesy
         SWIFT_VERSION: "6.0"
 
 schemes:
-  FileFlow:
+  Namesy:
     build:
       targets:
-        FileFlow: all
-        FileFlowUITests: [test]
+        Namesy: all
+        NamesyUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - FileFlowUITests
+        - NamesyUITests

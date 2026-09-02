@@ -10,7 +10,7 @@ struct SettingsView: View {
             List {
                 Section {
                     if entitlements.isPro {
-                        Label("FileFlow Pro is active", systemImage: "checkmark.seal.fill")
+                        Label("Namesy Pro is active", systemImage: "checkmark.seal.fill")
                             .foregroundStyle(.tint)
                             .accessibilityIdentifier("proActive")
                     } else {
@@ -43,7 +43,7 @@ struct SettingsView: View {
                 }
 
                 Section("Privacy") {
-                    Text("FileFlow renames files entirely on your device. Nothing is uploaded and there is no account.")
+                    Text("Namesy renames files entirely on your device. Nothing is uploaded and there is no account.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Link("Privacy Policy",

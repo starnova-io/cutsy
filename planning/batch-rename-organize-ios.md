@@ -1,20 +1,24 @@
-# FileFlow — Planning: Batch Rename cho iOS
+# Namesy — Planning: Batch Rename cho iOS
 
-> Tài liệu planning giai đoạn 0 (rev 2): định vị sản phẩm, tên app, pricing, tech stack và định hướng UI/UX.
-> Rev 2 cập nhật theo quyết định của founder: tên FileFlow, freemium + lifetime, định vị "mini automation engine cho filenames", target photographers/creators/devs/students.
+> Tài liệu planning giai đoạn 0 (rev 3): định vị sản phẩm, tên app, pricing, tech stack và định hướng UI/UX.
+> Rev 3 đổi tên app thành **Namesy** sau khi xác nhận FileFlow và các phương án gần đều đã bị chiếm.
 
 ---
 
 ## 1. Tên app
 
-**Lựa chọn của founder: `FileFlow: Batch Rename`** — tagline *"Rename. Organize. Done."* Nghe consumer hơn "Batch Renamer" và mở rộng được về sau.
+**Chốt: `Namesy: Batch Rename`** — tagline *"Rename. Organize. Done."* Cùng họ *-sy* với Cutsy, mô tả đúng hành vi (đặt tên), và là tên duy nhất trong shortlist **không tìm thấy xung đột nào** (App Store, sản phẩm desktop, brand) khi kiểm tra 09/2026.
 
-⚠️ **Cảnh báo trùng tên (kiểm tra 09/2026):** trên App Store đã tồn tại:
-- **FileFlow Local File Manager** (id 6768175929) — đáng lo nhất vì app này **có sẵn tính năng Batch Rename** (prefix/suffix/sequential/rules), tức trùng cả tên lẫn tính năng.
-- **FileFlow** (id 1442948216) — chiếm exact name.
-- **FileFlows** (fileflows.com) — brand tool automation media, có rủi ro trademark/SEO.
+Lịch sử loại trừ (kiểm tra 09/2026), giữ lại để khỏi tra lại:
 
-Hệ quả: "FileFlow: Batch Rename" vẫn submit được (tên đầy đủ khác chuỗi), nhưng cạnh tranh trực tiếp về brand/search với một app cùng tính năng là bất lợi ASO dài hạn. Phương án giữ vibe nếu cần đổi: **RenameFlow**, **Renamely**, **NameFlow**. Nếu muốn ăn keyword thẳng: **Batch Rename — File Renamer**. Quyết định cuối thuộc founder; doc này dùng FileFlow làm working title.
+| Tên | Lý do loại |
+|---|---|
+| FileFlow | **FileFlow Local File Manager** (id 6768175929) trùng cả tên lẫn tính năng batch rename; **FileFlow** (id 1442948216) chiếm exact name; **FileFlows** (fileflows.com) rủi ro trademark |
+| RenameFlow | renameflow.com — desktop renamer cho movie/series/music đang hoạt động |
+| Renamely | Renamely by Toool (toool.fr) — batch file renamer desktop |
+| Sortsy | sortsy.ai — AI tool sort/rename/organize file, trùng ngách trực diện |
+
+Việc còn lại trước khi làm icon/landing: reserve tên trong App Store Connect sớm, và giữ domain `namesy.app` + handle mạng xã hội.
 
 ---
 
@@ -141,7 +145,7 @@ Thứ tự ưu tiên nguồn thu: **(1) Lifetime** — utility "cần một lầ
 | **2.0** | Duplicate finder / EXIF editor / GPX (nếu traction) — kéo lại các ý tưởng từ rev 1 | Mở rộng |
 
 ### Rủi ro cần theo dõi
-- Trùng tên FileFlow (mục 1) — chốt trước khi làm icon/landing.
+- Reserve tên "Namesy" trong App Store Connect + domain namesy.app trước khi làm icon/landing.
 - iCloud Drive file dataless — download-before-rename + báo tiến độ.
 - Batch 500+ ảnh từ PhotosPicker — copy ra temp trước khi xử lý, benchmark sớm.
 - App Review: mô tả rõ mục đích quyền thư mục; không xin quyền Photos toàn thư viện (dùng picker).

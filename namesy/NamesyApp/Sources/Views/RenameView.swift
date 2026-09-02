@@ -26,7 +26,7 @@ struct RenameView: View {
                     livePreviewSection
                 }
             }
-            .navigationTitle("FileFlow")
+            .navigationTitle("Namesy")
             .toolbar { toolbarContent }
             .safeAreaInset(edge: .bottom) { continueBar }
             .fileImporter(
