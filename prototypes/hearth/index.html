@@ -520,11 +520,12 @@
   <!-- PLACE -->
   <section class="screen" id="screen-place">
     <header id="place-head">
-      <h1>Place your new item</h1>
-      <p>Tap a tile to move it</p>
+      <h1 id="place-title">Place your item</h1>
+      <p>Tap a tile to move it — Cancel keeps it safe</p>
     </header>
     <div id="place-world-wrap"><svg id="place-world"></svg></div>
     <div id="place-bar">
+      <button class="btn rot" id="btn-place-cancel">Cancel</button>
       <button class="btn rot" id="btn-rotate">⟳ Rotate</button>
       <button class="btn done" id="btn-place-done">Done</button>
     </div>
@@ -1013,15 +1014,16 @@ function itemFootprint(p) {
   const a = byId(p.id);
   return p.rot ? { w:a.d, d:a.w } : { w:a.w, d:a.d };
 }
-function drawAsset(p) {
+function drawAsset(p, pidx) {
   const a = byId(p.id);
+  const tag = `data-item="${a.id}"${pidx != null ? ` data-pidx="${pidx}" style="cursor:pointer"` : ""}`;
   let inner = DRAW[a.id](a.w, a.d);
   let tf = `translate(${IX(p.x, p.y)},${IY(p.x, p.y)})`;
   if (p.rot) {
     const c1 = IX(a.w/2, a.d/2), c2 = IX(a.d/2, a.w/2);
-    return `<g data-item="${a.id}" transform="${tf}"><g transform="translate(${c2},0) scale(-1,1) translate(${-c1},0)">${inner}</g></g>`;
+    return `<g ${tag} transform="${tf}"><g transform="translate(${c2},0) scale(-1,1) translate(${-c1},0)">${inner}</g></g>`;
   }
-  return `<g data-item="${a.id}" transform="${tf}">${inner}</g>`;
+  return `<g ${tag} transform="${tf}">${inner}</g>`;
 }
 
 function catSVG(mode) {
@@ -1263,11 +1265,11 @@ function worldSVG(svgEl, opts = {}) {
   /* items: flats under everything, rest depth-sorted with the cat */
   const flats = S.placed.filter(p => byId(p.id).flat);
   const solids = S.placed.filter(p => !byId(p.id).flat);
-  for (const p of flats) s += drawAsset(p);
+  for (const p of flats) s += drawAsset(p, S.placed.indexOf(p));
 
   const entries = solids.map(p => {
     const f = itemFootprint(p);
-    return { depth: p.x + f.w/2 + p.y + f.d/2, svg: drawAsset(p) };
+    return { depth: p.x + f.w/2 + p.y + f.d/2, svg: drawAsset(p, S.placed.indexOf(p)) };
   });
   if (!opts.hideCat) {
     /* if a pet bed is placed, the companion naps in it (a tap wakes them);
@@ -1370,6 +1372,13 @@ function renderHome() {
   worldSVG($("#world"));
   const pet = $("#pet");
   if (pet) pet.addEventListener("click", onPetTap);
+  /* tap any placed item to pick it up and move it */
+  document.querySelectorAll("#world [data-pidx]").forEach(g =>
+    g.addEventListener("click", e => {
+      if (placing || petBusy) return;
+      e.stopPropagation();
+      movePlacedAt(+g.dataset.pidx);
+    }));
   /* demo: tap the window to cycle today's weather */
   const win = $("#win");
   if (win) win.addEventListener("click", () => {
@@ -1938,6 +1947,11 @@ function shopBuyPlace(id) {
 function moveItem(id) {
   const idx = S.placed.map(p => p.id).lastIndexOf(id);
   if (idx < 0) return;
+  movePlacedAt(idx);
+}
+function movePlacedAt(idx) {
+  if (!(idx >= 0 && idx < S.placed.length)) return;
+  placeOrigin = { ...S.placed[idx] };
   placing = { ...S.placed.splice(idx, 1)[0] };
   save();
   show("place");
@@ -2005,7 +2019,8 @@ $("#pw-close").addEventListener("click", () => show("shop"));
 $("#pw-later").addEventListener("click", () => show("shop"));
 
 /* ---------- placement ---------- */
-let placing = null; /* {id,x,y,rot} */
+let placing = null;      /* {id,x,y,rot} */
+let placeOrigin = null;  /* set when moving an already-placed item; Cancel restores it */
 function occupied(exceptGhost) {
   const cells = new Set();
   for (const p of S.placed) {
@@ -2043,6 +2058,7 @@ function firstFreeSpot(id) {
 }
 function enterPlace(id) {
   placing = firstFreeSpot(id);
+  placeOrigin = null;
   show("place");
   renderPlace();
 }
@@ -2066,6 +2082,15 @@ $("#btn-rotate").addEventListener("click", () => {
   placing = fits(cand) ? cand : cand;   /* allow rotate; DONE stays gated on fit */
   renderPlace();
 });
+$("#btn-place-cancel").addEventListener("click", () => {
+  if (placing) {
+    if (placeOrigin) S.placed.push(placeOrigin);        /* moving: put it back where it was */
+    else S.inventory.push(placing.id);                  /* new item: keep it, place later from the shop */
+    save();
+  }
+  placing = null; placeOrigin = null;
+  show("home");
+});
 $("#btn-place-done").addEventListener("click", () => {
   if (!placing || !fits(placing)) return;
   /* if the cat sits there, she politely moves */
@@ -2077,7 +2102,7 @@ $("#btn-place-done").addEventListener("click", () => {
     S.cat = { x: spot.x, y: spot.y };
   }
   S.placed.push(placing);
-  placing = null;
+  placing = null; placeOrigin = null;
   save();
   toast("It looks lovely here.");
   show("home");
