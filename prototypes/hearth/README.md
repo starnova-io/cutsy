@@ -9,8 +9,12 @@ statically.
 
 ## What works
 
-- **Home** — the isometric room is the screen: streak, today's minutes, next
-  unlock, and your companion (tap them for a happy hop).
+- **Room themes** — wall colors are purchasable (Sage, Honey, and the
+  premium Dusk); once owned, themes switch freely from the shop's Rooms
+  category. The active theme drives the world renderer's wall palette.
+- **Home** — the isometric room is the screen: the world bleeds past both edges
+  like a diorama viewport, with points on top and one line telling you what
+  your next minutes of focus will unlock.
 - **Focus** — 15/25/50-minute sessions with pause and early-end (early ends
   still bank the minutes — never punish). A `DEMO ×60` toggle makes a minute
   pass per second so the loop can be felt in seconds.

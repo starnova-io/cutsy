@@ -69,8 +69,8 @@
   .btn:active{transform:scale(.965);}
   .btn:focus-visible{outline:3px solid var(--terra); outline-offset:3px;}
   .btn-primary{
-    background:var(--terra); color:#FCF3F7; font-size:18px; letter-spacing:.06em;
-    padding:17px 28px; box-shadow:0 10px 24px rgba(124,61,96,.32), inset 0 -3px 0 rgba(0,0,0,.14);
+    background:var(--terra); color:#FCF3F7; font-size:17px; letter-spacing:.01em;
+    padding:16px 28px; box-shadow:0 10px 24px rgba(124,61,96,.32), inset 0 -3px 0 rgba(0,0,0,.14);
     width:100%;
   }
   .btn-primary:disabled{background:#D8CDBB; box-shadow:none; color:#FFFDF8; cursor:default;}
@@ -86,18 +86,26 @@
     font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
   }
 
-  /* ---------- home ---------- */
-  #home-head{padding:calc(14px + env(safe-area-inset-top)) 20px 0; display:flex; flex-direction:column; gap:8px;}
-  #home-head .row{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
-  #greeting{font-family:var(--font-display); font-weight:600; font-size:27px; line-height:1.1; text-wrap:balance;}
-  #home-pills{display:flex; gap:8px; flex-wrap:wrap;}
-  #world-wrap{flex:1; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; padding:2px 6px;}
-  #world{width:100%; height:100%; display:block; user-select:none;}
-  #home-cta{padding:0 20px calc(14px + env(safe-area-inset-bottom) + 66px); display:flex; flex-direction:column; gap:10px;}
-  #home-meta{display:flex; justify-content:space-between; font-size:13px; font-weight:700; color:var(--muted);}
-  #home-meta b{color:var(--ink);}
-  #unlock-track{height:6px; border-radius:99px; background:var(--cream-deep); overflow:hidden;}
+  /* ---------- home: the room is the hero ---------- */
+  #home-head{padding:calc(12px + env(safe-area-inset-top)) 20px 0; display:flex; flex-direction:column; align-items:center; gap:1px;}
+  #home-energy{display:flex; align-items:baseline; gap:6px;}
+  #home-energy .spark{color:var(--energy); font-size:16px; font-weight:800;}
+  #home-energy b{font-family:var(--font-display); font-weight:700; font-size:24px; font-variant-numeric:tabular-nums;}
+  #home-title{font-family:var(--font-display); font-weight:500; font-size:16px; color:var(--muted);}
+  #world-wrap{flex:1; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; padding:0; overflow:visible;}
+  #world{width:117%; max-width:none; flex:none; height:100%; display:block; user-select:none;}
+  #home-cta{padding:0 20px calc(12px + env(safe-area-inset-bottom) + 62px); display:flex; flex-direction:column; gap:9px;}
+  #streak-line{
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    font-size:13px; font-weight:700; color:var(--muted);
+  }
+  #streak-line svg{width:14px; height:14px;}
+  #streak-line .dot{margin:0 2px; opacity:.6;}
+  #unlock-track{height:5px; border-radius:99px; background:var(--cream-deep); overflow:hidden;}
   #unlock-fill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--gold),var(--terra)); width:0%; transition:width .6s ease;}
+  #next-unlock{text-align:center; font-size:13px; font-weight:700; color:var(--muted);}
+  #next-unlock b{color:var(--ink);}
+  #next-unlock .spark{color:var(--energy);}
 
   /* ---------- focus ---------- */
   #screen-focus{background:linear-gradient(180deg,var(--dusk) 0%, var(--dusk-2) 100%); color:var(--dusk-ink);}
@@ -117,6 +125,8 @@
   #focus-sub{font-size:13.5px; color:var(--dusk-muted); font-weight:600;}
   #focus-scene{width:min(300px,72vw); margin:4px 0;}
   #dur-chips{display:flex; gap:8px; justify-content:center;}
+  #earn-line{font-size:13px; font-weight:600; color:var(--dusk-muted); margin:2px 0;}
+  #earn-line b{color:#F2C14E; font-weight:800;}
   .chip{
     background:rgba(243,234,219,.08); border:1px solid rgba(243,234,219,.18); color:var(--dusk-ink);
     border-radius:999px; padding:9px 17px; font-weight:800; font-size:14px; cursor:pointer;
@@ -151,18 +161,19 @@
   }
   #reward-card svg{width:110px; height:96px;}
   #reward-name{font-family:var(--font-display); font-weight:600; font-size:20px;}
-  #reward-tag{font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--leaf-deep);}
+  #reward-tag{font-size:12.5px; font-weight:700; letter-spacing:.02em; color:var(--leaf-deep);}
   #complete-actions{display:flex; flex-direction:column; gap:4px; width:min(320px,86%); margin-top:16px;}
   @keyframes popIn{from{opacity:0; transform:scale(.7);} to{opacity:1; transform:scale(1);}}
 
   /* ---------- shop ---------- */
   .sheet-head{padding:calc(14px + env(safe-area-inset-top)) 20px 10px; display:flex; align-items:center; justify-content:space-between;}
   .sheet-head h1{font-family:var(--font-display); font-weight:600; font-size:24px; margin:0;}
+  .sheet-sub{font-size:12px; font-weight:700; color:var(--muted); margin-top:1px;}
   #cats{display:flex; gap:7px; overflow-x:auto; padding:2px 20px 12px; scrollbar-width:none;}
   #cats::-webkit-scrollbar{display:none;}
   .cat-chip{
     flex:none; background:var(--card); border:1px solid var(--line); border-radius:999px;
-    padding:8px 15px; font-size:12px; font-weight:800; letter-spacing:.08em; color:var(--muted);
+    padding:8px 15px; font-size:12.5px; font-weight:800; letter-spacing:.02em; color:var(--muted);
     cursor:pointer; font-family:var(--font-ui);
   }
   .cat-chip.on{background:var(--ink); border-color:var(--ink); color:var(--cream);}
@@ -185,29 +196,25 @@
     font-size:11.5px; font-weight:700; color:var(--muted); text-align:center; line-height:1.3; margin-top:7px;
     background:var(--cream-deep); border-radius:var(--r-sm); padding:7px 8px; width:100%;
   }
-  .item-card .owned-note{font-size:11px; font-weight:800; letter-spacing:.1em; color:var(--leaf-deep); text-transform:uppercase; margin-top:8px;}
+  .item-card .owned-note{font-size:12px; font-weight:800; letter-spacing:.02em; color:var(--leaf-deep); margin-top:8px;}
 
-  /* ---------- premium / paywall ---------- */
+  /* ---------- premium / paywall (quiet gold, never shouty) ---------- */
   .item-card{position:relative;}
   .pb{
-    position:absolute; top:10px; right:10px;
-    background:linear-gradient(135deg,#EDBB50,#D99A2B); color:#FFFDF4;
-    font-size:8.5px; font-weight:800; letter-spacing:.1em; padding:3.5px 8px; border-radius:999px;
-    box-shadow:0 2px 6px rgba(160,110,30,.3);
+    position:absolute; top:9px; right:12px;
+    color:#C09545; font-size:13px; font-weight:800;
   }
   .item-card .see-prem{
-    background:linear-gradient(135deg,#EDBB50,#D99A2B); color:#FFFDF4;
-    box-shadow:inset 0 -2px 0 rgba(0,0,0,.12);
+    background:none; border:1.5px solid #E3CE9A; color:#A07A2E; font-weight:800;
   }
   .prem-banner{
-    grid-column:1 / -1; display:flex; align-items:center; gap:12px; text-align:left;
-    background:linear-gradient(115deg,#FBF2DC,#F7E3BC); border:1px solid #EDD9A8;
-    border-radius:var(--r-lg); padding:13px 16px; cursor:pointer; font-family:var(--font-ui);
+    grid-column:1 / -1; display:flex; align-items:center; gap:10px; text-align:left;
+    background:var(--card); border:1px solid #E9DAB4;
+    border-radius:var(--r-md); padding:10px 15px; cursor:pointer; font-family:var(--font-ui);
+    font-size:12.5px; color:var(--muted); font-weight:700;
   }
-  .prem-banner svg{width:26px; height:26px; flex:none;}
-  .prem-banner b{display:block; font-size:14.5px; color:var(--ink); font-family:var(--font-display); font-weight:600;}
-  .prem-banner span{display:block; font-size:12px; color:#A07A2E; font-weight:700;}
-  .prem-banner .chev{margin-left:auto; color:#C09545; font-size:18px; font-weight:800;}
+  .prem-banner b{color:#A07A2E; font-weight:800;}
+  .prem-banner .chev{margin-left:auto; color:#C09545; font-size:16px; font-weight:800;}
 
   #screen-paywall{background:linear-gradient(180deg,#FBF4E4 0%, var(--cream) 46%);}
   #pw-close{
@@ -230,7 +237,7 @@
     padding:12px 6px 10px; cursor:pointer; font-family:var(--font-ui); position:relative;
     display:flex; flex-direction:column; align-items:center; gap:1px; transition:border-color .2s, background .2s;
   }
-  .plan .pl-name{font-size:10.5px; font-weight:800; letter-spacing:.1em; color:var(--muted); text-transform:uppercase;}
+  .plan .pl-name{font-size:11px; font-weight:800; letter-spacing:.02em; color:var(--muted);}
   .plan .pl-price{font-family:var(--font-display); font-weight:700; font-size:19px; color:var(--ink); margin-top:2px;}
   .plan .pl-note{font-size:10.5px; font-weight:700; color:var(--muted);}
   .plan.on{border-color:var(--terra); background:var(--terra-soft);}
@@ -261,10 +268,15 @@
     box-shadow:0 3px 12px rgba(60,45,30,.05); padding:16px 18px; margin:0 20px 12px;
   }
   #screen-profile .card h2{font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 10px;}
-  #week-stats{display:flex; gap:10px;}
-  .stat{flex:1; text-align:center; background:var(--cream); border-radius:var(--r-md); padding:12px 4px;}
-  .stat b{display:block; font-family:var(--font-display); font-size:22px; font-weight:700;}
-  .stat span{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.05em;}
+  #prog-top{display:flex; align-items:baseline; gap:7px;}
+  #prog-top .spark{color:var(--energy); font-size:16px; font-weight:800;}
+  #prog-top b{font-family:var(--font-display); font-weight:700; font-size:26px; font-variant-numeric:tabular-nums;}
+  #prog-top .pts-lbl{font-size:12px; font-weight:700; color:var(--muted);}
+  #level-row{display:flex; align-items:center; gap:12px; margin-top:10px;}
+  #level-lbl{font-size:13px; font-weight:800; color:var(--terra-deep); flex:none;}
+  #level-track{flex:1; height:6px; border-radius:99px; background:var(--cream); overflow:hidden;}
+  #level-fill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--gold),var(--terra)); transition:width .5s;}
+  #week-line{margin-top:11px; font-size:12px; font-weight:700; color:var(--muted);}
   .world-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; font-weight:700; font-size:14px;}
   .world-row + .world-row{border-top:1px dashed var(--line);}
   .world-row span:last-child{color:var(--muted); font-weight:800;}
@@ -277,7 +289,7 @@
   }
   .pet-opt svg{width:64px; height:60px;}
   .pet-opt .pn{font-family:var(--font-display); font-weight:600; font-size:15px; color:var(--ink);}
-  .pet-opt .ps{font-size:10.5px; font-weight:800; letter-spacing:.1em; color:var(--muted); text-transform:uppercase;}
+  .pet-opt .ps{font-size:11px; font-weight:800; letter-spacing:.02em; color:var(--muted);}
   .pet-opt.on{border-color:var(--terra); background:var(--terra-soft);}
   .pet-opt.on .ps{color:var(--terra-deep);}
   .pet-opt:focus-visible{outline:3px solid var(--terra); outline-offset:2px;}
@@ -294,21 +306,14 @@
   #nav.hidden{display:none;}
   #nav button{
     flex:1 1 0; background:none; border:none; cursor:pointer; font-family:var(--font-ui);
-    font-size:11.5px; font-weight:800; letter-spacing:.08em; color:var(--muted);
-    display:flex; align-items:center; justify-content:center; padding:12px 0; border-radius:999px;
-    transition:flex-grow .32s cubic-bezier(.4,0,.2,1), background .25s, color .25s;
-    white-space:nowrap; overflow:hidden;
+    font-size:10.5px; font-weight:700; letter-spacing:.02em; color:var(--muted);
+    display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 0 5px;
+    border-radius:999px; transition:color .2s;
   }
-  #nav button svg{width:22px; height:22px; flex:none;}
-  #nav button .lbl{
-    display:inline-block; max-width:0; opacity:0; margin-left:0;
-    transition:max-width .32s cubic-bezier(.4,0,.2,1), opacity .22s, margin-left .32s;
-  }
-  #nav button.on{
-    flex-grow:2.1; background:var(--terra); color:#FCF3F7;
-    box-shadow:inset 0 -2px 0 rgba(0,0,0,.14), 0 4px 12px rgba(124,61,96,.28);
-  }
-  #nav button.on .lbl{max-width:76px; opacity:1; margin-left:7px;}
+  #nav button svg{width:21px; height:21px; flex:none;}
+  #nav button::after{content:""; width:4px; height:4px; border-radius:99px; background:transparent; transition:background .2s;}
+  #nav button.on{color:var(--terra-deep); font-weight:800;}
+  #nav button.on::after{background:var(--terra);}
   #nav button:focus-visible{outline:3px solid var(--terra); outline-offset:-2px;}
 
   /* small inline icons (pills, rows) */
@@ -402,29 +407,24 @@
   <!-- HOME -->
   <section class="screen active" id="screen-home">
     <header id="home-head">
-      <div class="row">
-        <div id="greeting">Good evening</div>
-        <span class="pill"><span class="spark">✦</span><span id="energy-pill">0</span></span>
-      </div>
-      <div id="home-pills">
-        <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E97845"/><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#E9B145"/></svg><span id="streak-pill">7 day focus streak</span></span>
-        <span class="pill" id="weather-pill"></span>
-      </div>
+      <div id="home-energy"><span class="spark">✦</span><b id="energy-pill">0</b></div>
+      <div id="home-title">My little room</div>
     </header>
     <div id="world-wrap"><svg id="world" role="img" aria-label="Your cozy room"></svg></div>
     <div id="home-cta">
-      <button class="btn btn-primary" id="btn-focus">FOCUS</button>
-      <div id="unlock-track"><div id="unlock-fill"></div></div>
-      <div id="home-meta">
-        <span>Today: <b id="today-min">0 min</b></span>
-        <span id="next-unlock">Next unlock: —</span>
+      <div id="streak-line">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E8913C"/><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#F2C14E"/></svg>
+        <span id="streak-pill">7 day streak</span><span class="dot">·</span><span id="today-min">0 min</span>&nbsp;today
       </div>
+      <button class="btn btn-primary" id="btn-focus">Focus · 25 min</button>
+      <div id="unlock-track"><div id="unlock-fill"></div></div>
+      <div id="next-unlock">Next unlock: —</div>
     </div>
   </section>
 
   <!-- FOCUS -->
   <section class="screen" id="screen-focus">
-    <button id="demo-toggle" title="Speed up time for this prototype">DEMO ×60</button>
+    <button id="demo-toggle" title="Speed up time for this prototype">Demo ×60</button>
     <div id="focus-inner">
       <div id="focus-top">
         <span id="shield"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.8A8.6 8.6 0 0 1 9.2 3.8a8.6 8.6 0 1 0 11 11Z" fill="#A89AA6"/></svg> Distracting apps silenced</span>
@@ -439,8 +439,9 @@
           <button class="chip on" data-min="25">25 min</button>
           <button class="chip" data-min="50">50 min</button>
         </div>
-        <button class="btn btn-primary" id="btn-start">START</button>
-        <button class="btn btn-ghost" id="btn-end" hidden>END SESSION</button>
+        <div id="earn-line">You’ll earn <b>✦ 25</b> when you finish</div>
+        <button class="btn btn-primary" id="btn-start">Start</button>
+        <button class="btn btn-ghost" id="btn-end" hidden>End session</button>
         <button class="btn btn-ghost" id="btn-back-home">Back to your room</button>
       </div>
     </div>
@@ -472,7 +473,7 @@
   <!-- SHOP -->
   <section class="screen" id="screen-shop">
     <header class="sheet-head">
-      <h1>Shop</h1>
+      <div><h1>Decorate</h1><div class="sheet-sub">Your focus buys it — 1 minute = 1 ✦</div></div>
       <span class="pill"><span class="spark">✦</span><span id="energy-pill-shop">0</span></span>
     </header>
     <div id="cats"></div>
@@ -487,8 +488,8 @@
     </header>
     <div id="place-world-wrap"><svg id="place-world"></svg></div>
     <div id="place-bar">
-      <button class="btn rot" id="btn-rotate">⟳ ROTATE</button>
-      <button class="btn done" id="btn-place-done">DONE</button>
+      <button class="btn rot" id="btn-rotate">⟳ Rotate</button>
+      <button class="btn done" id="btn-place-done">Done</button>
     </div>
   </section>
 
@@ -499,12 +500,13 @@
     </header>
     <div class="scroll">
       <div class="card" id="profile">
-        <h2>This week</h2>
-        <div id="week-stats">
-          <div class="stat"><b id="st-min">0</b><span>min focused</span></div>
-          <div class="stat"><b id="st-ses">0</b><span>sessions</span></div>
-          <div class="stat"><b id="st-days">0</b><span>days active</span></div>
+        <h2>Your progress</h2>
+        <div id="prog-top"><span class="spark">✦</span><b id="pts-all">0</b><span class="pts-lbl">earned all-time</span></div>
+        <div id="level-row">
+          <span id="level-lbl">Level 1</span>
+          <div id="level-track"><div id="level-fill"></div></div>
         </div>
+        <div id="week-line"></div>
       </div>
       <div class="card">
         <h2>Your room</h2>
@@ -538,7 +540,7 @@
         <li><svg class="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.2 5.6 6 .5-4.6 4 1.4 5.9L12 16.3l-5 3.2 1.4-5.9-4.6-4 6-.5Z"/></svg>Premium items still cost Focus Energy — money never buys progress</li>
       </ul>
       <div id="pw-plans"></div>
-      <button class="btn btn-primary" id="pw-cta">START MY FREE WEEK</button>
+      <button class="btn btn-primary" id="pw-cta">Start my free week</button>
       <button class="btn btn-ghost" id="pw-later">Not now</button>
       <p class="pw-fine">Prototype — no real purchase happens. In production, billing runs through the App&nbsp;Store (RevenueCat), cancel anytime.</p>
     </div>
@@ -548,16 +550,16 @@
   <nav id="nav" aria-label="Main">
     <button data-nav="home" class="on" aria-label="Home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 11.4 12 4.8l7.8 6.6"/><path d="M6.3 10v8.2a1.9 1.9 0 0 0 1.9 1.9h7.6a1.9 1.9 0 0 0 1.9-1.9V10"/><path d="M10.1 20.1v-4.3a1.9 1.9 0 0 1 3.8 0v4.3"/></svg>
-      <span class="lbl">HOME</span></button>
+      <span class="lbl">Home</span></button>
     <button data-nav="focus" aria-label="Focus">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.4" r="7.1"/><path d="M12 13.4v-3.5"/><path d="M9.9 2.8h4.2"/><path d="M12 2.8v2.5"/><path d="M17.6 8l1.5-1.5"/></svg>
-      <span class="lbl">FOCUS</span></button>
+      <span class="lbl">Focus</span></button>
     <button data-nav="shop" aria-label="Shop">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.7 8.7h12.6l-.85 9.8a2 2 0 0 1-2 1.8H8.55a2 2 0 0 1-2-1.8z"/><path d="M9.1 10.9V6.8a2.9 2.9 0 0 1 5.8 0v4.1"/></svg>
-      <span class="lbl">SHOP</span></button>
+      <span class="lbl">Shop</span></button>
     <button data-nav="profile" aria-label="Profile">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.3" r="4"/><path d="M5.3 20.2c1.4-3.4 3.9-5.1 6.7-5.1s5.3 1.7 6.7 5.1"/></svg>
-      <span class="lbl">PROFILE</span></button>
+      <span class="lbl">You</span></button>
   </nav>
 
   <div id="dlg" role="alertdialog">
@@ -877,6 +879,19 @@ const DRAW = {
       s += `<ellipse cx="${cx+sx}" cy="${cy+sy}" rx="5" ry="3" fill="#B5AC9A"/>`;
     return s;
   },
+  _theme(key) {
+    const T = THEMES[key];
+    let s = poly([pt(0,0,58), pt(0,2,58), pt(0,2,0), pt(0,0,0)], T.wallL)
+          + poly([pt(0,0,58), pt(2,0,58), pt(2,0,0), pt(0,0,0)], T.wallR)
+          + poly([pt(0,0,7), pt(0,2,7), pt(0,2,0), pt(0,0,0)], T.base)
+          + poly([pt(0,0,7), pt(2,0,7), pt(2,0,0), pt(0,0,0)], T.base2);
+    for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++)
+      s += poly([pt(x,y), pt(x+1,y), pt(x+1,y+1), pt(x,y+1)], (x+y)%2 ? "#DFBA88" : "#E7C598", 'stroke="#D3AC78" stroke-width="1"');
+    return s;
+  },
+  sagewalls()  { return DRAW._theme("sage"); },
+  honeywalls() { return DRAW._theme("honey"); },
+  duskwalls()  { return DRAW._theme("dusk"); },
   roomext(w, d) {
     /* preview-only: a floor slab corner */
     return box(0,0,1.6,1.6,10,-10,["#E3C193","#B98F5F","#A37C50"])
@@ -910,6 +925,9 @@ const CATALOG = [
   { id:"yarn",      name:"Yarn Ball",      cat:"pets",      price:40,  unlock:90,  w:1, d:1, ph:24 },
   { id:"catbed",    name:"Pet Bed",        cat:"pets",      price:200, unlock:200, w:1, d:1, ph:28 },
   { id:"roomext",   name:"Room Corner",    cat:"rooms",     price:300, unlock:300, w:0, d:0, ph:44, special:"grow" },
+  { id:"sagewalls", name:"Sage Walls",     cat:"rooms",     price:100, unlock:120, w:2, d:2, ph:66, special:"theme", theme:"sage" },
+  { id:"honeywalls",name:"Honey Walls",    cat:"rooms",     price:120, unlock:180, w:2, d:2, ph:66, special:"theme", theme:"honey" },
+  { id:"duskwalls", name:"Dusk Walls",     cat:"rooms",     price:150, unlock:250, w:2, d:2, ph:66, special:"theme", theme:"dusk", premium:true },
   { id:"grass",     name:"Garden Patch",   cat:"rooms",     price:250, unlock:500, w:2, d:2, ph:34, flat:true },
   /* premium catalog — a subscription opens these, but Focus Energy still buys them */
   { id:"candles",   name:"Candle Trio",    cat:"lighting",  price:90,  unlock:50,  w:1, d:1, ph:42, premium:true },
@@ -938,6 +956,7 @@ function seedState() {
       { id:"floorlamp", x:5, y:0, rot:0 },
     ],
     inventory: [], cat: { x:4, y:2 }, pet: "cat", premium: false,
+    roomTheme: "plaster", themesOwned: ["plaster"],
   };
 }
 function dayStamp(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
@@ -946,6 +965,8 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || seedState(); } catch(e){ S = 
 if (S.lastDay !== dayStamp()) { S.todayMin = 0; S.lastDay = dayStamp(); }
 if (!S.pet) S.pet = "cat";
 if (S.premium === undefined) S.premium = false;
+if (!S.roomTheme) S.roomTheme = "plaster";
+if (!S.themesOwned) S.themesOwned = ["plaster"];
 /* an item is visible to the player's economy if it's free-tier or they subscribed */
 const inTier = a => S.premium || !a.premium;
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
@@ -1089,6 +1110,15 @@ function todayWeather() {
 const curPhase = () => phaseOverride || dayPhase();
 const curWeather = () => weatherOverride || todayWeather();
 
+/* ---------- room themes (wallpaper) — bought in the shop, switch freely once owned ---------- */
+const THEMES = {
+  plaster: { name:"Warm Plaster", wallL:"#F1E7D6", wallR:"#E8DCC6", topL:"#F7EFE0", topR:"#EFE5D2", base:"#C7A171", base2:"#B8935F" },
+  sage:    { name:"Sage Walls",   wallL:"#E3EAD6", wallR:"#D4DFC2", topL:"#ECF1E0", topR:"#DFE7CE", base:"#9FAA80", base2:"#8F9A70" },
+  honey:   { name:"Honey Walls",  wallL:"#F5E8C6", wallR:"#EDDBAE", topL:"#F9EFD4", topR:"#F1E3BC", base:"#C6A566", base2:"#B69556" },
+  dusk:    { name:"Dusk Walls",   wallL:"#E8DCE6", wallR:"#DBC9D7", topL:"#F0E7EE", topR:"#E3D5E0", base:"#B294A8", base2:"#A28498" },
+};
+const curTheme = () => THEMES[S.roomTheme] || THEMES.plaster;
+
 function windowScene(uid) {
   const P = PHASES[curPhase()], W = curWeather(), night = curPhase() === "night";
   let s = `<defs>
@@ -1146,8 +1176,8 @@ function windowScene(uid) {
 
 function worldSVG(svgEl, opts = {}) {
   const N = S.roomSize;
-  const minX = -N * TW/2 - 24, w = N * TW + 48;
-  const minY = -WALL_H - 42, h = WALL_H + 42 + N * TH + 56;
+  const minX = -N * TW/2 - 10, w = N * TW + 20;
+  const minY = -WALL_H - 28, h = WALL_H + 28 + N * TH + 38;
   svgEl.setAttribute("viewBox", `${minX} ${minY} ${w} ${h}`);
   const uid = svgEl.id;
   let s = `<defs><clipPath id="winclip-${uid}"><polygon points="${pt(0,1.25,89)} ${pt(0,2.75,89)} ${pt(0,2.75,46)} ${pt(0,1.25,46)}"/></clipPath></defs>`;
@@ -1164,13 +1194,14 @@ function worldSVG(svgEl, opts = {}) {
     s += poly([pt(x,y), pt(x+1,y), pt(x+1,y+1), pt(x,y+1)], c, 'stroke="#D3AC78" stroke-width="1"');
   }
 
-  /* walls */
-  s += poly([pt(-0.16,0,WALL_H), pt(0,0,WALL_H), pt(0,N,WALL_H), pt(-0.16,N,WALL_H)], "#F7EFE0");  /* top edge L */
-  s += poly([pt(0,-0.16,WALL_H), pt(N,-0.16,WALL_H), pt(N,0,WALL_H), pt(0,0,WALL_H)], "#EFE5D2");  /* top edge R */
-  s += poly([pt(0,0,WALL_H), pt(0,N,WALL_H), pt(0,N,0), pt(0,0,0)], "#F1E7D6");                    /* left wall */
-  s += poly([pt(0,0,WALL_H), pt(N,0,WALL_H), pt(N,0,0), pt(0,0,0)], "#E8DCC6");                    /* right wall */
-  s += poly([pt(0,0,7), pt(0,N,7), pt(0,N,0), pt(0,0,0)], "#C7A171");   /* baseboards */
-  s += poly([pt(0,0,7), pt(N,0,7), pt(N,0,0), pt(0,0,0)], "#B8935F");
+  /* walls (colors come from the active room theme) */
+  const T = curTheme();
+  s += poly([pt(-0.16,0,WALL_H), pt(0,0,WALL_H), pt(0,N,WALL_H), pt(-0.16,N,WALL_H)], T.topL);
+  s += poly([pt(0,-0.16,WALL_H), pt(N,-0.16,WALL_H), pt(N,0,WALL_H), pt(0,0,WALL_H)], T.topR);
+  s += poly([pt(0,0,WALL_H), pt(0,N,WALL_H), pt(0,N,0), pt(0,0,0)], T.wallL);
+  s += poly([pt(0,0,WALL_H), pt(N,0,WALL_H), pt(N,0,0), pt(0,0,0)], T.wallR);
+  s += poly([pt(0,0,7), pt(0,N,7), pt(0,N,0), pt(0,0,0)], T.base);
+  s += poly([pt(0,0,7), pt(N,0,7), pt(N,0,0), pt(0,0,0)], T.base2);
 
   /* window on left wall — sky follows the real clock and today's weather */
   s += windowScene(uid);
@@ -1281,27 +1312,15 @@ function nextUnlockInfo() {
   return { item: nxt, left: nxt.unlock - S.totalMin,
     pct: Math.min(100, Math.round((S.totalMin - prev) / (nxt.unlock - prev) * 100)) };
 }
-const WICON = {
-  sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="#E9B145"/><g stroke="#E9B145" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v2.3M12 18.7V21M3 12h2.3M18.7 12H21M5.7 5.7l1.6 1.6M16.7 16.7l1.6 1.6M18.3 5.7l-1.6 1.6M7.3 16.7l-1.6 1.6"/></g></svg>`,
-  moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.3 8.3 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5Z" fill="#8C857B"/></svg>`,
-  cloud: `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#B9B2A4"><circle cx="9" cy="12.5" r="4"/><circle cx="14.2" cy="11" r="4.8"/><rect x="5.6" y="12.5" width="13.2" height="4.4" rx="2.2"/></g></svg>`,
-  rain: `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#9AA5B5"><circle cx="9" cy="10.5" r="3.6"/><circle cx="13.8" cy="9.2" r="4.2"/><rect x="6" y="10.5" width="12" height="3.8" rx="1.9"/></g><path d="M8.6 17.6l-1 2.6M12.4 17.6l-1 2.6M16.2 17.6l-1 2.6" stroke="#7FA8C9" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>`,
-};
-function weatherPillHTML() {
-  const W = curWeather(), night = curPhase() === "night";
-  if (W === "rain")   return WICON.rain  + "Rainy day";
-  if (W === "cloudy") return WICON.cloud + "Soft clouds";
-  return night ? WICON.moon + "Clear night" : WICON.sun + "Clear skies";
-}
 function renderHome() {
-  const h = new Date().getHours();
-  $("#greeting").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   $("#energy-pill").textContent = S.energy;
-  $("#streak-pill").textContent = S.streak + " day focus streak";
-  $("#weather-pill").innerHTML = weatherPillHTML();
+  $("#streak-pill").textContent = S.streak + " day streak";
   $("#today-min").textContent = S.todayMin + " min";
+  $("#btn-focus").textContent = `Focus · ${chosenMin} min`;
   const nu = nextUnlockInfo();
-  $("#next-unlock").innerHTML = nu ? `Next unlock: <b>${nu.left} min</b>` : "Everything unlocked ✦";
+  $("#next-unlock").innerHTML = nu
+    ? `<b>${nu.left} min</b> of focus until <b>${nu.item.name}</b>`
+    : "Everything unlocked <span class='spark'>✦</span>";
   $("#unlock-fill").style.width = (nu ? nu.pct : 100) + "%";
   worldSVG($("#world"));
   const pet = $("#pet");
@@ -1530,6 +1549,7 @@ document.querySelectorAll("#dur-chips .chip").forEach(c => c.addEventListener("c
   chosenMin = +c.dataset.min;
   document.querySelectorAll("#dur-chips .chip").forEach(x => x.classList.toggle("on", x === c));
   $("#timer").textContent = fmt(chosenMin * 60000);
+  $("#earn-line").innerHTML = `You’ll earn <b>✦ ${chosenMin}</b> when you finish`;
 }));
 $("#demo-toggle").addEventListener("click", () => {
   demoSpeed = demoSpeed === 1 ? 60 : 1;
@@ -1562,6 +1582,8 @@ function renderFocusReady() {
   $("#focus-sub").textContent = focusSubLine();
   $("#shield").style.visibility = "hidden";
   $("#dur-chips").hidden = false;
+  $("#earn-line").hidden = false;
+  $("#earn-line").innerHTML = `You’ll earn <b>✦ ${chosenMin}</b> when you finish`;
   $("#btn-start").hidden = false;
   $("#btn-end").hidden = true;
   $("#btn-back-home").hidden = false;
@@ -1574,8 +1596,9 @@ function startSession() {
   audio();   /* unlock the audio context while we still have a user gesture */
   session = { durMin: chosenMin, remainMs: chosenMin * 60000, lastTick: performance.now(), paused: false };
   $("#dur-chips").hidden = true;
+  $("#earn-line").hidden = true;
   $("#btn-start").hidden = true;
-  $("#btn-start").textContent = "START";
+  $("#btn-start").textContent = "Start";
   $("#btn-end").hidden = false;
   $("#btn-back-home").hidden = true;
   $("#shield").style.visibility = "visible";
@@ -1601,11 +1624,11 @@ function runTimer() {
 }
 /* PAUSE via the primary slot: reuse START button as PAUSE/RESUME */
 $("#btn-start").insertAdjacentHTML("afterend",
-  `<button class="btn btn-primary" id="btn-pause" hidden>PAUSE</button>`);
+  `<button class="btn btn-primary" id="btn-pause" hidden>Pause</button>`);
 const btnPause = $("#btn-pause");
 function syncPauseBtn() {
   btnPause.hidden = !session;
-  if (session) btnPause.textContent = session.paused ? "RESUME" : "PAUSE";
+  if (session) btnPause.textContent = session.paused ? "Resume" : "Pause";
 }
 btnPause.addEventListener("click", () => {
   if (!session) return;
@@ -1621,8 +1644,8 @@ $("#btn-end").addEventListener("click", () => {
   if (!session) return;
   const focusedMin = Math.floor((session.durMin * 60000 - session.remainMs) / 60000);
   if (focusedMin >= 1) {
-    ask(`End the session early? You'll keep ${focusedMin} Focus Energy for the ${focusedMin} min you focused.`,
-      "END SESSION", "Keep going", () => completeSession(focusedMin, false));
+    ask(`End the session early? You'll keep ✦ ${focusedMin} for the ${focusedMin} min you focused.`,
+      "End session", "Keep going", () => completeSession(focusedMin, false));
   } else {
     clearInterval(tickHandle); stopRain(); session = null; syncPauseBtn();
     toast(`No worries — ${PETS[S.pet].name} will wait for you.`);
@@ -1658,8 +1681,8 @@ function completeSession(minutes, full) {
 let rewardItem = null;
 function renderComplete(minutes, full, item) {
   rewardItem = item;
-  $("#complete-min").textContent = minutes + " MIN FOCUSED";
-  $("#complete-energy").textContent = "+" + minutes + " Focus Energy";
+  $("#complete-min").textContent = minutes + " min focused";
+  $("#complete-energy").textContent = "+ ✦ " + minutes;
   $("#complete-grew").textContent = full ? "Your world grew a little." : "Every minute counts.";
   const card = $("#reward-card"), primary = $("#btn-reward-primary"), later = $("#btn-reward-later");
   if (item) {
@@ -1670,13 +1693,20 @@ function renderComplete(minutes, full, item) {
     $("#reward-tag").textContent = "New item unlocked — you earned it";
     primary.disabled = false;
     if (item.special === "grow") {
-      primary.textContent = "ADD IT";
+      primary.textContent = "Add it";
       primary.onclick = () => {
         S.roomSize = Math.min(9, S.roomSize + 1);
         save(); toast("Your room grew a corner!"); show("home");
       };
+    } else if (item.special === "theme") {
+      primary.textContent = "Paint the walls";
+      primary.onclick = () => {
+        if (!S.themesOwned.includes(item.theme)) S.themesOwned.push(item.theme);
+        S.roomTheme = item.theme;
+        save(); toast("Fresh coat of paint!"); show("home");
+      };
     } else {
-      primary.textContent = "PLACE IT";
+      primary.textContent = "Place it";
       primary.onclick = () => enterPlace(item.id);
     }
     later.textContent = "Later";
@@ -1688,7 +1718,7 @@ function renderComplete(minutes, full, item) {
     card.hidden = true;
     const nu = nextUnlockInfo();
     primary.disabled = false;
-    primary.textContent = "BACK TO YOUR ROOM";
+    primary.textContent = "Back to your room";
     primary.onclick = () => show("home");
     later.textContent = nu ? `Next unlock: ${nu.item.name} in ${nu.left} min` : "Everything unlocked ✦";
     later.onclick = () => show("home");
@@ -1716,7 +1746,7 @@ let shopCat = "all";
 function renderShop() {
   $("#energy-pill-shop").textContent = S.energy;
   $("#cats").innerHTML = CATS.map(c =>
-    `<button class="cat-chip ${c === shopCat ? "on" : ""}" data-cat="${c}">${c.toUpperCase()}</button>`).join("");
+    `<button class="cat-chip ${c === shopCat ? "on" : ""}" data-cat="${c}">${c[0].toUpperCase() + c.slice(1)}</button>`).join("");
   document.querySelectorAll(".cat-chip").forEach(b =>
     b.addEventListener("click", () => { shopCat = b.dataset.cat; renderShop(); }));
 
@@ -1724,8 +1754,7 @@ function renderShop() {
   let html = "";
   if (!S.premium) {
     html += `<button class="prem-banner" data-paywall>
-      <svg viewBox="0 0 24 24" fill="none" stroke="#C09545" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.2 5.6 6 .5-4.6 4 1.4 5.9L12 16.3l-5 3.2 1.4-5.9-4.6-4 6-.5Z"/></svg>
-      <span><b>Hearth Premium</b><span>New worlds to grow into</span></span>
+      <span><b>Hearth Premium</b> · new worlds to grow into</span>
       <span class="chev">›</span></button>`;
   }
   if (shopCat === "pets" || shopCat === "all") {
@@ -1736,23 +1765,27 @@ function renderShop() {
         <div class="nm">${PETS[k].name}</div>
         <div class="pr" style="color:var(--leaf-deep)">${active ? "Your companion" : "Would love a home"}</div>
         ${active ? `<div class="owned-note">Adopted</div>`
-                 : `<button class="btn place-owned" data-adopt="${k}">ADOPT</button>`}
+                 : `<button class="btn place-owned" data-adopt="${k}">Adopt</button>`}
       </div>`;
     }
   }
   for (const a of items) {
     if (a.special === "grow" && S.roomSize >= 9) continue;
-    const gated = a.premium && !S.premium;
-    const locked = !gated && a.unlock > S.totalMin;
+    const themeOwned = a.special === "theme" && S.themesOwned.includes(a.theme);
+    const gated = a.premium && !S.premium && !themeOwned;
+    const locked = !gated && !themeOwned && a.unlock > S.totalMin;
     const owned = S.inventory.includes(a.id);
     let action;
-    if (gated) action = `<button class="btn see-prem" data-paywall>PREMIUM</button>`;
+    if (themeOwned) action = S.roomTheme === a.theme
+      ? `<div class="owned-note">In use</div>`
+      : `<button class="btn place-owned" data-usetheme="${a.theme}">Use</button>`;
+    else if (gated) action = `<button class="btn see-prem" data-paywall>✦ Premium</button>`;
     else if (locked) action = `<div class="lock-note">Focus ${a.unlock - S.totalMin} min to unlock</div>`;
-    else if (owned) action = `<button class="btn place-owned" data-place="${a.id}">PLACE</button>`;
-    else if (S.energy >= a.price) action = `<button class="btn buy" data-buy="${a.id}">${a.special === "grow" ? "EXPAND" : "BUY"}</button>`;
+    else if (owned) action = `<button class="btn place-owned" data-place="${a.id}">Place</button>`;
+    else if (S.energy >= a.price) action = `<button class="btn buy" data-buy="${a.id}">${a.special === "grow" ? "Expand" : "Buy"}</button>`;
     else action = `<button class="btn cant" disabled>Need ✦ ${a.price - S.energy} more</button>`;
     html += `<div class="item-card ${locked ? "locked" : ""}">
-      ${a.premium ? `<span class="pb">PREMIUM</span>` : ""}
+      ${a.premium ? `<span class="pb" title="Hearth Premium">✦</span>` : ""}
       <svg data-preview="${a.id}"></svg>
       <div class="nm">${a.name}</div>
       <div class="pr"><span>✦</span> ${a.price}</div>
@@ -1766,6 +1799,10 @@ function renderShop() {
     toast(`${PETS[S.pet].name} is happy to join you.`);
   }));
   document.querySelectorAll("[data-paywall]").forEach(b => b.addEventListener("click", () => show("paywall")));
+  document.querySelectorAll("[data-usetheme]").forEach(b => b.addEventListener("click", () => {
+    S.roomTheme = b.dataset.usetheme; save(); renderShop();
+    toast("Fresh coat of paint!");
+  }));
   document.querySelectorAll("[data-place]").forEach(b => b.addEventListener("click", () => {
     S.inventory = S.inventory.filter(x => x !== b.dataset.place);
     enterPlace(b.dataset.place);
@@ -1782,6 +1819,14 @@ function buyItem(id) {
     show("home");
     return;
   }
+  if (a.special === "theme") {
+    if (!S.themesOwned.includes(a.theme)) S.themesOwned.push(a.theme);
+    S.roomTheme = a.theme;
+    save();
+    toast("Fresh coat of paint!");
+    show("home");
+    return;
+  }
   save();
   enterPlace(id);
 }
@@ -1789,9 +1834,9 @@ function buyItem(id) {
 /* ---------- paywall ----------
    money opens the catalog; Focus Energy still buys every item */
 const PLANS = {
-  monthly:  { name:"Monthly",  price:"$4.99",  note:"per month",                cta:"SUBSCRIBE · $4.99 / MONTH" },
-  yearly:   { name:"Yearly",   price:"$29.99", note:"≈ $2.50 / mo · 7-day trial", cta:"START MY FREE WEEK", badge:"BEST VALUE" },
-  lifetime: { name:"Lifetime", price:"$59.99", note:"one payment, forever",     cta:"OWN IT FOREVER · $59.99" },
+  monthly:  { name:"Monthly",  price:"$4.99",  note:"per month",                cta:"Subscribe · $4.99 / month" },
+  yearly:   { name:"Yearly",   price:"$29.99", note:"≈ $2.50 / mo · 7-day trial", cta:"Start my free week", badge:"Best value" },
+  lifetime: { name:"Lifetime", price:"$59.99", note:"one payment, forever",     cta:"Own it forever · $59.99" },
 };
 let pwPlan = "yearly";
 function renderPaywall() {
@@ -1905,9 +1950,11 @@ $("#btn-place-done").addEventListener("click", () => {
 
 /* ---------- profile ---------- */
 function renderProfile() {
-  $("#st-min").textContent = S.weekMin;
-  $("#st-ses").textContent = S.sessions;
-  $("#st-days").textContent = S.daysActive;
+  $("#pts-all").textContent = S.totalMin;
+  const lvl = 1 + Math.floor(S.totalMin / 100);
+  $("#level-lbl").textContent = "Level " + lvl;
+  $("#level-fill").style.width = (S.totalMin % 100) + "%";
+  $("#week-line").textContent = `This week · ${S.weekMin} min focused · ${S.sessions} sessions · ${S.daysActive} days`;
   $("#streak-pill-2").textContent = S.streak + " day streak";
   const counts = { plants:0, furniture:0, decor:0, lighting:0, pets:0, rooms:0 };
   for (const p of S.placed) counts[byId(p.id).cat]++;
@@ -1942,22 +1989,22 @@ function renderProfile() {
   $("#pet-desc").textContent = PETS[S.pet].line;
   /* membership */
   $("#prem-card").innerHTML = S.premium
-    ? `<h2 style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">Hearth Premium <span class="pb" style="position:static;">MEMBER</span></h2>
+    ? `<h2 style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">Hearth Premium <span class="pb" style="position:static;font-size:11px;">✦ member</span></h2>
        <div style="font-size:12.5px;color:var(--muted);font-weight:600;line-height:1.45;">The whole catalog is open. Thank you for keeping the fire warm.</div>
        <button class="btn btn-ghost" id="prem-cancel" style="padding:10px 0 0;">Cancel membership (demo)</button>`
     : `<h2 style="margin-bottom:6px;">Hearth Premium</h2>
        <div style="font-size:12.5px;color:var(--muted);font-weight:600;line-height:1.45;">Hearths, ponds, palms and new environments — your focus still earns every piece.</div>
-       <button class="btn see-prem" id="prem-see" style="margin-top:11px;width:100%;padding:11px 0;font-size:13px;letter-spacing:.06em;">SEE PREMIUM</button>`;
+       <button class="btn see-prem" id="prem-see" style="margin-top:11px;width:100%;padding:11px 0;font-size:13px;">✦ See Premium</button>`;
   const see = $("#prem-see"), cancel = $("#prem-cancel");
   if (see) see.addEventListener("click", () => show("paywall"));
   if (cancel) cancel.addEventListener("click", () =>
-    ask("End the demo membership? Anything you already placed stays in your room.", "END IT", "Keep it", () => {
+    ask("End the demo membership? Anything you already placed stays in your room.", "End it", "Keep it", () => {
       S.premium = false; save(); renderProfile();
       toast("Membership ended — your room keeps everything you earned.");
     }));
 }
 $("#reset-link").addEventListener("click", () => {
-  ask("Reset the prototype to its starting state?", "RESET", "Cancel", () => {
+  ask("Reset the prototype to its starting state?", "Reset", "Cancel", () => {
     try { localStorage.removeItem(KEY); } catch(e){}
     S = seedState(); save(); show("home");
     toast("Fresh start.");
