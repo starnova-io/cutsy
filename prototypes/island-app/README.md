@@ -71,7 +71,10 @@ ping-pong half-float render targets (advection, divergence, a Jacobi
 pressure solve, gradient subtraction) with a dye field advected along the
 flow. Sweeping a finger or pointer across open water stirs milky swirls
 that drift and dissipate; taps and landing leaves splat into the same
-fluid. Requires WebGL2; the surface shader alone is the fallback.
+fluid. On rainy days the drops pepper the sea with little stirs and the
+odd foam ring, and every so often the companion strolls to the water's
+edge, crouches, and laps at the sea — each lap sends out a small swirl.
+Requires WebGL2; the surface shader alone is the fallback.
 
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
 per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience, and

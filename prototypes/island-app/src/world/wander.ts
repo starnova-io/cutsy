@@ -3,7 +3,7 @@
    resting tile back to the store quietly. */
 import { getState, mutateQuiet } from "../game/store";
 import { occupied } from "../game/economy";
-import { walkOK } from "./island";
+import { walkOK, MASKS, BRIDGE_TILES } from "./island";
 import { world, petView } from "./world3d";
 
 export interface WanderCtx {
@@ -56,6 +56,44 @@ function freeNeighbors(pos: { x: number; y: number }, occ: Set<string>) {
   return out;
 }
 
+/* a reachable tile at the water's edge, plus which side the water is on */
+function pickShore(dist: Map<string, number>) {
+  const isWater = (x: number, y: number) => {
+    const kk = key(x, y);
+    return !MASKS.main.has(kk) && !MASKS.islet.has(kk) && !BRIDGE_TILES.includes(kk);
+  };
+  const shores: { x: number; y: number; nx: number; ny: number }[] = [];
+  for (const [kk, d] of dist) {
+    if (d < 1 || d > 8) continue;
+    const [x, y] = kk.split(",").map(Number);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      if (isWater(x + dx, y + dy)) { shores.push({ x, y, nx: x + dx, ny: y + dy }); break; }
+    }
+  }
+  return shores.length ? shores[Math.floor(Math.random() * shores.length)] : null;
+}
+
+/** stroll to the shore, crouch, and lap at the water (little swirls included) */
+export function petDrinkTrip(): boolean {
+  if (petBusy || ctx.blocked()) return false;
+  const { prev, dist } = floodFrom(curTile());
+  const s = pickShore(dist);
+  if (!s) return false;
+  const path = rebuild(prev, s);
+  petBusy = true;
+  petView.napping = false;
+  world.walkPath(path, () => {
+    mutateQuiet(st => { st.cat = { x: s.x, y: s.y }; });
+    petView.face = Math.atan2(s.nx - s.x, s.ny - s.y);
+    world.petDrink(s.x + (s.nx - s.x) * .8 - 5, s.y + (s.ny - s.y) * .8 - 5.6);
+    setTimeout(() => {
+      petBusy = false;
+      if (getState().placed.find(p => p.id === "petbed")) scheduleBedReturn();
+    }, 3400);
+  });
+  return true;
+}
+
 function curTile() {
   const s = getState();
   const bed = s.placed.find(p => p.id === "petbed");
@@ -89,6 +127,7 @@ export function petStroll(): void {
       };
     }
   }
+  if (!path && Math.random() < .3 && petDrinkTrip()) return;
   if (!path) {
     const cands: { x: number; y: number }[] = [];
     for (const [kk, d] of dist) if (d >= 1 && d <= 6) {
@@ -162,4 +201,5 @@ import("./world3d").then(m => {
   (window as any).__screenOfTile = (x: number, y: number) => m.world.screenOfTile(x, y);
   (window as any).__seasonInfo = () => m.world.seasonInfo;
   (window as any).__autumnInfo = () => m.world.seasonInfo;
+  (window as any).__petDrinkTrip = petDrinkTrip;
 });

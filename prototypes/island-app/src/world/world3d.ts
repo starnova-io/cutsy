@@ -61,7 +61,7 @@ export interface WorldCallbacks {
 
 /* live pet pose, driven by the animation loop */
 export const petView = {
-  x: 6, y: 5, face: 0, mode: "idle" as "idle" | "happy",
+  x: 6, y: 5, face: 0, mode: "idle" as "idle" | "happy" | "drink",
   modeT: 0, napping: false,
   path: null as { x: number; y: number }[] | null,
   seg: 0, prog: 0,
@@ -113,6 +113,8 @@ class World {
   private ripples: { x: number; z: number; t0: number; s: number }[] = [];
   private fluid: FluidSim | null = null;
   private lastSplat: { sx: number; sy: number; x: number; z: number } | null = null;
+  private drinkSpot: { x: number; z: number } | null = null;
+  private drinkTick = 0;
   private firefliesG!: THREE.Group;
   private shootPts!: THREE.Points;
   private shootT = -1;
@@ -732,6 +734,14 @@ class World {
     return true;
   }
 
+  /** the companion crouches at the shore and laps at this water spot */
+  petDrink(x: number, z: number): void {
+    petView.mode = "drink";
+    petView.modeT = 3.2;
+    this.drinkSpot = { x, z };
+    this.drinkTick = .3;
+  }
+
   /** spreading ring on the water at world x/z */
   addRipple(x: number, z: number, s = 1): void {
     if (!this.seaMat) return;
@@ -938,7 +948,25 @@ class World {
         a.setY(i, y);
       }
       a.needsUpdate = true;
+      /* drops pepper the sea with little stirs */
+      if (Math.random() < dt * 6) {
+        const ang = Math.random() * 6.28, rad = 6.2 + Math.random() * 4.5;
+        const rx = Math.cos(ang) * rad, rz = Math.sin(ang) * rad - .6;
+        if (!this.overLand(rx, rz)) {
+          this.fluid?.splat(rx, rz, 0, 0, .2);
+          if (Math.random() < .22) this.addRipple(rx, rz, .22);
+        }
+      }
     }
+    /* lapping at the shore: rhythmic little stirs where the pet drinks */
+    if (petView.mode === "drink" && this.drinkSpot) {
+      this.drinkTick -= dt;
+      if (this.drinkTick <= 0) {
+        this.drinkTick = .8;
+        this.addRipple(this.drinkSpot.x, this.drinkSpot.z, .3);
+        this.fluid?.splat(this.drinkSpot.x, this.drinkSpot.z, 0, 0, .35);
+      }
+    } else this.drinkSpot = null;
     if (this.starPts.visible)
       (this.starPts.material as THREE.PointsMaterial).opacity = .65 + .3 * Math.sin(t * 1.7);
     this.itemsG.children.forEach(w => {
@@ -1038,7 +1066,9 @@ class World {
     const tail = this.petBody.getObjectByName("tail");
     if (tail) tail.rotation.x = Math.sin(t * (walking ? 10 : 3)) * .4;
     const head = this.petBody.getObjectByName("head");
-    if (head) head.rotation.x = pv.napping && !walking ? .35 : 0;
+    if (head) head.rotation.x = pv.mode === "drink" && !walking
+      ? .55 + .1 * Math.sin(t * 5)
+      : pv.napping && !walking ? .35 : 0;
   }
 
   /* ---------- shop thumbnails ---------- */
