@@ -21,16 +21,19 @@ interface PConf {
   gate: number;
   /** share spawned from a real canopy vs drifting in high on the wind */
   treeShare: number;
+  /** leaves and petals come from the island's own trees — none placed, none
+      fall; snow needs no tree */
+  needTrees: boolean;
   /** how many landed particles may rest on the ground, and for how long */
   carpet: number; life: number;
 }
 const PCONF: Partial<Record<Season, PConf>> = {
   autumn: { cap: 340, w: .13, h: .17, cols: C3.fall, vy: .35, vyR: .3, rainVy: .45, sway: .5,
-    want: { clear: 26, cloudy: 40, rain: 10 }, gate: .45, treeShare: .6, carpet: 250, life: 120 },
+    want: { clear: 26, cloudy: 40, rain: 10 }, gate: .45, treeShare: .6, needTrees: true, carpet: 250, life: 120 },
   spring: { cap: 220, w: .11, h: .14, cols: C3.petal, vy: .22, vyR: .18, rainVy: .3, sway: .7,
-    want: { clear: 22, cloudy: 30, rain: 8 }, gate: 0, treeShare: .4, carpet: 130, life: 45 },
+    want: { clear: 22, cloudy: 30, rain: 8 }, gate: 0, treeShare: .4, needTrees: true, carpet: 130, life: 45 },
   winter: { cap: 280, w: .08, h: .08, cols: [0xFFFFFF, 0xF0F6FA, 0xE4EEF4], vy: .3, vyR: .22, rainVy: .3,
-    sway: .35, want: { clear: 38, cloudy: 55, rain: 70 }, gate: 0, treeShare: 0, carpet: 150, life: 25 },
+    sway: .35, want: { clear: 38, cloudy: 55, rain: 70 }, gate: 0, treeShare: 0, needTrees: false, carpet: 150, life: 25 },
 };
 
 interface LeafState {
@@ -653,7 +656,11 @@ class World {
   private updateLeaves(dt: number, t: number): void {
     const cf = this.pconf!;
     const W = curWeather();
-    const want = this.autumnK >= cf.gate ? cf.want[W] : 0;
+    /* the island's own deciduous trees set how much can fall */
+    const most = cf.needTrees
+      ? (this.canopies.length ? Math.min(cf.want[W], 8 + this.canopies.length * 14) : 0)
+      : cf.want[W];
+    const want = this.autumnK >= cf.gate ? most : 0;
     const wind = W === "cloudy" ? .55 : W === "rain" ? .12 : .25;
     let airborne = 0;
     this.leafSt.forEach(s => { if (s.ph === 1) airborne++; });

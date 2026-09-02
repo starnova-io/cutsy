@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type { GameState } from "./types";
 import { dayStamp } from "./weather";
+import { fits } from "./economy";
 
 const KEY = "hearth-island-v1";
 
@@ -13,6 +14,7 @@ function seedState(): GameState {
     lastDay: dayStamp(), bridge: false,
     placed: [
       { id: "house",       x: 4, y: 3, rot: 0 },
+      { id: "oak",         x: 2, y: 3, rot: 0, stage: 2 },
       { id: "pine",        x: 3, y: 6, rot: 0, stage: 2 },
       { id: "flowerpatch", x: 6, y: 6, rot: 0, stage: 2 },
       { id: "bush",        x: 7, y: 2, rot: 0, stage: 1 },
@@ -31,6 +33,13 @@ function load(): GameState {
   if (!s.pet) s.pet = "cat";
   if (s.premium === undefined) s.premium = false;
   if (s.bridge === undefined) s.bridge = false;
+  /* older saves had no deciduous tree, so autumn/spring had nothing to shed —
+     gift an oak (leaves and petals come from the island's own trees now) */
+  if (!s.placed.some(p => p.id === "oak" || p.id === "bush")
+    && !s.inventory.includes("oak") && !s.inventory.includes("bush")) {
+    const oak = { id: "oak", x: 2, y: 3, rot: 0, stage: 2 };
+    if (fits(s, oak)) s.placed.push(oak); else s.inventory.push("oak");
+  }
   return s;
 }
 
