@@ -5,9 +5,10 @@ export const dayStamp = (): string => {
   return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 };
 
-/* URL-hash overrides for demos: #night, #day, #dawn, #rain, #cloud */
+/* URL-hash overrides for demos: #night, #day, #dawn, #rain, #cloud, #autumn, #summer */
 let phaseOverride: Phase | null = null;
 let weatherOverride: Weather | null = null;
+let autumnOverride: boolean | null = null;
 {
   const h = typeof location !== "undefined" ? location.hash : "";
   if (h.includes("night")) phaseOverride = "night";
@@ -15,6 +16,8 @@ let weatherOverride: Weather | null = null;
   else if (h.includes("day")) phaseOverride = "day";
   if (h.includes("rain")) weatherOverride = "rain";
   else if (h.includes("cloud")) weatherOverride = "cloudy";
+  if (h.includes("autumn") || h.includes("fall")) autumnOverride = true;
+  else if (h.includes("summer") || h.includes("green")) autumnOverride = false;
 }
 export const setWeatherOverride = (w: Weather | null) => { weatherOverride = w; };
 
@@ -32,3 +35,10 @@ export function todayWeather(): Weather {
 
 export const curPhase = (): Phase => phaseOverride ?? dayPhase();
 export const curWeather = (): Weather => weatherOverride ?? todayWeather();
+
+/* September–November: deciduous leaves turn and fall. */
+export const isAutumn = (): boolean => {
+  if (autumnOverride !== null) return autumnOverride;
+  const m = new Date().getMonth(); /* 0-based */
+  return m >= 8 && m <= 10;
+};

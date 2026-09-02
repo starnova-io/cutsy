@@ -160,4 +160,5 @@ setInterval(() => { if (Math.random() < .65) petStroll(); }, 6000);
 import("./world3d").then(m => {
   (window as any).__cameraPose = () => m.world.cameraPose;
   (window as any).__screenOfTile = (x: number, y: number) => m.world.screenOfTile(x, y);
+  (window as any).__autumnInfo = () => m.world.autumnInfo;
 });

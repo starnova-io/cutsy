@@ -5,6 +5,9 @@ export const C3 = {
   wood: 0xB07B4F, woodD: 0x8A5A38, woodL: 0xC99763, leafD: 0x55794A, leaf: 0x6F945C, leafL: 0x87AC72,
   stone: 0xA9A192, stoneD: 0x9E9583, cream: 0xF4E7D0, terra: 0xC96A4A, plum: 0x9C4F76,
   gold: 0xDFA23A, flame: 0xE8913C,
+  /* autumn: what deciduous leaves turn into, and the drier grass under them */
+  fall: [0xE3B04B, 0xD98E3F, 0xC96A4A, 0xB0603C],
+  grassFall: [0x9DA766, 0x94A05F, 0xA8B073],
   water: { day: 0x679690, dawn: 0x84A093, dusk: 0x81948B, night: 0x35485A } as Record<Phase, number>,
 };
 

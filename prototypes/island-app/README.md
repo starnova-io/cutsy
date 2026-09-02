@@ -45,8 +45,14 @@ The island is a real 3D scene: drag to orbit (and tilt), pinch or scroll to
 zoom, double-tap to reset the camera — quick taps still pet the companion,
 pick up items, and send the companion walking.
 
+In September–November the island turns autumn: deciduous leaves (oak, bush)
+slowly change from green to gold and rust, then detach and tumble down on the
+wind — more of them on a breezy cloudy day, only a few in the rain — and the
+grass dries to a warmer olive. Pines and palms stay evergreen.
+
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
-per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience.
+per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience, and
+`#autumn` / `#summer` force the season.
 
 ## Economy rules
 

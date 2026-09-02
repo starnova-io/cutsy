@@ -45,8 +45,11 @@ export const B3: Record<string, () => THREE.Group> = {
       cone3(.28, .45, C3.leaf, 0, .98), cone3(.19, .34, C3.leafL, 0, 1.3));
   },
   oak() {
-    return grp3(cyl3(.09, .12, .55, C3.woodD, 0, .27),
-      sph3(.42, C3.leaf, 0, .82, 0, 1, .85, 1), sph3(.3, C3.leafL, .18, 1.05, .1));
+    const c1 = sph3(.42, C3.leaf, 0, .82, 0, 1, .85, 1), c2 = sph3(.3, C3.leafL, .18, 1.05, .1);
+    c1.name = "leaf"; c2.name = "leaf";
+    const g = grp3(cyl3(.09, .12, .55, C3.woodD, 0, .27), c1, c2);
+    g.userData.deciduous = { h: 1.1 };
+    return g;
   },
   palm() {
     const trunk = cyl3(.06, .09, .9, C3.wood, .08, .45, 0);
@@ -63,7 +66,13 @@ export const B3: Record<string, () => THREE.Group> = {
     g.add(sph3(.07, C3.woodD, .13, .86, .05), sph3(.07, C3.woodD, .2, .86, -.04));
     return g;
   },
-  bush() { return grp3(sph3(.3, C3.leaf, 0, .26, 0, 1, .8, 1), sph3(.22, C3.leafL, .16, .34, .1)); },
+  bush() {
+    const c1 = sph3(.3, C3.leaf, 0, .26, 0, 1, .8, 1), c2 = sph3(.22, C3.leafL, .16, .34, .1);
+    c1.name = "leaf"; c2.name = "leaf";
+    const g = grp3(c1, c2);
+    g.userData.deciduous = { h: .45 };
+    return g;
+  },
   flowerpatch() {
     const g = grp3(cyl3(.42, .45, .07, 0x7FA26A, 0, .035, 0, 12));
     const cols = [0xE8837B, 0xDFA23A, 0xF0E0E7, 0xC96A4A];
