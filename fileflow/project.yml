@@ -1,0 +1,68 @@
+# XcodeGen spec — run `xcodegen generate` in this directory on a Mac,
+# then open FileFlow.xcodeproj.
+name: FileFlow
+options:
+  bundleIdPrefix: io.starnova
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  FileFlowCore:
+    path: FileFlowCore
+
+targets:
+  FileFlow:
+    type: application
+    platform: iOS
+    sources:
+      - FileFlowApp/Sources
+    dependencies:
+      - package: FileFlowCore
+        product: RenameEngine
+      - package: FileFlowCore
+        product: FileOps
+    info:
+      path: FileFlowApp/Info.plist
+      properties:
+        CFBundleDisplayName: FileFlow
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        LSSupportsOpeningDocumentsInPlace: true
+        UIFileSharingEnabled: true
+        NSPhotoLibraryAddUsageDescription: >-
+          FileFlow never modifies your photo library; this permission is not requested.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.starnova.fileflow
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: false
+
+  FileFlowUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - FileFlowUITests
+    dependencies:
+      - target: FileFlow
+    settings:
+      base:
+        TEST_TARGET_NAME: FileFlow
+        SWIFT_VERSION: "6.0"
+
+schemes:
+  FileFlow:
+    build:
+      targets:
+        FileFlow: all
+        FileFlowUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - FileFlowUITests

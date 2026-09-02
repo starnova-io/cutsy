@@ -1,0 +1,21 @@
+name: FileFlow core tests
+
+on:
+  push:
+    paths:
+      - "fileflow/FileFlowCore/**"
+      - ".github/workflows/fileflow-core-tests.yml"
+  pull_request:
+    paths:
+      - "fileflow/FileFlowCore/**"
+      - ".github/workflows/fileflow-core-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run FileFlowCore tests
+        working-directory: fileflow/FileFlowCore
+        run: swift test
