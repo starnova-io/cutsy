@@ -76,6 +76,15 @@ export default function App() {
       },
       onTapItem: idx => {
         if (screenRef.current !== "home" || placingRef.current) return;
+        /* in leafy seasons a tree tap shakes leaves loose (move it via arrange mode) */
+        if (!arrangeRef.current) {
+          const id = getState().placed[idx]?.id;
+          const sn = curSeason();
+          const shakeable = sn === "winter"
+            ? id === "oak" || id === "bush" || id === "pine"
+            : (sn === "autumn" || sn === "spring") && (id === "oak" || id === "bush");
+          if (shakeable && world.burstLeaves(idx)) return;
+        }
         setArrange(false);
         startMove(idx);
       },

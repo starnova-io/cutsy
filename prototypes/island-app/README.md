@@ -60,6 +60,12 @@ The real calendar drives four seasons on the island:
   clear nights a bigger moon, denser stars and the odd shooting star.
 
 Weather still modulates each season's particles (calm / breezy / rain).
+Falling particles are one `InstancedMesh` (hundreds of leaves in a single
+draw call); landed ones rest where they fell and build up a carpet before
+slowly recycling. In leafy seasons, tapping an oak or bush (or a snowy
+tree in winter) shakes it and sheds a burst of leaves — move those trees
+via arrange mode. The sea is a small shader: gentle interference waves
+plus expanding ripple rings when you tap the water or a leaf lands on it.
 
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
 per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience, and

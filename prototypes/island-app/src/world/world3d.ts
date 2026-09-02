@@ -7,25 +7,41 @@ import { byId } from "../game/catalog";
 import { itemFootprint } from "../game/economy";
 import type { GameState, PetKind, PlacedItem, Season, Weather } from "../game/types";
 
-/* ambient falling particles per season: autumn leaves, spring petals, snow */
+/* Ambient falling particles per season — autumn leaves, spring petals, snow —
+   drawn as ONE InstancedMesh (physics on the CPU, matrices recomposed per
+   frame, after ceramicSoda's falling-leaves shader pen). Landed particles
+   rest where they fell and build up a carpet until `carpet`/`life` recycle
+   them. */
 interface PConf {
-  n: number; w: number; h: number; cols: number[];
+  cap: number; w: number; h: number; cols: number[];
   vy: number; vyR: number; rainVy: number; sway: number;
-  settle: number; settleR: number;
   want: Record<Weather, number>;
   /** leaves wait for the colour turn; petals and snow start at once */
   gate: number;
   /** share spawned from a real canopy vs drifting in high on the wind */
   treeShare: number;
+  /** how many landed particles may rest on the ground, and for how long */
+  carpet: number; life: number;
 }
 const PCONF: Partial<Record<Season, PConf>> = {
-  autumn: { n: 44, w: .13, h: .17, cols: C3.fall, vy: .35, vyR: .3, rainVy: .45, sway: .5,
-    settle: 2.5, settleR: 3.5, want: { clear: 26, cloudy: 40, rain: 10 }, gate: .45, treeShare: .6 },
-  spring: { n: 40, w: .11, h: .14, cols: C3.petal, vy: .22, vyR: .18, rainVy: .3, sway: .7,
-    settle: 2, settleR: 3, want: { clear: 22, cloudy: 30, rain: 8 }, gate: 0, treeShare: .4 },
-  winter: { n: 70, w: .08, h: .08, cols: [0xFFFFFF, 0xF0F6FA, 0xE4EEF4], vy: .3, vyR: .22, rainVy: .3,
-    sway: .35, settle: 4, settleR: 3, want: { clear: 38, cloudy: 55, rain: 70 }, gate: 0, treeShare: 0 },
+  autumn: { cap: 340, w: .13, h: .17, cols: C3.fall, vy: .35, vyR: .3, rainVy: .45, sway: .5,
+    want: { clear: 26, cloudy: 40, rain: 10 }, gate: .45, treeShare: .6, carpet: 250, life: 120 },
+  spring: { cap: 220, w: .11, h: .14, cols: C3.petal, vy: .22, vyR: .18, rainVy: .3, sway: .7,
+    want: { clear: 22, cloudy: 30, rain: 8 }, gate: 0, treeShare: .4, carpet: 130, life: 45 },
+  winter: { cap: 280, w: .08, h: .08, cols: [0xFFFFFF, 0xF0F6FA, 0xE4EEF4], vy: .3, vyR: .22, rainVy: .3,
+    sway: .35, want: { clear: 38, cloudy: 55, rain: 70 }, gate: 0, treeShare: 0, carpet: 150, life: 25 },
 };
+
+interface LeafState {
+  ph: 0 | 1 | 2 | 3;              /* free, falling, resting, fading */
+  x: number; y: number; z: number;
+  rx: number; ry: number; rz: number;
+  vy: number; vx: number; vz: number;
+  spinX: number; spinZ: number;
+  wph: number; swf: number;
+  age: number; sc: number;
+  water: boolean;
+}
 
 export interface WorldOpts {
   ghost?: PlacedItem | null;
@@ -87,7 +103,13 @@ class World {
   private pconf: PConf | null = null;
   private autumnK = 0;
   private turnDelay = 1.2;
-  private leavesG!: THREE.Group;
+  private leafIM: THREE.InstancedMesh | null = null;
+  private leafSt: LeafState[] = [];
+  private leafFree: number[] = [];
+  private settledQ: number[] = [];
+  private leafDummy = new THREE.Object3D();
+  private seaMat!: THREE.ShaderMaterial;
+  private ripples: { x: number; z: number; t0: number; s: number }[] = [];
   private firefliesG!: THREE.Group;
   private shootPts!: THREE.Points;
   private shootT = -1;
@@ -144,11 +166,45 @@ class World {
     this.glowL = new THREE.PointLight(0xFFB868, 0, 7);
     this.scene.add(this.glowL);
 
-    this.seaMesh = new THREE.Mesh(new THREE.CircleGeometry(30, 40),
-      new THREE.MeshLambertMaterial({ color: C3.water.day }));
+    /* living water: gentle interference waves + expanding tap/landing ripples,
+       colour-only in the fragment shader (after ksenia-k's liquid pens, scaled
+       down to cozy) */
+    this.seaMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(C3.water.day) },
+        uRipples: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -99, 0)) },
+      },
+      vertexShader: `
+        varying vec2 vXZ;
+        void main() {
+          vXZ = vec2(position.x, -position.y);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+        }`,
+      fragmentShader: `
+        uniform float uTime;
+        uniform vec3 uColor;
+        uniform vec4 uRipples[8];
+        varying vec2 vXZ;
+        void main() {
+          float w = sin(vXZ.x * 1.4 + uTime * .7) * sin(vXZ.y * 1.1 - uTime * .55)
+                  + .5 * sin(vXZ.x * 2.3 - uTime * .9) * sin(vXZ.y * 2.7 + uTime * .8);
+          vec3 col = uColor * (1. + w * .045);
+          float foam = 0.;
+          for (int i = 0; i < 8; i++) {
+            vec4 r = uRipples[i];
+            float age = uTime - r.z;
+            if (age < 0. || age > 2.4) continue;
+            float d = distance(vXZ, r.xy);
+            float ring = age * 1.7 + .1;
+            foam += smoothstep(.16, .0, abs(d - ring)) * (1. - age / 2.4) * r.w;
+          }
+          gl_FragColor = vec4(mix(col, vec3(.96, .98, 1.), clamp(foam, 0., 1.) * .65), 1.);
+        }`,
+    });
+    this.seaMesh = new THREE.Mesh(new THREE.CircleGeometry(30, 48), this.seaMat);
     this.seaMesh.rotation.x = -Math.PI / 2;
     this.seaMesh.position.y = -.3;
-    this.seaMesh.receiveShadow = true;
     this.scene.add(this.seaMesh);
     for (let i = 0; i < 3; i++) {
       const w = new THREE.Mesh(new THREE.RingGeometry(5 + i * .5, 5.12 + i * .5, 48),
@@ -221,21 +277,30 @@ class World {
 
     this.season = curSeason();
     this.pconf = PCONF[this.season] ?? null;
-    this.leavesG = new THREE.Group();
     if (this.pconf) {
       const cf = this.pconf;
-      for (let i = 0; i < cf.n; i++) {
-        const leaf = new THREE.Mesh(new THREE.PlaneGeometry(cf.w, cf.h),
-          new THREE.MeshLambertMaterial({
-            color: cf.cols[i % cf.cols.length], side: THREE.DoubleSide,
-            transparent: true, opacity: .95,
-          }));
-        leaf.visible = false;
-        leaf.userData.st = { live: false, settle: 0, vy: 0, rx: 0, rz: 0, ph: 0, swf: 0 };
-        this.leavesG.add(leaf);
+      this.leafIM = new THREE.InstancedMesh(
+        new THREE.PlaneGeometry(cf.w, cf.h),
+        new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }),
+        cf.cap);
+      this.leafIM.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const col = new THREE.Color();
+      const dum = this.leafDummy;
+      dum.position.set(0, -50, 0);
+      dum.scale.setScalar(.0001);
+      dum.updateMatrix();
+      for (let i = 0; i < cf.cap; i++) {
+        this.leafIM.setColorAt(i, col.set(cf.cols[i % cf.cols.length]));
+        this.leafIM.setMatrixAt(i, dum.matrix);
+        this.leafSt.push({
+          ph: 0, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, vy: 0, vx: 0, vz: 0,
+          spinX: 0, spinZ: 0, wph: 0, swf: 0, age: 0, sc: 1, water: false,
+        });
+        this.leafFree.push(i);
       }
+      if (this.leafIM.instanceColor) this.leafIM.instanceColor.needsUpdate = true;
+      this.scene.add(this.leafIM);
     }
-    this.scene.add(this.leavesG);
     MASKS.main.forEach(k => {
       const [x, y] = k.split(",").map(Number);
       if (!isBeach(x, y)) this.grassSpots.push({ x: WCX(x), z: WCZ(y) });
@@ -363,7 +428,7 @@ class World {
     const wintry = this.season === "winter";
     const wc = new THREE.Color(C3.water[curPhase()]);
     if (wintry) wc.lerp(new THREE.Color(C3.ice), .45);
-    (this.seaMesh.material as THREE.MeshLambertMaterial).color.copy(wc);
+    (this.seaMat.uniforms.uColor.value as THREE.Color).copy(wc);
     this.celestial.visible = W !== "rain";
     const cm = this.celestial.material as THREE.MeshLambertMaterial;
     cm.color.set(night ? 0xE8EEF8 : 0xFFE9B0);
@@ -521,51 +586,140 @@ class World {
     });
   }
 
+  /** does a world x/z sit over an island tile (else it's open water)? */
+  private overLand(x: number, z: number): boolean {
+    const k = Math.round(x + 5) + "," + Math.round(z + 5.6);
+    if (MASKS.main.has(k)) return true;
+    try {
+      if (this.cb.getState().bridge && (MASKS.islet.has(k) || BRIDGE_TILES.includes(k))) return true;
+    } catch { /* pre-init */ }
+    return false;
+  }
+
+  private setLeafM(i: number): void {
+    const st = this.leafSt[i], dum = this.leafDummy;
+    dum.position.set(st.x, st.y, st.z);
+    dum.rotation.set(st.rx, st.ry, st.rz);
+    dum.scale.setScalar(Math.max(.0001, st.sc));
+    dum.updateMatrix();
+    this.leafIM!.setMatrixAt(i, dum.matrix);
+  }
+
+  private spawnLeaf(cx: number, cz: number, h: number, r: number, impulse = 0): void {
+    const cf = this.pconf!;
+    const idx = this.leafFree.pop();
+    if (idx === undefined) {
+      /* pool exhausted: fade the oldest resting leaf, spawn again later */
+      const old = this.settledQ.shift();
+      if (old !== undefined && this.leafSt[old].ph === 2) this.leafSt[old].ph = 3;
+      return;
+    }
+    const st = this.leafSt[idx], W = curWeather();
+    st.ph = 1;
+    st.x = cx + (Math.random() - .5) * 2 * r;
+    st.y = h + Math.random() * .3;
+    st.z = cz + (Math.random() - .5) * 2 * r;
+    st.rx = Math.random() * 3; st.ry = Math.random() * 3; st.rz = Math.random() * 3;
+    st.vy = cf.vy + Math.random() * cf.vyR + (W === "rain" ? cf.rainVy : 0);
+    const ia = Math.random() * 6.28;
+    st.vx = Math.cos(ia) * impulse * (.6 + Math.random() * .8);
+    st.vz = Math.sin(ia) * impulse * (.6 + Math.random() * .8);
+    st.spinX = (Math.random() - .5) * 4; st.spinZ = (Math.random() - .5) * 4;
+    st.wph = Math.random() * 6.28; st.swf = 1.2 + Math.random() * 1.4;
+    st.age = 0; st.sc = 1; st.water = false;
+    this.setLeafM(idx);
+  }
+
   private updateLeaves(dt: number, t: number): void {
     const cf = this.pconf!;
     const W = curWeather();
     const want = this.autumnK >= cf.gate ? cf.want[W] : 0;
     const wind = W === "cloudy" ? .55 : W === "rain" ? .12 : .25;
-    let any = false;
-    this.leavesG.children.forEach((leaf, i) => {
-      const st = leaf.userData.st as { live: boolean; settle: number; vy: number; rx: number; rz: number; ph: number; swf: number };
-      const mat = (leaf as THREE.Mesh).material as THREE.MeshLambertMaterial;
-      if (!st.live) {
-        if (i < want && Math.random() < dt * .35) {
-          /* shed from a real canopy, or drift in high on the wind */
-          const c = this.canopies.length && Math.random() < cf.treeShare
-            ? this.canopies[Math.floor(Math.random() * this.canopies.length)]
-            : { ...this.grassSpots[Math.floor(Math.random() * this.grassSpots.length)], h: 2.2 + Math.random() * 1.4, r: .45 };
-          leaf.position.set(c.x + (Math.random() - .5) * 2 * c.r, c.h + Math.random() * .3, c.z + (Math.random() - .5) * 2 * c.r);
-          leaf.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-          st.live = true; st.settle = 0;
-          st.vy = cf.vy + Math.random() * cf.vyR + (W === "rain" ? cf.rainVy : 0);
-          st.rx = (Math.random() - .5) * 4; st.rz = (Math.random() - .5) * 4;
-          st.ph = Math.random() * 6.28; st.swf = 1.2 + Math.random() * 1.4;
-          mat.opacity = .95;
-          leaf.visible = true;
+    let airborne = 0;
+    this.leafSt.forEach(s => { if (s.ph === 1) airborne++; });
+    if (airborne < want && Math.random() < dt * .35 * (want - airborne)) {
+      /* shed from a real canopy, or drift in high on the wind */
+      const c = this.canopies.length && Math.random() < cf.treeShare
+        ? this.canopies[Math.floor(Math.random() * this.canopies.length)]
+        : { ...this.grassSpots[Math.floor(Math.random() * this.grassSpots.length)], h: 2.2 + Math.random() * 1.4, r: .45 };
+      this.spawnLeaf(c.x, c.z, c.h, c.r);
+    }
+    let dirty = false;
+    for (let i = 0; i < this.leafSt.length; i++) {
+      const st = this.leafSt[i];
+      if (st.ph === 0) continue;
+      if (st.ph === 1) {
+        st.y -= st.vy * dt;
+        st.x += (wind + Math.sin(t * st.swf + st.wph) * cf.sway + st.vx) * dt;
+        st.z += (Math.cos(t * .6 + st.wph) * .2 + st.vz) * dt;
+        const dec = Math.pow(.25, dt);
+        st.vx *= dec; st.vz *= dec;
+        st.rx += st.spinX * dt; st.rz += st.spinZ * dt;
+        const floor = this.overLand(st.x, st.z) ? .045 : -.26;
+        if (st.y <= floor) {
+          st.y = floor;
+          st.rx = -Math.PI / 2 + (Math.random() - .5) * .25;
+          st.ry = 0;
+          st.rz = Math.random() * 6.28;
+          st.ph = 2; st.age = 0;
+          if (floor < 0) { st.water = true; this.addRipple(st.x, st.z, .45); }
+          this.settledQ.push(i);
+          while (this.settledQ.length > cf.carpet) {
+            const old = this.settledQ.shift()!;
+            if (this.leafSt[old].ph === 2) this.leafSt[old].ph = 3;
+          }
         }
-        return;
+        this.setLeafM(i); dirty = true;
+      } else if (st.ph === 2) {
+        st.age += dt;
+        if (st.age > (st.water ? 6 : cf.life)) st.ph = 3;
+      } else {
+        st.sc -= dt * 1.6;
+        if (st.sc <= 0) {
+          st.ph = 0; st.sc = 0;
+          this.leafFree.push(i);
+          const dum = this.leafDummy;
+          dum.position.set(0, -50, 0); dum.rotation.set(0, 0, 0); dum.scale.setScalar(.0001);
+          dum.updateMatrix();
+          this.leafIM!.setMatrixAt(i, dum.matrix);
+        } else this.setLeafM(i);
+        dirty = true;
       }
-      any = true;
-      if (st.settle > 0) {
-        st.settle -= dt;
-        mat.opacity = Math.min(.95, st.settle);
-        if (st.settle <= 0) { st.live = false; leaf.visible = false; }
-        return;
-      }
-      leaf.position.y -= st.vy * dt;
-      leaf.position.x += (wind + Math.sin(t * st.swf + st.ph) * cf.sway) * dt;
-      leaf.position.z += Math.cos(t * .6 + st.ph) * .2 * dt;
-      leaf.rotation.x += st.rx * dt;
-      leaf.rotation.z += st.rz * dt;
-      if (leaf.position.y <= .05) {
-        leaf.position.y = .05;
-        leaf.rotation.set(-Math.PI / 2 + (Math.random() - .5) * .25, 0, Math.random() * 6.28);
-        st.settle = cf.settle + Math.random() * cf.settleR;
-      }
+    }
+    if (dirty) this.leafIM!.instanceMatrix.needsUpdate = true;
+  }
+
+  /** tap a tree: shake it, shed a burst of leaves, push nearby airborne ones */
+  burstLeaves(pidx: number): boolean {
+    if (!this.pconf || !this.leafIM) return false;
+    const wrap = this.itemsG.children.find(w => w.userData.pidx === pidx);
+    if (!wrap) return false;
+    const g = wrap.children[0] as THREE.Group | undefined;
+    const dec = g?.userData.deciduous as { h: number } | undefined;
+    const h = (dec?.h ?? 1.2) * wrap.scale.x + .15;
+    const n = 10 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < n; i++)
+      this.spawnLeaf(wrap.position.x, wrap.position.z, h * (.7 + Math.random() * .5), .35 * wrap.scale.x + .1, 1.4);
+    this.leafSt.forEach(st => {
+      if (st.ph !== 1) return;
+      const dx = st.x - wrap.position.x, dz = st.z - wrap.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 1.6 && d > .01) { st.vx += dx / d * 1.2; st.vz += dz / d * 1.2; }
     });
-    this.leavesG.visible = any || want > 0;
+    wrap.userData.shakeT = 1;
+    return true;
+  }
+
+  /** spreading ring on the water at world x/z */
+  addRipple(x: number, z: number, s = 1): void {
+    if (!this.seaMat) return;
+    this.ripples.push({ x, z, t0: this.t, s });
+    if (this.ripples.length > 8) this.ripples.shift();
+    const arr = this.seaMat.uniforms.uRipples.value as THREE.Vector4[];
+    for (let i = 0; i < 8; i++) {
+      const r = this.ripples[i];
+      arr[i].set(r ? r.x : 0, r ? r.z : 0, r ? r.t0 : -99, r ? r.s : 0);
+    }
   }
 
   private updateFireflies(t: number): void {
@@ -599,12 +753,14 @@ class World {
   }
 
   /** test/debug hook */
-  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; fireflies: boolean } {
-    let n = 0;
-    this.leavesG?.children.forEach(l => { if ((l.userData.st as { live: boolean }).live) n++; });
+  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean } {
+    let air = 0, carpet = 0;
+    this.leafSt.forEach(s => { if (s.ph === 1) air++; else if (s.ph === 2) carpet++; });
     return {
       season: this.season, autumn: this.season === "autumn", k: this.autumnK,
-      leaves: n, fireflies: !!this.firefliesG?.visible,
+      leaves: air, carpet,
+      ripples: this.ripples.filter(r => this.t - r.t0 < 2.4).length,
+      fireflies: !!this.firefliesG?.visible,
     };
   }
 
@@ -684,7 +840,10 @@ class World {
     if (tileHit.length) {
       const { x, y } = tileHit[0].object.userData.tile as { x: number; y: number };
       this.cb.onTapTile(x, y);
+      return;
     }
+    const seaHit = this.ray.intersectObject(this.seaMesh, false);
+    if (seaHit.length) this.addRipple(seaHit[0].point.x, seaHit[0].point.z, 1);
   }
 
   revealIslet(): void {
@@ -740,7 +899,13 @@ class World {
         w.scale.setScalar((w.userData.baseScale as number) * Math.max(.15, e));
         if (k >= 1) { w.scale.setScalar(w.userData.baseScale as number); delete w.userData.popT; }
       }
-      if (w.userData.sway !== undefined) w.rotation.z = Math.sin(t * 1.1 + (w.userData.sway as number)) * .025;
+      if ((w.userData.shakeT as number | undefined) !== undefined && (w.userData.shakeT as number) > 0)
+        w.userData.shakeT = Math.max(0, (w.userData.shakeT as number) - dt);
+      const shake = ((w.userData.shakeT as number) || 0) > 0
+        ? Math.sin(t * 26) * .09 * (w.userData.shakeT as number) : 0;
+      if (w.userData.sway !== undefined)
+        w.rotation.z = Math.sin(t * 1.1 + (w.userData.sway as number)) * .025 + shake;
+      else if (shake) w.rotation.z = shake;
       if (w.userData.fire) (w.children[0] as THREE.Group).children.forEach(m => {
         if (m.name === "flame") m.scale.y = 1 + .18 * Math.sin(t * 11 + m.position.x * 9);
       });
@@ -776,9 +941,10 @@ class World {
         this.applyAutumnTint();
       }
     }
-    if (this.pconf) this.updateLeaves(dt, t);
+    if (this.pconf && this.leafIM) this.updateLeaves(dt, t);
     this.updateFireflies(t);
     this.updateShooting(dt);
+    if (this.seaMat) this.seaMat.uniforms.uTime.value = t;
     this.frameCamera();
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(n => this.loop(n));
