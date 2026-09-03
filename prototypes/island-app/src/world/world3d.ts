@@ -397,22 +397,125 @@ class World {
     requestAnimationFrame(now => this.loop(now));
   }
 
+  /* The logical grid stays, but the ground shouldn't read as squares:
+     near-uniform grass with a whisper of per-tile variation, organic
+     scatter (tufts, wildflowers, pebbles, sun patches) breaking the tile
+     rhythm, and rounded sand bumps scalloping the coastline. Decoration
+     lives in a sub-group so tile raycasts (non-recursive) skip it. */
   private buildTiles(mask: Set<string>, into: THREE.Group): void {
+    const sn = curSeason();
+    const rng = (x: number, y: number, k: number) => {
+      const v = Math.sin(x * 127.1 + y * 311.7 + k * 74.7) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    const grassBase = sn === "autumn" ? C3.grassFall[0] : sn === "spring" ? C3.grassSpring[0]
+      : sn === "winter" ? C3.grassWinter[0] : C3.grass[0];
+    const sandBase = sn === "winter" ? C3.sandWinter : C3.sand;
+    const side = new THREE.MeshLambertMaterial({ color: linC(C3.dirt) });
+    const sideD = new THREE.MeshLambertMaterial({ color: linC(C3.dirtD) });
+    /* the coast cliff reads as dune sand, not dark dirt */
+    const sandSide = new THREE.MeshLambertMaterial({ color: linC(sn === "winter" ? 0xCFC7AF : 0xCBB076) });
+    const sandSideD = new THREE.MeshLambertMaterial({ color: linC(sn === "winter" ? 0xC2BAA2 : 0xBFA268) });
+    const bumpMat = new THREE.MeshLambertMaterial({ color: linC(sandBase) });
+    const tuftMat = new THREE.MeshLambertMaterial({
+      color: linC(sn === "winter" ? 0xDDE6E2 : sn === "autumn" ? 0x8A8A50 : 0x6F945C),
+    });
+    const patchMat = new THREE.MeshLambertMaterial({
+      color: new THREE.Color(grassBase).offsetHSL(0, .02, .06).convertSRGBToLinear(),
+      transparent: true, opacity: .5,
+    });
+    const pebbleMat = new THREE.MeshLambertMaterial({ color: linC(C3.stoneD) });
+    const deco = new THREE.Group();
     mask.forEach(k => {
       const [x, y] = k.split(",").map(Number);
-      const sn = curSeason();
-      const grass = sn === "autumn" ? C3.grassFall : sn === "spring" ? C3.grassSpring
-        : sn === "winter" ? C3.grassWinter : C3.grass;
-      const top = isBeach(x, y) ? (sn === "winter" ? C3.sandWinter : C3.sand) : grass[(x * 7 + y * 13) % 3];
-      const side = new THREE.MeshLambertMaterial({ color: linC(C3.dirt) });
-      const sideD = new THREE.MeshLambertMaterial({ color: linC(C3.dirtD) });
-      const mats = [side, sideD, new THREE.MeshLambertMaterial({ color: linC(top) }), sideD, side, sideD];
+      const beach = isBeach(x, y);
+      const top = new THREE.Color(beach ? sandBase : grassBase);
+      top.offsetHSL(0, beach ? 0 : (rng(x, y, 1) - .5) * .015, (rng(x, y, 2) - .5) * (beach ? .025 : .032));
+      const s1 = beach ? sandSide : side, s2 = beach ? sandSideD : sideD;
+      const mats = [s1, s2, new THREE.MeshLambertMaterial({ color: top.convertSRGBToLinear() }), s2, s1, s2];
       const m = new THREE.Mesh(new THREE.BoxGeometry(.999, .9, .999), mats);
       m.position.set(WCX(x), -.45, WCZ(y));
       m.receiveShadow = true;
       m.userData.tile = { x, y };
       into.add(m);
+      const wx = WCX(x), wz = WCZ(y);
+      if (beach) {
+        /* rounded sand bumps soften the square coastline */
+        ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).forEach(([dx, dy], di) => {
+          if (mask.has((x + dx) + "," + (y + dy))) return;
+          const b = new THREE.Mesh(new THREE.SphereGeometry(.55, 10, 8), bumpMat);
+          const along = 1.3 + rng(x, y, 10 + di) * .35;
+          b.scale.set(dx ? .95 : along, .55, dx ? along : .95);
+          b.position.set(wx + dx * .5, -.28, wz + dy * .5);
+          b.receiveShadow = true;
+          deco.add(b);
+        });
+        ([[1, 1], [1, -1], [-1, 1], [-1, -1]] as const).forEach(([dx, dy], di) => {
+          if (mask.has((x + dx) + "," + y) || mask.has(x + "," + (y + dy))) return;
+          const b = new THREE.Mesh(new THREE.SphereGeometry(.5, 10, 8), bumpMat);
+          b.scale.set(.95 + rng(x, y, 20 + di) * .2, .55, .95 + rng(x, y, 24 + di) * .2);
+          b.position.set(wx + dx * .45, -.28, wz + dy * .45);
+          b.receiveShadow = true;
+          deco.add(b);
+        });
+        if (rng(x, y, 4) < .14) {
+          const p = new THREE.Mesh(new THREE.SphereGeometry(.045, 7, 6), pebbleMat);
+          p.position.set(wx + (rng(x, y, 5) - .5) * .5, .01, wz + (rng(x, y, 6) - .5) * .5);
+          p.scale.y = .6;
+          deco.add(p);
+        }
+        return;
+      }
+      const r = rng(x, y, 3);
+      const ox = (rng(x, y, 5) - .5) * .55, oz = (rng(x, y, 6) - .5) * .55;
+      if (sn === "winter") {
+        if (r < .26) {
+          const lump = new THREE.Mesh(new THREE.SphereGeometry(.1, 8, 6),
+            new THREE.MeshLambertMaterial({ color: linC(C3.snow) }));
+          lump.position.set(wx + ox, .02, wz + oz);
+          lump.scale.y = .5;
+          deco.add(lump);
+        }
+        return;
+      }
+      if (r < .25) {
+        for (let i = 0; i < 3; i++) {
+          const c = new THREE.Mesh(new THREE.ConeGeometry(.025, .15, 5), tuftMat);
+          c.position.set(wx + ox + (rng(x, y, 7 + i) - .5) * .09, .07, wz + oz + (rng(x, y, 11 + i) - .5) * .09);
+          c.rotation.z = (rng(x, y, 15 + i) - .5) * .5;
+          deco.add(c);
+        }
+      } else if (r < .38) {
+        const patch = new THREE.Mesh(new THREE.CircleGeometry(.2 + rng(x, y, 8) * .14, 10), patchMat);
+        patch.rotation.x = -Math.PI / 2;
+        patch.position.set(wx + ox, .012, wz + oz);
+        deco.add(patch);
+      } else if (r < .48 && sn !== "autumn") {
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(.008, .008, .09, 5),
+          new THREE.MeshLambertMaterial({ color: linC(0x5A7D4A) }));
+        stem.position.set(wx + ox, .045, wz + oz);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(.032, 7, 6),
+          new THREE.MeshLambertMaterial({ color: linC(rng(x, y, 9) < .5 ? 0xF0E7EE : C3.gold) }));
+        head.position.set(wx + ox, .1, wz + oz);
+        deco.add(stem, head);
+      } else if (r < .48) {
+        /* autumn: a little mushroom instead of flowers */
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(.02, .025, .06, 6),
+          new THREE.MeshLambertMaterial({ color: linC(C3.cream) }));
+        stem.position.set(wx + ox, .03, wz + oz);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 6),
+          new THREE.MeshLambertMaterial({ color: linC(C3.terra) }));
+        cap.position.set(wx + ox, .065, wz + oz);
+        cap.scale.y = .6;
+        deco.add(stem, cap);
+      } else if (r < .54) {
+        const p = new THREE.Mesh(new THREE.SphereGeometry(.04, 7, 6), pebbleMat);
+        p.position.set(wx + ox, .015, wz + oz);
+        p.scale.set(1, .55, .8);
+        deco.add(p);
+      }
     });
+    into.add(deco);
   }
 
   mount(wrap: HTMLElement, opts: WorldOpts = {}): void {
