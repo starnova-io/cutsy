@@ -149,7 +149,7 @@ Thứ tự ưu tiên nguồn thu: **(1) Lifetime** — utility "cần một lầ
 | **2.0** | Duplicate finder / EXIF editor / GPX (nếu traction) — kéo lại các ý tưởng từ rev 1 | Mở rộng |
 
 ### Rủi ro cần theo dõi
-- Reserve tên "Namesy" trong App Store Connect + domain namesy.app trước khi làm icon/landing.
+- Reserve tên "Onym" trong App Store Connect + domain onym.app trước khi làm icon/landing.
 - iCloud Drive file dataless — download-before-rename + báo tiến độ.
 - Batch 500+ ảnh từ PhotosPicker — copy ra temp trước khi xử lý, benchmark sớm.
 - App Review: mô tả rõ mục đích quyền thư mục; không xin quyền Photos toàn thư viện (dùng picker).
