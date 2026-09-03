@@ -129,7 +129,11 @@ final class AppModel {
             defer { if accessing { root.stopAccessingSecurityScopedResource() } }
             let plan = try renamer.makePlan(pipeline: pipeline, urls: files)
             let total = max(plan.changedCount, 1)
+            // Update at most ~100 times per batch — one hop to the main
+            // actor per file would flood it on large folders.
+            let stride = max(total / 100, 1)
             let journal = try renamer.apply(plan: plan, urls: files) { done, _ in
+                guard done % stride == 0 || done == total else { return }
                 Task { @MainActor in self.applyProgress = Double(done) / Double(total) }
             }
             undoJournal = journal

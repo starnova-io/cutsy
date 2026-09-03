@@ -51,11 +51,8 @@ public enum TokenTemplate {
                 ? digits
                 : String(repeating: "0", count: padding - digits.count) + digits
         case "date":
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = .current
-            formatter.dateFormat = argument ?? "yyyy-MM-dd"
-            return formatter.string(from: context.effectiveDate ?? Date())
+            return cachedFormatter(for: argument ?? "yyyy-MM-dd")
+                .string(from: context.effectiveDate ?? Date())
         case "model":
             return context.cameraModel ?? ""
         case "ext":
@@ -63,5 +60,24 @@ public enum TokenTemplate {
         default:
             return "{\(token)}"
         }
+    }
+
+    // DateFormatter construction costs milliseconds; a big batch renders
+    // {date} once per file, so formatters are cached per format string.
+    // Formatting (not mutating) a DateFormatter is thread-safe; the lock
+    // only guards the dictionary.
+    private static let cacheLock = NSLock()
+    nonisolated(unsafe) private static var formatterCache: [String: DateFormatter] = [:]
+
+    private static func cachedFormatter(for format: String) -> DateFormatter {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        if let cached = formatterCache[format] { return cached }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = format
+        formatterCache[format] = formatter
+        return formatter
     }
 }
