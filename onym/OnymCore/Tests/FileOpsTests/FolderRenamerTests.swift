@@ -11,7 +11,7 @@ struct FolderRenamerTests {
 
     func makeSandbox(files: [String]) throws -> URL {
         let dir = fm.temporaryDirectory
-            .appendingPathComponent("namesy-tests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("onym-tests-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         for name in files {
             fm.createFile(atPath: dir.appendingPathComponent(name).path,

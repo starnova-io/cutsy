@@ -1,13 +1,13 @@
-# Namesy — Planning: Batch Rename cho iOS
+# Onym — Planning: Batch Rename cho iOS
 
-> Tài liệu planning giai đoạn 0 (rev 3): định vị sản phẩm, tên app, pricing, tech stack và định hướng UI/UX.
-> Rev 3 đổi tên app thành **Namesy** sau khi xác nhận FileFlow và các phương án gần đều đã bị chiếm.
+> Tài liệu planning giai đoạn 0 (rev 4): định vị sản phẩm, tên app, pricing, tech stack và định hướng UI/UX.
+> Rev 4 chốt tên app là **Onym** theo lựa chọn của founder.
 
 ---
 
 ## 1. Tên app
 
-**Chốt: `Namesy: Batch Rename`** — tagline *"Rename. Organize. Done."* Cùng họ *-sy* với Cutsy, mô tả đúng hành vi (đặt tên), và là tên duy nhất trong shortlist **không tìm thấy xung đột nào** (App Store, sản phẩm desktop, brand) khi kiểm tra 09/2026.
+**Chốt: `Onym: Batch Rename`** — tagline *"Rename. Organize. Done."* "Onym" là gốc từ của *anonym/pseudonym/synonym* — nghĩa là "tên": ngắn, sắc, nghe pro. Không tìm thấy app trùng trên App Store (kiểm tra 09/2026); lưu ý duy nhất là onym.co — trang tài nguyên naming cho designer, khác ngách, rủi ro thấp.
 
 Lịch sử loại trừ (kiểm tra 09/2026), giữ lại để khỏi tra lại:
 
@@ -16,9 +16,13 @@ Lịch sử loại trừ (kiểm tra 09/2026), giữ lại để khỏi tra lạ
 | FileFlow | **FileFlow Local File Manager** (id 6768175929) trùng cả tên lẫn tính năng batch rename; **FileFlow** (id 1442948216) chiếm exact name; **FileFlows** (fileflows.com) rủi ro trademark |
 | RenameFlow | renameflow.com — desktop renamer cho movie/series/music đang hoạt động |
 | Renamely | Renamely by Toool (toool.fr) — batch file renamer desktop |
+| Renamio | renamio.app — batch renamer desktop Windows/macOS, trùng ngách trực diện |
+| Refile | ReFile: Recovery All (id 6468881308) đã có trên App Store |
 | Sortsy | sortsy.ai — AI tool sort/rename/organize file, trùng ngách trực diện |
+| Namesy | Sạch nhưng founder không ưng (quá cute) |
+| Nomen, Batchy, NameForge | Sạch — giữ làm dự phòng nếu Onym vướng khi reserve |
 
-Việc còn lại trước khi làm icon/landing: reserve tên trong App Store Connect sớm, và giữ domain `namesy.app` + handle mạng xã hội.
+Việc còn lại trước khi làm icon/landing: reserve tên "Onym" trong App Store Connect sớm, và giữ domain `onym.app` + handle mạng xã hội.
 
 ---
 

@@ -1,6 +1,6 @@
 # XcodeGen spec — run `xcodegen generate` in this directory on a Mac,
-# then open Namesy.xcodeproj.
-name: Namesy
+# then open Onym.xcodeproj.
+name: Onym
 options:
   bundleIdPrefix: io.starnova
   deploymentTarget:
@@ -8,61 +8,61 @@ options:
   createIntermediateGroups: true
 
 packages:
-  NamesyCore:
-    path: NamesyCore
+  OnymCore:
+    path: OnymCore
 
 targets:
-  Namesy:
+  Onym:
     type: application
     platform: iOS
     sources:
-      - NamesyApp/Sources
+      - OnymApp/Sources
     dependencies:
-      - package: NamesyCore
+      - package: OnymCore
         product: RenameEngine
-      - package: NamesyCore
+      - package: OnymCore
         product: FileOps
     info:
-      path: NamesyApp/Info.plist
+      path: OnymApp/Info.plist
       properties:
-        CFBundleDisplayName: Namesy
+        CFBundleDisplayName: Onym
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         LSSupportsOpeningDocumentsInPlace: true
         UIFileSharingEnabled: true
         NSPhotoLibraryAddUsageDescription: >-
-          Namesy never modifies your photo library; this permission is not requested.
+          Onym never modifies your photo library; this permission is not requested.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.starnova.namesy
+        PRODUCT_BUNDLE_IDENTIFIER: io.starnova.onym
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: false
 
-  NamesyUITests:
+  OnymUITests:
     type: bundle.ui-testing
     platform: iOS
     sources:
-      - NamesyUITests
+      - OnymUITests
     dependencies:
-      - target: Namesy
+      - target: Onym
     settings:
       base:
-        TEST_TARGET_NAME: Namesy
+        TEST_TARGET_NAME: Onym
         SWIFT_VERSION: "6.0"
 
 schemes:
-  Namesy:
+  Onym:
     build:
       targets:
-        Namesy: all
-        NamesyUITests: [test]
+        Onym: all
+        OnymUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - NamesyUITests
+        - OnymUITests

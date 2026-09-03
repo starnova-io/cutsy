@@ -1,0 +1,21 @@
+name: Onym core tests
+
+on:
+  push:
+    paths:
+      - "onym/OnymCore/**"
+      - ".github/workflows/onym-core-tests.yml"
+  pull_request:
+    paths:
+      - "onym/OnymCore/**"
+      - ".github/workflows/onym-core-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run OnymCore tests
+        working-directory: onym/OnymCore
+        run: swift test

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "NamesyCore",
+    name: "OnymCore",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "RenameEngine", targets: ["RenameEngine"]),

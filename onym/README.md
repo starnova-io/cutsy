@@ -1,4 +1,4 @@
-# Namesy — Batch Rename for iOS
+# Onym — Batch Rename for iOS
 
 *Rename. Organize. Done.* A batch file renamer for iOS: build a chain of
 rules, preview every new name, apply, undo. See
@@ -9,17 +9,17 @@ for the product plan.
 
 | Path | What it is |
 |---|---|
-| `NamesyCore/` | Swift Package with the platform-independent core. Builds and tests on macOS **and Linux**. |
-| `NamesyCore/Sources/RenameEngine` | Rules, token templates, pipeline, conflict-free planning. Pure functions. |
-| `NamesyCore/Sources/FileOps` | Applies plans to real files: two-phase moves, undo journal. |
-| `NamesyApp/Sources` | SwiftUI app (iOS 17+): rule builder, preview, paywall (StoreKit 2), presets (SwiftData), photo import (PHPicker + ImageIO EXIF). |
-| `NamesyUITests/` | End-to-end XCUITest suite driving the real UI. |
-| `project.yml` | [XcodeGen](https://github.com/yonaskolb/XcodeGen) spec that generates `Namesy.xcodeproj`. |
+| `OnymCore/` | Swift Package with the platform-independent core. Builds and tests on macOS **and Linux**. |
+| `OnymCore/Sources/RenameEngine` | Rules, token templates, pipeline, conflict-free planning. Pure functions. |
+| `OnymCore/Sources/FileOps` | Applies plans to real files: two-phase moves, undo journal. |
+| `OnymApp/Sources` | SwiftUI app (iOS 17+): rule builder, preview, paywall (StoreKit 2), presets (SwiftData), photo import (PHPicker + ImageIO EXIF). |
+| `OnymUITests/` | End-to-end XCUITest suite driving the real UI. |
+| `project.yml` | [XcodeGen](https://github.com/yonaskolb/XcodeGen) spec that generates `Onym.xcodeproj`. |
 
 ## Core tests (any platform)
 
 ```sh
-cd NamesyCore
+cd OnymCore
 swift test
 ```
 
@@ -31,21 +31,21 @@ directories, swap-collision safety, undo).
 
 ```sh
 brew install xcodegen
-cd namesy
+cd onym
 xcodegen generate
-open Namesy.xcodeproj
+open Onym.xcodeproj
 ```
 
 Products for StoreKit testing: create a `.storekit` configuration with
-`io.starnova.namesy.pro.monthly` ($2.99), `.yearly` ($19.99),
+`io.starnova.onym.pro.monthly` ($2.99), `.yearly` ($19.99),
 `.lifetime` ($39.99) and select it in the scheme.
 
 ## End-to-end tests (simulator)
 
 ```sh
 xcodebuild test \
-  -project Namesy.xcodeproj \
-  -scheme Namesy \
+  -project Onym.xcodeproj \
+  -scheme Onym \
   -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 

@@ -17,7 +17,7 @@ struct OnboardingView: View {
                 .tag(0)
                 onboardingPage(
                     icon: "folder.badge.person.crop",
-                    title: "You choose what Namesy can touch",
+                    title: "You choose what Onym can touch",
                     text: "Pick a folder in Files, or import photos. iOS grants access to just that — nothing else on your device."
                 )
                 .tag(1)

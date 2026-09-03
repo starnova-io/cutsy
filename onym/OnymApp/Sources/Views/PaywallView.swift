@@ -16,7 +16,7 @@ struct PaywallView: View {
                         Image(systemName: "sparkles")
                             .font(.largeTitle)
                             .foregroundStyle(.tint)
-                        Text("Namesy Pro")
+                        Text("Onym Pro")
                             .font(.title.bold())
                         Text("Unlimited files, rule chains, EXIF tokens, regex, and saved presets.")
                             .multilineTextAlignment(.center)

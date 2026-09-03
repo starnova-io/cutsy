@@ -7,9 +7,9 @@ import StoreKit
 @Observable
 final class EntitlementStore {
     enum ProductID: String, CaseIterable {
-        case monthly = "io.starnova.namesy.pro.monthly"
-        case yearly = "io.starnova.namesy.pro.yearly"
-        case lifetime = "io.starnova.namesy.pro.lifetime"
+        case monthly = "io.starnova.onym.pro.monthly"
+        case yearly = "io.starnova.onym.pro.yearly"
+        case lifetime = "io.starnova.onym.pro.lifetime"
     }
 
     private(set) var isPro = false

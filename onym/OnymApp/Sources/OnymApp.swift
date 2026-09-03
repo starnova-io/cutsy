@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct NamesyApp: App {
+struct OnymApp: App {
     @State private var model: AppModel
     @State private var entitlements: EntitlementStore
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false

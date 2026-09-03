@@ -36,7 +36,7 @@ struct PhotoPicker: UIViewControllerRepresentable {
                 return
             }
             let workDir = FileManager.default.temporaryDirectory
-                .appendingPathComponent("namesy-import-\(UUID().uuidString)", isDirectory: true)
+                .appendingPathComponent("onym-import-\(UUID().uuidString)", isDirectory: true)
             try? FileManager.default.createDirectory(
                 at: workDir, withIntermediateDirectories: true)
 
