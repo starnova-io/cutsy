@@ -8,6 +8,7 @@ import { curSeason, curWeather } from "./game/weather";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { registerFeedback, toast, ask as askFeedback, confettiBurst, heartAt } from "./ui/feedback";
+import { beginGuard, endGuard } from "./native/guard";
 import { Nav } from "./components/Nav";
 import { Home } from "./screens/Home";
 import { Focus } from "./screens/Focus";
@@ -109,6 +110,40 @@ export default function App() {
   /* ---- the focus session engine ---- */
   const remainRef = useRef(0);
   const lastTickRef = useRef(0);
+  const leavesRef = useRef(0);
+  const wakeRef = useRef<{ release(): Promise<void> } | null>(null);
+  const lockScreen = async () => {
+    try {
+      wakeRef.current = await (navigator as Navigator & { wakeLock?: { request(t: string): Promise<{ release(): Promise<void> }> } })
+        .wakeLock?.request("screen") ?? null;
+    } catch { wakeRef.current = null; }
+  };
+  const shieldDown = () => {
+    stopRain();
+    void wakeRef.current?.release().catch(() => undefined);
+    wakeRef.current = null;
+    void endGuard();
+  };
+
+  /* leaving the app mid-session gently pauses it — the island just waits */
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        const s = sessionRef.current;
+        if (s && !s.paused) {
+          leavesRef.current += 1;
+          stopRain();
+          setSession({ ...s, paused: true, awayPaused: true });
+        }
+      } else {
+        if (sessionRef.current) void lockScreen();
+        if (sessionRef.current?.awayPaused)
+          toast("Welcome back — your session paused itself, nothing lost.", 3200);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
   useEffect(() => {
     if (!session) return;
     const iv = window.setInterval(() => {
@@ -119,8 +154,8 @@ export default function App() {
       lastTickRef.current = now;
       if (remainRef.current <= 0) {
         window.clearInterval(iv);
-        stopRain();
-        const done = completeSession(s.durMin, true);
+        shieldDown();
+        const done = completeSession(s.durMin, true, leavesRef.current);
         setSession(null);
         setPayload(done);
         setScreen("complete");
@@ -141,6 +176,9 @@ export default function App() {
     if (rainy()) startRain();
     remainRef.current = chosenMin * 60000;
     lastTickRef.current = performance.now();
+    leavesRef.current = 0;
+    void lockScreen();
+    void beginGuard(getState().guard);
     setSession({ durMin: chosenMin, remainMs: remainRef.current, paused: false });
   };
   const togglePause = () => {
@@ -149,7 +187,7 @@ export default function App() {
       const paused = !s.paused;
       if (paused) stopRain(); else if (rainy()) startRain();
       lastTickRef.current = performance.now();
-      return { ...s, paused };
+      return { ...s, paused, awayPaused: false };
     });
   };
   const endEarly = () => {
@@ -160,15 +198,15 @@ export default function App() {
       void askFeedback(`End the session early? You'll keep ✦ ${focusedMin} for the ${focusedMin} min you focused.`,
         "End session", "Keep going").then(okd => {
           if (!okd || !sessionRef.current) return;
-          stopRain();
-          const done = completeSession(focusedMin, false);
+          shieldDown();
+          const done = completeSession(focusedMin, false, leavesRef.current);
           setSession(null);
           setPayload(done);
           setScreen("complete");
           confettiBurst();
         });
     } else {
-      stopRain();
+      shieldDown();
       setSession(null);
       toast("No worries — your island will wait for you.");
       setScreen("home");

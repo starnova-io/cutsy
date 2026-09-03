@@ -76,6 +76,18 @@ odd foam ring, and every so often the companion strolls to the water's
 edge, crouches, and laps at the sea — each lap sends out a small swirl.
 Requires WebGL2; the surface shader alone is the fallback.
 
+## Focus shield
+
+Leaving the app mid-session gently auto-pauses it — the island just
+waits, a toast welcomes you back, and the complete screen reports either
+"Deep focus" or how many times you stepped away. A screen wake lock keeps
+the phone awake through the session. Two toggles on the Focus screen —
+"Silence notifications" and "Shield distracting apps" — persist in the
+save and drive the native FocusGuard plugin on phone builds (Do Not
+Disturb + a cozy overlay covering blocked apps on Android; sources and
+setup in `native/android/`, iOS Screen Time notes included). On the web
+they no-op via `src/native/guard.ts`.
+
 Demo helpers: the `Demo ×60` toggle on the Focus screen makes a minute pass
 per second; URL hashes `#night`, `#rain`, `#dawn` preview ambience, and
 `#spring` / `#summer` / `#autumn` / `#winter` force the season (combine

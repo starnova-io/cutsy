@@ -25,6 +25,9 @@ export interface PlacedItem {
   stage?: number;          // plants grow 0..2 with completed sessions
 }
 
+/** focus-shield preferences: silence notifications / block apps (native builds) */
+export interface GuardPrefs { dnd: boolean; block: boolean }
+
 export interface GameState {
   energy: number;
   totalMin: number;
@@ -41,16 +44,21 @@ export interface GameState {
   cat: { x: number; y: number };
   pet: PetKind;
   premium: boolean;
+  guard: GuardPrefs;
 }
 
 export interface SessionInfo {
   durMin: number;
   remainMs: number;
   paused: boolean;
+  /** paused automatically because the person left the app */
+  awayPaused?: boolean;
 }
 
 export interface CompletePayload {
   minutes: number;
   full: boolean;
   item: CatalogItem | null;
+  /** how many times the person left the app mid-session */
+  leaves: number;
 }

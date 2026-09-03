@@ -420,3 +420,22 @@
 #btn-arrange svg{width:20px; height:20px;}
 #btn-arrange.on{background:var(--terra); border-color:var(--terra); color:#FCF3F7;}
 #btn-arrange:focus-visible{outline:3px solid var(--terra); outline-offset:2px;}
+
+/* ---- focus shield toggles ---- */
+#guard-rows{display:flex;flex-direction:column;gap:8px;width:100%;max-width:280px;margin:2px auto 12px}
+.guard-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r-md);
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  font:600 13px/1 var(--font-ui);color:var(--dusk-muted);cursor:pointer;transition:color .2s}
+.guard-row.on{color:var(--dusk-ink)}
+.guard-row .sw{width:32px;height:19px;border-radius:99px;background:rgba(255,255,255,.18);
+  position:relative;flex:none;transition:background .2s}
+.guard-row .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;
+  border-radius:50%;background:var(--dusk-ink);opacity:.75;transition:transform .2s,opacity .2s}
+.guard-row.on .sw{background:var(--gold)}
+.guard-row.on .sw::after{transform:translateX(12px);opacity:1;background:#fff}
+.guard-row .hint{margin-left:auto;font:700 9px/1 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--dusk-muted);background:rgba(255,255,255,.1);padding:3px 8px;border-radius:99px}
+
+/* ---- complete-screen focus quality ---- */
+#focus-quality{margin:6px 0 2px;font:600 13px/1.4 var(--font-ui);color:var(--muted)}
+#focus-quality.deep{color:var(--energy)}

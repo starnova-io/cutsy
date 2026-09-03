@@ -22,6 +22,7 @@ function seedState(): GameState {
       { id: "fence",       x: 2, y: 4, rot: 0 },
     ],
     inventory: [], cat: { x: 6, y: 5 }, pet: "cat", premium: false,
+    guard: { dnd: true, block: false },
   };
 }
 
@@ -33,6 +34,7 @@ function load(): GameState {
   if (!s.pet) s.pet = "cat";
   if (s.premium === undefined) s.premium = false;
   if (s.bridge === undefined) s.bridge = false;
+  if (!s.guard) s.guard = { dnd: true, block: false };
   /* older saves had no deciduous tree, so autumn/spring had nothing to shed —
      gift an oak (leaves and petals come from the island's own trees now) */
   if (!s.placed.some(p => p.id === "oak" || p.id === "bush")

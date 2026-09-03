@@ -7,7 +7,7 @@ import { world } from "../world/world3d";
 import type { CompletePayload, PlacedItem } from "./types";
 
 /** Bank a finished (or early-ended) session; returns what the complete screen shows. */
-export function completeSession(minutes: number, full: boolean): CompletePayload {
+export function completeSession(minutes: number, full: boolean, leaves = 0): CompletePayload {
   const prevTotal = getState().totalMin;
   mutate(s => {
     s.energy += minutes;
@@ -23,7 +23,7 @@ export function completeSession(minutes: number, full: boolean): CompletePayload
     }
   });
   chime();
-  return { minutes, full, item: newlyUnlocked(getState(), prevTotal) };
+  return { minutes, full, item: newlyUnlocked(getState(), prevTotal), leaves };
 }
 
 /** Build the bridge: spends energy, reveals the isle. Returns false if unaffordable. */

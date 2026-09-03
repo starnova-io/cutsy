@@ -1,5 +1,6 @@
-import { useGame } from "../game/store";
+import { mutate, useGame } from "../game/store";
 import { curWeather } from "../game/weather";
+import { guardAvailable } from "../native/guard";
 import { focusSceneSVG } from "../ui/mascots";
 import type { SessionInfo } from "../game/types";
 
@@ -29,12 +30,15 @@ export function Focus(props: {
         title="Speed up time for this prototype">Demo ×60</button>
       <div id="focus-inner">
         <div id="focus-top">
-          <span id="shield" style={{ visibility: running ? "visible" : "hidden" }}>
+          <span id="shield" style={{ visibility: running && (s.guard.dnd || s.guard.block) ? "visible" : "hidden" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.8A8.6 8.6 0 0 1 9.2 3.8a8.6 8.6 0 1 0 11 11Z" fill="#A89AA6" /></svg>
-            {" "}Distracting apps silenced
+            {" "}{s.guard.block ? "Distracting apps shielded" : "Notifications silenced"}
           </span>
           <div id="timer">{fmt(session ? session.remainMs : chosenMin * 60000)}</div>
-          <div id="focus-line">{session?.paused ? "Paused — take a breath." : "Let’s focus together."}</div>
+          <div id="focus-line">
+            {session?.awayPaused ? "Paused — your island waited for you."
+              : session?.paused ? "Paused — take a breath." : "Let’s focus together."}
+          </div>
           <div id="focus-sub">{sub}</div>
         </div>
         <svg id="focus-scene" viewBox="0 0 300 170" aria-hidden="true"
@@ -49,6 +53,18 @@ export function Focus(props: {
                 ))}
               </div>
               <div id="earn-line">You’ll earn <b>✦ {chosenMin}</b> when you finish</div>
+              <div id="guard-rows">
+                <button className={"guard-row" + (s.guard.dnd ? " on" : "")} id="guard-dnd"
+                  onClick={() => mutate(st => { st.guard.dnd = !st.guard.dnd; })}>
+                  <span className="sw" aria-hidden="true" />Silence notifications
+                  {!guardAvailable() && <span className="hint">phone app</span>}
+                </button>
+                <button className={"guard-row" + (s.guard.block ? " on" : "")} id="guard-block"
+                  onClick={() => mutate(st => { st.guard.block = !st.guard.block; })}>
+                  <span className="sw" aria-hidden="true" />Shield distracting apps
+                  {!guardAvailable() && <span className="hint">phone app</span>}
+                </button>
+              </div>
               <button className="btn btn-primary" id="btn-start" onClick={props.onStart}>Start</button>
               <button className="btn btn-ghost" id="btn-back-home" onClick={props.onBack}>Back to your island</button>
             </>

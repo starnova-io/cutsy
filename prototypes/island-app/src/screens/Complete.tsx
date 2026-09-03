@@ -26,6 +26,11 @@ export function Complete(props: {
         <div id="complete-min">{payload.minutes} min focused</div>
         <div id="complete-energy">+ ✦ {payload.minutes}</div>
         <div id="complete-grew">{payload.full ? "Your island grew a little." : "Every minute counts."}</div>
+        <div id="focus-quality" className={payload.leaves === 0 ? "deep" : ""}>
+          {payload.leaves === 0
+            ? "Deep focus — you never looked away ✦"
+            : `You stepped away ${payload.leaves} ${payload.leaves === 1 ? "time" : "times"} — the island waited.`}
+        </div>
         {item && (
           <div id="reward-card">
             <img id="reward-img" alt="" src={world.thumb(item.id)}
