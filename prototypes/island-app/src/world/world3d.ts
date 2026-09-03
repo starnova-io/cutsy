@@ -1,12 +1,12 @@
 import * as THREE from "three";
-import { B3, buildPet, box3, grp3 } from "./builders";
+import { B3, buildPet, box3, grp3, linC } from "./builders";
 import { C3, PH3 } from "./palette";
 import { GW, GH, MASKS, BRIDGE_TILES, WCX, WCZ, isBeach, placeOK } from "./island";
 import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
 import { FluidSim, FLUID_WORLD } from "./fluid";
 import { byId } from "../game/catalog";
 import { itemFootprint } from "../game/economy";
-import type { GameState, PetKind, PlacedItem, Season, Weather } from "../game/types";
+import type { GameState, PetKind, Phase, PlacedItem, Season, Weather } from "../game/types";
 
 /* Ambient falling particles per season — autumn leaves, spring petals, snow —
    drawn as ONE InstancedMesh (physics on the CPU, matrices recomposed per
@@ -35,6 +35,16 @@ const PCONF: Partial<Record<Season, PConf>> = {
   winter: { cap: 280, w: .08, h: .08, cols: [0xFFFFFF, 0xF0F6FA, 0xE4EEF4], vy: .3, vyR: .22, rainVy: .3,
     sway: .35, want: { clear: 38, cloudy: 55, rain: 70 }, gate: 0, treeShare: 0, needTrees: false, carpet: 150, life: 25 },
 };
+
+/* gradient sky per phase: [zenith, horizon] — the horizon colour doubles as
+   the fog colour so the sea melts into the sky */
+const SKY3: Record<Phase, [string, string]> = {
+  dawn: ["#EFCFA9", "#FBEDDD"],
+  day: ["#A7CBD1", "#E2EFE6"],
+  dusk: ["#E2A57E", "#F8DDC2"],
+  night: ["#1F2A44", "#41527A"],
+};
+const SKY_RAIN: [string, string] = ["#9FAAAD", "#C6CFCE"];
 
 interface LeafState {
   ph: 0 | 1 | 2 | 3;              /* free, falling, resting, fading */
@@ -154,24 +164,31 @@ class World {
         onTapPet: () => {}, onTapItem: () => {}, onTapTile: () => {},
       };
     }
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1;
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.canvas = this.renderer.domElement;
     this.canvas.style.cssText = "width:100%;height:100%;display:block;touch-action:none;";
     this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.Fog(0xE2EFE6, 22, 40);
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
 
     this.hemi = new THREE.HemisphereLight(0xffffff, 0xA8987F, 1);
+    this.hemi.groundColor.convertSRGBToLinear();
     this.scene.add(this.hemi);
     this.sunL = new THREE.DirectionalLight(0xfff6e0, .9);
     this.sunL.castShadow = true;
-    this.sunL.shadow.mapSize.set(1024, 1024);
+    this.sunL.shadow.mapSize.set(2048, 2048);
+    this.sunL.shadow.bias = -.0004;
     const sc = this.sunL.shadow.camera;
     sc.left = -9; sc.right = 9; sc.top = 9; sc.bottom = -9;
     this.scene.add(this.sunL);
     this.glowL = new THREE.PointLight(0xFFB868, 0, 7);
+    this.glowL.color.convertSRGBToLinear();
     this.scene.add(this.glowL);
 
     /* living water: gentle interference waves + expanding tap/landing ripples,
@@ -189,12 +206,16 @@ class World {
         uRipples: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -99, 0)) },
         uFluid: { value: blankTex },
         uFluidVel: { value: blankTex },
+        uFog: { value: new THREE.Color(0xE2EFE6) },
       },
       vertexShader: `
         varying vec2 vXZ;
+        varying float vDist;
         void main() {
           vXZ = vec2(position.x, -position.y);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+          vec4 mv = modelViewMatrix * vec4(position, 1.);
+          vDist = -mv.z;
+          gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
         uniform float uTime;
@@ -202,7 +223,9 @@ class World {
         uniform vec4 uRipples[8];
         uniform sampler2D uFluid;
         uniform sampler2D uFluidVel;
+        uniform vec3 uFog;
         varying vec2 vXZ;
+        varying float vDist;
         void main() {
           vec2 fuv = (vXZ + ${FLUID_WORLD}.) / ${FLUID_WORLD * 2}.;
           vec2 fvel = texture2D(uFluidVel, fuv).xy;
@@ -221,8 +244,13 @@ class World {
             float ring = age * 1.7 + .1;
             foam += smoothstep(.16, .0, abs(d - ring)) * (1. - age / 2.4) * r.w;
           }
+          /* brighter shallows hug the island */
+          float shore = smoothstep(8.2, 5., length(vXZ - vec2(0., -.6)));
+          col = mix(col, col * 1.22 + vec3(.05, .07, .06), shore * .5);
           foam = clamp(foam, 0., 1.) * .65 + clamp(dye, 0., 1.2) * .55;
-          gl_FragColor = vec4(mix(col, vec3(.95, .98, 1.), clamp(foam, 0., .85)), 1.);
+          col = mix(col, vec3(.95, .98, 1.), clamp(foam, 0., .85));
+          col = mix(col, uFog, smoothstep(22., 40., vDist));
+          gl_FragColor = vec4(col, 1.);
         }`,
     });
     this.seaMesh = new THREE.Mesh(new THREE.CircleGeometry(30, 48), this.seaMat);
@@ -283,7 +311,7 @@ class World {
     }
     rainGeo.setAttribute("position", new THREE.BufferAttribute(rp, 3));
     this.rainPts = new THREE.Points(rainGeo,
-      new THREE.PointsMaterial({ color: 0xAAC0D8, size: .07, transparent: true, opacity: .7 }));
+      new THREE.PointsMaterial({ color: linC(0xAAC0D8), size: .07, transparent: true, opacity: .7 }));
     this.scene.add(this.rainPts);
 
     const starGeo = new THREE.BufferGeometry();
@@ -295,7 +323,7 @@ class World {
     }
     starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
     this.starPts = new THREE.Points(starGeo,
-      new THREE.PointsMaterial({ color: 0xFFF4D8, size: .09, transparent: true, opacity: .9 }));
+      new THREE.PointsMaterial({ color: linC(0xFFF4D8), size: .09, transparent: true, opacity: .9 }));
     this.scene.add(this.starPts);
 
     this.season = curSeason();
@@ -313,7 +341,7 @@ class World {
       dum.scale.setScalar(.0001);
       dum.updateMatrix();
       for (let i = 0; i < cf.cap; i++) {
-        this.leafIM.setColorAt(i, col.set(cf.cols[i % cf.cols.length]));
+        this.leafIM.setColorAt(i, col.set(cf.cols[i % cf.cols.length]).convertSRGBToLinear());
         this.leafIM.setMatrixAt(i, dum.matrix);
         this.leafSt.push({
           ph: 0, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, vy: 0, vx: 0, vz: 0,
@@ -333,7 +361,7 @@ class World {
     this.firefliesG = new THREE.Group();
     for (let i = 0; i < 14; i++) {
       const f = new THREE.Mesh(new THREE.SphereGeometry(.035, 6, 5),
-        new THREE.MeshBasicMaterial({ color: 0xFFE9A8, transparent: true, opacity: .8 }));
+        new THREE.MeshBasicMaterial({ color: linC(0xFFE9A8), transparent: true, opacity: .8 }));
       const b = this.grassSpots[(i * 7) % this.grassSpots.length] ?? { x: 0, z: 0 };
       f.userData.fly = { bx: b.x, bz: b.z, ph: i * 1.7, f1: .35 + (i % 5) * .08, f2: .28 + (i % 4) * .09, amp: .8 + (i % 3) * .4 };
       this.firefliesG.add(f);
@@ -350,8 +378,8 @@ class World {
     this.scene.add(this.shootPts);
 
     const cel = new THREE.Mesh(new THREE.SphereGeometry(.55, 14, 12),
-      new THREE.MeshLambertMaterial({ color: 0xFFE9B0 }));
-    (cel.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(0xFFE9B0);
+      new THREE.MeshLambertMaterial({ color: linC(0xFFE9B0) }));
+    (cel.material as THREE.MeshLambertMaterial).emissive = linC(0xFFE9B0);
     cel.position.set(-8, 7, -6);
     this.celestial = cel;
     this.scene.add(cel);
@@ -376,10 +404,10 @@ class World {
       const grass = sn === "autumn" ? C3.grassFall : sn === "spring" ? C3.grassSpring
         : sn === "winter" ? C3.grassWinter : C3.grass;
       const top = isBeach(x, y) ? (sn === "winter" ? C3.sandWinter : C3.sand) : grass[(x * 7 + y * 13) % 3];
-      const side = new THREE.MeshLambertMaterial({ color: C3.dirt });
-      const sideD = new THREE.MeshLambertMaterial({ color: C3.dirtD });
-      const mats = [side, sideD, new THREE.MeshLambertMaterial({ color: top }), sideD, side, sideD];
-      const m = new THREE.Mesh(new THREE.BoxGeometry(.98, .9, .98), mats);
+      const side = new THREE.MeshLambertMaterial({ color: linC(C3.dirt) });
+      const sideD = new THREE.MeshLambertMaterial({ color: linC(C3.dirtD) });
+      const mats = [side, sideD, new THREE.MeshLambertMaterial({ color: linC(top) }), sideD, side, sideD];
+      const m = new THREE.Mesh(new THREE.BoxGeometry(.999, .9, .999), mats);
       m.position.set(WCX(x), -.45, WCZ(y));
       m.receiveShadow = true;
       m.userData.tile = { x, y };
@@ -442,10 +470,17 @@ class World {
     const S = this.cb.getState();
     const P = PH3[curPhase()], W = curWeather(), night = curPhase() === "night";
     this.frameCamera();
-    this.scene.background = new THREE.Color(W === "rain" && !night ? 0xB9C2C4 : P.sky);
-    this.hemi.color.set(P.hemi); this.hemi.groundColor.set(P.ground);
+    /* gradient sky painted behind the transparent canvas; fog melts the sea
+       into the horizon colour */
+    const grad = W === "rain" && !night ? SKY_RAIN : SKY3[curPhase()];
+    const wrapEl = this.canvas.parentElement as HTMLElement | null;
+    if (wrapEl) wrapEl.style.background = `linear-gradient(180deg, ${grad[0]} 0%, ${grad[1]} 72%)`;
+    (this.scene.fog as THREE.Fog).color.set(grad[1]);
+    (this.seaMat.uniforms.uFog.value as THREE.Color).set(grad[1]);
+    this.hemi.color.set(P.hemi).convertSRGBToLinear();
+    this.hemi.groundColor.set(P.ground).convertSRGBToLinear();
     this.hemi.intensity = P.hInt * (W === "rain" ? .8 : 1);
-    this.sunL.color.set(P.sun);
+    this.sunL.color.set(P.sun).convertSRGBToLinear();
     this.sunL.intensity = P.int * (W === "rain" ? .55 : W === "cloudy" ? .8 : 1);
     this.sunL.position.set(...P.dir);
     const wintry = this.season === "winter";
@@ -454,8 +489,8 @@ class World {
     (this.seaMat.uniforms.uColor.value as THREE.Color).copy(wc);
     this.celestial.visible = W !== "rain";
     const cm = this.celestial.material as THREE.MeshLambertMaterial;
-    cm.color.set(night ? 0xE8EEF8 : 0xFFE9B0);
-    cm.emissive.set(night ? 0xC9D6EE : 0xFFE9B0);
+    cm.color.set(night ? 0xE8EEF8 : 0xFFE9B0).convertSRGBToLinear();
+    cm.emissive.set(night ? 0xC9D6EE : 0xFFE9B0).convertSRGBToLinear();
     this.celestial.position.set(night ? 7 : -8, 7.2, -7);
     /* winter: a big low moon and denser stars; "rain" falls as snow instead */
     this.celestial.scale.setScalar(wintry && night ? 1.35 : 1);
@@ -467,7 +502,7 @@ class World {
       const m = (o as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
       if (!m) return;
       m.opacity = W === "rain" ? .95 : W === "cloudy" ? .92 : .55;
-      m.color.set(W === "rain" ? (night ? 0x4A5468 : 0x9EA6A8) : 0xFFFFFF);
+      m.color.set(W === "rain" ? (night ? 0x4A5468 : 0x9EA6A8) : 0xFFFFFF).convertSRGBToLinear();
     }));
     this.glowL.intensity = night ? 1.1 : 0;
     /* house windows glow at night */
@@ -488,14 +523,14 @@ class World {
         (mesh.material as THREE.Material).transparent = true;
         (mesh.material as THREE.Material).opacity = .55;
         if (this.season === "autumn" && o.name === "leaf")
-          (mesh.material as THREE.MeshLambertMaterial).color.set(C3.fall[(lj++ * 3) % C3.fall.length]);
+          (mesh.material as THREE.MeshLambertMaterial).color.copy(linC(C3.fall[(lj++ * 3) % C3.fall.length]));
       }
     });
     g.rotation.y = -g0.rot * Math.PI / 2;
     const wrap = new THREE.Group();
     wrap.add(g);
     const ring = new THREE.Mesh(new THREE.RingGeometry(.55 * Math.max(f.w, f.d), .62 * Math.max(f.w, f.d), 28),
-      new THREE.MeshBasicMaterial({ color: 0x9C4F76, transparent: true, opacity: .8, side: THREE.DoubleSide }));
+      new THREE.MeshBasicMaterial({ color: linC(0x9C4F76), transparent: true, opacity: .8, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = .03;
     ring.name = "ring";
@@ -557,7 +592,7 @@ class World {
         const f = itemFootprint(p);
         const ring = new THREE.Mesh(
           new THREE.RingGeometry(.5 * Math.max(f.w, f.d), .58 * Math.max(f.w, f.d), 26),
-          new THREE.MeshBasicMaterial({ color: 0x9C4F76, transparent: true, opacity: .7, side: THREE.DoubleSide }));
+          new THREE.MeshBasicMaterial({ color: linC(0x9C4F76), transparent: true, opacity: .7, side: THREE.DoubleSide }));
         ring.rotation.x = -Math.PI / 2;
         ring.position.set(WCX(p.x, f.w), .04, WCZ(p.y, f.d));
         ring.userData.pulse = (p.x * 3 + p.y) % 6;
@@ -568,7 +603,7 @@ class World {
       for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
         if (!placeOK(S, x, y)) continue;
         const pl = new THREE.Mesh(new THREE.PlaneGeometry(.85, .85),
-          new THREE.MeshBasicMaterial({ color: 0x8FB07A, transparent: true, opacity: .38, side: THREE.DoubleSide }));
+          new THREE.MeshBasicMaterial({ color: linC(0x8FB07A), transparent: true, opacity: .38, side: THREE.DoubleSide }));
         pl.rotation.x = -Math.PI / 2;
         pl.position.set(WCX(x), .02, WCZ(y));
         this.gridG.add(pl);
@@ -602,7 +637,7 @@ class World {
         if (o.name !== "leaf") return;
         const m = (o as THREE.Mesh).material as THREE.MeshLambertMaterial;
         if (!o.userData.c0) o.userData.c0 = m.color.clone();
-        const target = new THREE.Color(C3.fall[(pidx * 5 + j * 3) % C3.fall.length]);
+        const target = linC(C3.fall[(pidx * 5 + j * 3) % C3.fall.length]);
         m.color.copy(o.userData.c0 as THREE.Color).lerp(target, k);
         j++;
       });
@@ -1083,6 +1118,9 @@ class World {
     if (this.thumbCache[id]) return this.thumbCache[id];
     if (!this.thumbR) {
       this.thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      this.thumbR.outputEncoding = THREE.sRGBEncoding;
+      this.thumbR.toneMapping = THREE.ACESFilmicToneMapping;
+      this.thumbR.toneMappingExposure = 1;
       this.thumbR.setSize(120, 120);
     }
     const sc = new THREE.Scene();
@@ -1097,7 +1135,7 @@ class World {
       let j = 0;
       g.traverse(o => {
         if (o.name === "leaf")
-          ((o as THREE.Mesh).material as THREE.MeshLambertMaterial).color.set(C3.fall[(j++ * 3) % C3.fall.length]);
+          ((o as THREE.Mesh).material as THREE.MeshLambertMaterial).color.copy(linC(C3.fall[(j++ * 3) % C3.fall.length]));
       });
     }
     sc.add(g);

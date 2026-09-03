@@ -14,6 +14,7 @@ let seasonOverride: Season | null = null;
   const h = typeof location !== "undefined" ? location.hash : "";
   if (h.includes("night")) phaseOverride = "night";
   else if (h.includes("dawn")) phaseOverride = "dawn";
+  else if (h.includes("dusk")) phaseOverride = "dusk";
   else if (h.includes("day")) phaseOverride = "day";
   if (h.includes("rain")) weatherOverride = "rain";
   else if (h.includes("cloud")) weatherOverride = "cloudy";

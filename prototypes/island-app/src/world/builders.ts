@@ -8,9 +8,12 @@ const spring = () => curSeason() === "spring";
 
 type Emis = { c: number; i: number };
 
+/* palette hexes are authored in sRGB; convert to linear so the renderer's
+   sRGB output stage reproduces them faithfully */
+export const linC = (c: number): THREE.Color => new THREE.Color(c).convertSRGBToLinear();
 const M = (c: number, e?: Emis): THREE.MeshLambertMaterial => {
-  const m = new THREE.MeshLambertMaterial({ color: c });
-  if (e) { m.emissive = new THREE.Color(e.c); m.emissiveIntensity = e.i; }
+  const m = new THREE.MeshLambertMaterial({ color: linC(c) });
+  if (e) { m.emissive = linC(e.c); m.emissiveIntensity = e.i; }
   return m;
 };
 const shade = <T extends THREE.Mesh>(mesh: T): T => { mesh.castShadow = true; mesh.receiveShadow = true; return mesh; };
