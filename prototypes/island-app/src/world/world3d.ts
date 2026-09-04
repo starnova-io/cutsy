@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { B3, buildPet, box3, grp3, landThumb, leafShapeGeo, linC } from "./builders";
+import { B3, buildPet, box3, grp3, landThumb, leafShapeGeo, linC, rboxGeo } from "./builders";
 import { C3, PH3 } from "./palette";
 import { GW, GH, MASKS, LANDS, BRIDGE_TILES, WCX, WCZ, isBeachIn, mainMask, placeOK } from "./island";
 import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
@@ -410,8 +410,11 @@ class World {
     const grassBase = sn === "autumn" ? C3.grassFall[0] : sn === "spring" ? C3.grassSpring[0]
       : sn === "winter" ? C3.grassWinter[0] : C3.grass[0];
     const sandBase = sn === "winter" ? C3.sandWinter : C3.sand;
-    const side = new THREE.MeshLambertMaterial({ color: linC(C3.dirt) });
-    const sideD = new THREE.MeshLambertMaterial({ color: linC(C3.dirtD) });
+    /* grass plates get grass-toned sides so the rounded seams read as soft
+       clay grooves, not brown grid lines; only the coast shows sand cliffs */
+    const gSide = new THREE.Color(grassBase).offsetHSL(0, .01, -.06).convertSRGBToLinear();
+    const side = new THREE.MeshLambertMaterial({ color: gSide });
+    const sideD = new THREE.MeshLambertMaterial({ color: gSide.clone().offsetHSL(0, 0, -.02) });
     /* the coast cliff reads as dune sand, not dark dirt */
     const sandSide = new THREE.MeshLambertMaterial({ color: linC(sn === "winter" ? 0xCFC7AF : 0xCBB076) });
     const sandSideD = new THREE.MeshLambertMaterial({ color: linC(sn === "winter" ? 0xC2BAA2 : 0xBFA268) });
@@ -434,7 +437,7 @@ class World {
       top.offsetHSL(0, beach ? 0 : (rng(x, y, 1) - .5) * .015, (rng(x, y, 2) - .5) * (beach ? .025 : .032));
       const s1 = beach ? sandSide : side, s2 = beach ? sandSideD : sideD;
       const mats = [s1, s2, new THREE.MeshLambertMaterial({ color: top.convertSRGBToLinear() }), s2, s1, s2];
-      const m = new THREE.Mesh(new THREE.BoxGeometry(.999, .9, .999), mats);
+      const m = new THREE.Mesh(rboxGeo(1.0, .9, 1.0, .042, 2), mats);
       m.position.set(WCX(x), -.45, WCZ(y));
       m.receiveShadow = true;
       m.userData.tile = { x, y };
@@ -613,9 +616,10 @@ class World {
     (this.seaMat.uniforms.uFog.value as THREE.Color).set(grad[1]);
     this.hemi.color.set(P.hemi).convertSRGBToLinear();
     this.hemi.groundColor.set(P.ground).convertSRGBToLinear();
-    this.hemi.intensity = P.hInt * (W === "rain" ? .8 : 1);
+    /* clay look: a touch more fill light, a touch less sun contrast */
+    this.hemi.intensity = P.hInt * 1.08 * (W === "rain" ? .8 : 1);
     this.sunL.color.set(P.sun).convertSRGBToLinear();
-    this.sunL.intensity = P.int * (W === "rain" ? .55 : W === "cloudy" ? .8 : 1);
+    this.sunL.intensity = P.int * .88 * (W === "rain" ? .55 : W === "cloudy" ? .8 : 1);
     this.sunL.position.set(...P.dir);
     const wintry = this.season === "winter";
     const wc = new THREE.Color(C3.water[curPhase()]);

@@ -18,8 +18,31 @@ const M = (c: number, e?: Emis): THREE.MeshLambertMaterial => {
 };
 const shade = <T extends THREE.Mesh>(mesh: T): T => { mesh.castShadow = true; mesh.receiveShadow = true; return mesh; };
 
+/* Rounded box — the clay-toy look: a subdivided box whose vertices are
+   pushed onto a radius-r shell around the shrunken core, with matching
+   smooth normals. Face groups survive, so multi-material tiles still work. */
+export function rboxGeo(w: number, h: number, d: number, r: number, seg = 2): THREE.BufferGeometry {
+  r = Math.min(r, w * .45, h * .45, d * .45);
+  const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg);
+  const p = g.attributes.position as THREE.BufferAttribute;
+  const n = g.attributes.normal as THREE.BufferAttribute;
+  const hw = w / 2 - r, hh = h / 2 - r, hd = d / 2 - r;
+  const v = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.set(p.getX(i), p.getY(i), p.getZ(i));
+    c.set(Math.max(-hw, Math.min(hw, v.x)), Math.max(-hh, Math.min(hh, v.y)), Math.max(-hd, Math.min(hd, v.z)));
+    v.sub(c);
+    const len = v.length() || 1;
+    v.multiplyScalar(r / len);
+    n.setXYZ(i, v.x / r, v.y / r, v.z / r);
+    p.setXYZ(i, c.x + v.x, c.y + v.y, c.z + v.z);
+  }
+  return g;
+}
+
 export function box3(w: number, h: number, d: number, c: number, x = 0, y = 0, z = 0, e?: Emis): THREE.Mesh {
-  const m = shade(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c, e)));
+  const r = Math.min(.05, w * .28, h * .28, d * .28);
+  const m = shade(new THREE.Mesh(rboxGeo(w, h, d, r), M(c, e)));
   m.position.set(x, y, z);
   return m;
 }
@@ -351,9 +374,12 @@ export const B3: Record<string, () => THREE.Group> = {
     ([[-.72, .62], [.72, .62], [-.72, -.62], [.72, -.62]] as const)
       .forEach(([px, pz]) => g.add(box3(.09, .78, .09, C3.wood, px, .51, pz)));
     g.add(box3(1.6, .07, 1.4, C3.woodD, 0, .93, 0));              /* eaves trim */
-    const roof = jcone(1.24, .6, C3.terra, 0, 1.24, 0, 11, 4, .12);
+    /* chunky clay roof: a wide under-lip below the main cap */
+    const lip = jcone(1.34, .26, 0xB55E42, 0, 1.06, 0, 11, 4, .1);
+    lip.rotation.y = Math.PI / 4;
+    const roof = jcone(1.22, .66, C3.terra, 0, 1.3, 0, 11, 4, .1);
     roof.rotation.y = Math.PI / 4;
-    g.add(roof, sph3(.07, C3.woodD, 0, 1.55, 0));                 /* ridge knob */
+    g.add(lip, roof, sph3(.1, C3.woodD, 0, 1.64, 0));             /* ridge knob */
     /* door with frame, knob and a stone step */
     g.add(box3(.46, .6, .05, C3.wood, -.3, .34, .67),
       box3(.38, .54, .06, C3.woodD, -.3, .32, .69),
@@ -399,9 +425,11 @@ export const B3: Record<string, () => THREE.Group> = {
       });
     }
     g.add(box3(1.58, .08, 1.38, C3.woodD, 0, .79, 0));            /* eaves */
-    const roof = jcone(1.2, .6, C3.leafD, 0, 1.1, 0, 17, 4, .13);
+    const clip = jcone(1.3, .24, 0x47663E, 0, .94, 0, 17, 4, .11);
+    clip.rotation.y = Math.PI / 4;
+    const roof = jcone(1.18, .64, C3.leafD, 0, 1.16, 0, 17, 4, .11);
     roof.rotation.y = Math.PI / 4;
-    g.add(roof);
+    g.add(clip, roof, sph3(.09, C3.woodD, 0, 1.5, 0));
     g.add(box3(.44, .52, .05, C3.woodD, 0, .3, .67),              /* door frame */
       box3(.36, .46, .06, 0x6E4630, 0, .28, .69),
       box3(.28, .24, .05, 0xBFD8DC, .48, .5, .67),                /* small window */
