@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { B3, buildPet, box3, grp3, landThumb, linC } from "./builders";
+import { B3, buildPet, box3, grp3, landThumb, leafShapeGeo, linC } from "./builders";
 import { C3, PH3 } from "./palette";
 import { GW, GH, MASKS, LANDS, BRIDGE_TILES, WCX, WCZ, isBeachIn, mainMask, placeOK } from "./island";
 import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
@@ -333,7 +333,7 @@ class World {
     if (this.pconf) {
       const cf = this.pconf;
       this.leafIM = new THREE.InstancedMesh(
-        new THREE.PlaneGeometry(cf.w, cf.h),
+        this.season === "winter" ? new THREE.CircleGeometry(cf.w * .55, 6) : leafShapeGeo(cf.w, cf.h),
         new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }),
         cf.cap);
       this.leafIM.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

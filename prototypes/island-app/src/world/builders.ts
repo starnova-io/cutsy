@@ -88,6 +88,16 @@ function blob(r: number, c: number, x: number, y: number, z: number,
    facing outward, coloured by a three-stop gradient over height+outerness
    (their mix3). userData carries per-leaf summer (c0) and autumn (c1)
    colours so the seasonal tint can lerp instance colours. */
+/** a proper leaf silhouette: pointed oval with a stem-side taper */
+export function leafShapeGeo(w: number, h: number): THREE.BufferGeometry {
+  const s = new THREE.Shape();
+  const hw = w / 2, hh = h / 2;
+  s.moveTo(0, -hh);
+  s.bezierCurveTo(hw * 1.15, -hh * .3, hw * .95, hh * .5, 0, hh);
+  s.bezierCurveTo(-hw * .95, hh * .5, -hw * 1.15, -hh * .3, 0, -hh);
+  return new THREE.ShapeGeometry(s, 4);
+}
+
 const h01 = (n: number): number => {
   const v = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return v - Math.floor(v);
@@ -97,7 +107,7 @@ const mix3 = (a: THREE.Color, b: THREE.Color, c: THREE.Color, f: number): THREE.
 
 function leafCloud(lobes: [number, number, number, number][], count: number, seed: number): THREE.InstancedMesh {
   const im = new THREE.InstancedMesh(
-    new THREE.PlaneGeometry(.1, .14),
+    leafShapeGeo(.1, .15),
     new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
     count);
   im.name = "leafIM";
