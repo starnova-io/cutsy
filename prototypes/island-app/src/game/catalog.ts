@@ -21,6 +21,10 @@ export const CATALOG: CatalogItem[] = [
   { id: "petbed",      name: "Pet Bed",            cat: "pets",      price: 200, unlock: 200, w: 1, d: 1 },
   { id: "yarn",        name: "Yarn Ball",          cat: "pets",      price: 40,  unlock: 90,  w: 1, d: 1 },
   { id: "bridge",      name: "Bridge to the Isle", cat: "land",      price: 100, unlock: 60,  w: 1, d: 1, special: "bridge" },
+  { id: "land-east",   name: "Sunny Meadow",       cat: "land",      price: 80,  unlock: 180, w: 0, d: 0, special: "land" },
+  { id: "land-shoal",  name: "South Shoal",        cat: "land",      price: 0,   unlock: 260, w: 0, d: 0, special: "land" },
+  { id: "land-west",   name: "Quiet Cove",         cat: "land",      price: 120, unlock: 420, w: 0, d: 0, special: "land" },
+  { id: "land-north",  name: "North Ridge",        cat: "land",      price: 160, unlock: 620, w: 0, d: 0, special: "land" },
 ];
 
 export const CATS = ["all", "plants", "decor", "buildings", "pets", "land"] as const;

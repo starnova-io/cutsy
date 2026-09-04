@@ -3,7 +3,7 @@
    resting tile back to the store quietly. */
 import { getState, mutateQuiet } from "../game/store";
 import { occupied } from "../game/economy";
-import { walkOK, MASKS, BRIDGE_TILES } from "./island";
+import { walkOK, MASKS, BRIDGE_TILES, mainMask } from "./island";
 import { world, petView } from "./world3d";
 
 export interface WanderCtx {
@@ -60,7 +60,7 @@ function freeNeighbors(pos: { x: number; y: number }, occ: Set<string>) {
 function pickShore(dist: Map<string, number>) {
   const isWater = (x: number, y: number) => {
     const kk = key(x, y);
-    return !MASKS.main.has(kk) && !MASKS.islet.has(kk) && !BRIDGE_TILES.includes(kk);
+    return !mainMask(getState()).has(kk) && !MASKS.islet.has(kk) && !BRIDGE_TILES.includes(kk);
   };
   const shores: { x: number; y: number; nx: number; ny: number }[] = [];
   for (const [kk, d] of dist) {

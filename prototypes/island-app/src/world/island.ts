@@ -28,16 +28,37 @@ export const MASKS = (() => {
 
 export const BRIDGE_TILES = ["5,9"];
 
+/* Land expansions: patches of tiles that rise from the sea when bought
+   (or gifted at a milestone) and become part of the main island. */
+export const LANDS: Record<string, { tiles: [number, number][] }> = {
+  "land-east":  { tiles: [[10, 3], [10, 4], [10, 5], [10, 6]] },
+  "land-shoal": { tiles: [[2, 8], [3, 8], [4, 8]] },
+  "land-west":  { tiles: [[0, 3], [0, 4], [0, 5], [0, 6]] },
+  "land-north": { tiles: [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0]] },
+};
+
+/* the main island mask grows with the save's land expansions (cached) */
+let mmKey: string | null = null;
+let mmSet: Set<string> = MASKS.main;
+export function mainMask(s: GameState): Set<string> {
+  const key = (s.lands ?? []).join(",");
+  if (key === mmKey) return mmSet;
+  const m = new Set(MASKS.main);
+  (s.lands ?? []).forEach(id => LANDS[id]?.tiles.forEach(([x, y]) => m.add(x + "," + y)));
+  mmKey = key;
+  mmSet = m;
+  return m;
+}
+
 export const placeOK = (s: GameState, x: number, y: number): boolean =>
-  MASKS.main.has(x + "," + y) || (s.bridge && MASKS.islet.has(x + "," + y));
+  mainMask(s).has(x + "," + y) || (s.bridge && MASKS.islet.has(x + "," + y));
 
 export const walkOK = (s: GameState, x: number, y: number): boolean =>
   placeOK(s, x, y) || (s.bridge && BRIDGE_TILES.includes(x + "," + y));
 
-export const isBeach = (x: number, y: number): boolean => {
-  const k = x + "," + y;
-  const m = MASKS.main.has(k) ? MASKS.main : MASKS.islet.has(k) ? MASKS.islet : null;
-  if (!m) return false;
+/** beach test against an explicit mask (masks are dynamic now) */
+export const isBeachIn = (m: Set<string>, x: number, y: number): boolean => {
+  if (!m.has(x + "," + y)) return false;
   return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !m.has((x + dx) + "," + (y + dy)));
 };
 

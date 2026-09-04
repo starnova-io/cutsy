@@ -76,6 +76,17 @@ odd foam ring, and every so often the companion strolls to the water's
 edge, crouches, and laps at the sea — each lap sends out a small swirl.
 Requires WebGL2; the surface shader alone is the fallback.
 
+## Land expansions
+
+The island itself is now a progression track: the Land tab in the shop
+sells patches of new ground — Sunny Meadow (east, 80), Quiet Cove
+(west, 120), North Ridge (160) — that rise from the sea with ripples,
+splashes and confetti when you tap Raise, then grow their own beach,
+coastline bumps, grass and scatter. South Shoal is a free milestone
+gift at 260 total focused minutes, delivered on the session-complete
+screen like other milestone rewards. New land is immediately walkable
+and placeable; the camera frames the larger island automatically.
+
 ## Focus shield
 
 Leaving the app mid-session gently auto-pauses it — the island just

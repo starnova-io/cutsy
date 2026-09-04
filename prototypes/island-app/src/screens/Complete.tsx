@@ -7,6 +7,7 @@ export function Complete(props: {
   payload: CompletePayload;
   onPlaceGift: () => void;
   onBuildGiftBridge: () => void;
+  onRaiseGiftLand: () => void;
   onHome: () => void;
 }) {
   const s = useGame();
@@ -43,8 +44,9 @@ export function Complete(props: {
           {item ? (
             <>
               <button className="btn btn-primary" id="btn-reward-primary"
-                onClick={item.special === "bridge" ? props.onBuildGiftBridge : props.onPlaceGift}>
-                {item.special === "bridge" ? "Build it" : "Place it"}
+                onClick={item.special === "bridge" ? props.onBuildGiftBridge
+                  : item.special === "land" ? props.onRaiseGiftLand : props.onPlaceGift}>
+                {item.special === "bridge" ? "Build it" : item.special === "land" ? "Raise it" : "Place it"}
               </button>
               <button className="btn btn-ghost" id="btn-reward-later" onClick={props.onHome}>Later</button>
             </>

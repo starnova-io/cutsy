@@ -37,6 +37,24 @@ export function buildBridge(): boolean {
   return true;
 }
 
+/** Buy a land expansion: pay, then the patch rises from the sea. */
+export function buyLand(id: string): boolean {
+  const s = getState();
+  const a = byId(id);
+  if (a.special !== "land" || s.lands.includes(id) || s.energy < a.price) return false;
+  mutate(st => { st.energy -= a.price; st.lands.push(id); });
+  plink(); chime();
+  world.revealLand(id);
+  return true;
+}
+
+/** Milestone gift: the patch is free — just raise it. */
+export function grantLand(id: string, cinematic = true): void {
+  if (getState().lands.includes(id)) return;
+  mutate(st => { st.lands.push(id); });
+  if (cinematic) { chime(); world.revealLand(id); }
+}
+
 /** Buy a normal item and drop it at the given spot. */
 export function buyAndPlace(id: string, spot: PlacedItem): boolean {
   const a = byId(id);

@@ -14,7 +14,7 @@ export interface CatalogItem {
   w: number;
   d: number;
   premium?: boolean;
-  special?: "bridge";
+  special?: "bridge" | "land";
 }
 
 export interface PlacedItem {
@@ -45,6 +45,8 @@ export interface GameState {
   pet: PetKind;
   premium: boolean;
   guard: GuardPrefs;
+  /** purchased/gifted land-expansion ids (see LANDS in world/island) */
+  lands: string[];
 }
 
 export interface SessionInfo {

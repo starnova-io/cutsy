@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CompletePayload, PlacedItem, Screen, SessionInfo } from "./game/types";
 import { getState, mutate, useGame } from "./game/store";
 import { fits, firstFreeSpot, itemFootprint } from "./game/economy";
-import { commitPlacement, completeSession, pickUpPlaced } from "./game/actions";
+import { commitPlacement, completeSession, grantLand, pickUpPlaced } from "./game/actions";
 import { audio, startRain, stopRain } from "./game/audio";
 import { curSeason, curWeather } from "./game/weather";
 import { world, petView } from "./world/world3d";
@@ -253,6 +253,14 @@ export default function App() {
     toast("New area discovered!", 3000);
     setScreen("home");
   };
+  const raiseGiftLand = () => {
+    const item = payload?.item;
+    if (!item) return;
+    grantLand(item.id);
+    confettiBurst();
+    toast("New land rises from the sea!", 3000);
+    setScreen("home");
+  };
 
   const go = (s: Screen) => setScreen(s);
   const navHidden = screen === "place" || screen === "complete" || screen === "paywall" || (screen === "focus" && !!session);
@@ -275,7 +283,14 @@ export default function App() {
       )}
       {screen === "complete" && payload && (
         <Complete payload={payload} onPlaceGift={placeGift} onBuildGiftBridge={buildGiftBridge}
-          onHome={() => { if (payload.item && payload.item.special !== "bridge" && !getState().inventory.includes(payload.item.id)) mutate(st => { st.inventory.push(payload.item!.id); }); setScreen("home"); }} />
+          onRaiseGiftLand={raiseGiftLand}
+          onHome={() => {
+            const item = payload.item;
+            if (item && item.special === "land") grantLand(item.id, false); /* still theirs, just quietly */
+            else if (item && item.special !== "bridge" && !getState().inventory.includes(item.id))
+              mutate(st => { st.inventory.push(item.id); });
+            setScreen("home");
+          }} />
       )}
       {screen === "shop" && (
         <Shop onPaywall={() => setScreen("paywall")}

@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { B3, buildPet, box3, grp3, linC } from "./builders";
+import { B3, buildPet, box3, grp3, landThumb, linC } from "./builders";
 import { C3, PH3 } from "./palette";
-import { GW, GH, MASKS, BRIDGE_TILES, WCX, WCZ, isBeach, placeOK } from "./island";
+import { GW, GH, MASKS, LANDS, BRIDGE_TILES, WCX, WCZ, isBeachIn, mainMask, placeOK } from "./island";
 import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
 import { FluidSim, FLUID_WORLD } from "./fluid";
 import { byId } from "../game/catalog";
@@ -134,6 +134,8 @@ class World {
   private shootV = new THREE.Vector3();
   private canopies: { x: number; z: number; h: number; r: number }[] = [];
   private grassSpots: { x: number; z: number }[] = [];
+  private landKey = "";
+  private landAnim: { keys: Set<string>; t: number } | null = null;
   private popQueue: string | null = null;
   private started = false;
   /* orbit camera: azimuth, elevation, zoom (1 = default framing) */
@@ -352,10 +354,7 @@ class World {
       if (this.leafIM.instanceColor) this.leafIM.instanceColor.needsUpdate = true;
       this.scene.add(this.leafIM);
     }
-    MASKS.main.forEach(k => {
-      const [x, y] = k.split(",").map(Number);
-      if (!isBeach(x, y)) this.grassSpots.push({ x: WCX(x), z: WCZ(y) });
-    });
+    this.computeGrassSpots(MASKS.main);
 
     /* summer nights: fireflies wandering over the grass */
     this.firefliesG = new THREE.Group();
@@ -429,7 +428,7 @@ class World {
     const grassTiles: { x: number; y: number }[] = [];
     mask.forEach(k => {
       const [x, y] = k.split(",").map(Number);
-      const beach = isBeach(x, y);
+      const beach = isBeachIn(mask, x, y);
       if (!beach) grassTiles.push({ x, y });
       const top = new THREE.Color(beach ? sandBase : grassBase);
       top.offsetHSL(0, beach ? 0 : (rng(x, y, 1) - .5) * .015, (rng(x, y, 2) - .5) * (beach ? .025 : .032));
@@ -559,7 +558,10 @@ class World {
 
   private viewHalf(): number {
     let base = 5.7;
-    try { base = this.cb.getState().bridge ? 6.35 : 5.7; } catch { /* pre-init */ }
+    try {
+      const S = this.cb.getState();
+      base = (S.bridge ? 6.35 : 5.7) + Math.min(1.1, S.lands.length * .28);
+    } catch { /* pre-init */ }
     return base / this.camZoom;
   }
 
@@ -674,6 +676,15 @@ class World {
 
   sync(): void {
     const S = this.cb.getState();
+    /* rebuild the main island when a land expansion was raised */
+    const lk = S.lands.join(",");
+    if (lk !== this.landKey) {
+      this.landKey = lk;
+      while (this.tilesG.children.length) this.tilesG.remove(this.tilesG.children[0]);
+      const m = mainMask(S);
+      this.buildTiles(m, this.tilesG);
+      this.computeGrassSpots(m);
+    }
     this.applyPhase();
     while (this.itemsG.children.length) this.itemsG.remove(this.itemsG.children[0]);
     this.canopies = [];
@@ -780,11 +791,12 @@ class World {
   /** does a world x/z sit over an island tile (else it's open water)? */
   private overLand(x: number, z: number): boolean {
     const k = Math.round(x + 5) + "," + Math.round(z + 5.6);
-    if (MASKS.main.has(k)) return true;
     try {
-      if (this.cb.getState().bridge && (MASKS.islet.has(k) || BRIDGE_TILES.includes(k))) return true;
-    } catch { /* pre-init */ }
-    return false;
+      const S = this.cb.getState();
+      if (mainMask(S).has(k)) return true;
+      if (S.bridge && (MASKS.islet.has(k) || BRIDGE_TILES.includes(k))) return true;
+      return false;
+    } catch { return MASKS.main.has(k); /* pre-init */ }
   }
 
   private setLeafM(i: number): void {
@@ -960,10 +972,11 @@ class World {
   }
 
   /** test/debug hook */
-  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean; fluid: number; splats: number } {
+  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean; fluid: number; splats: number; tiles: number } {
     let air = 0, carpet = 0;
     this.leafSt.forEach(s => { if (s.ph === 1) air++; else if (s.ph === 2) carpet++; });
     return {
+      tiles: this.tilesG ? this.tilesG.children.filter(m => m.userData.tile).length : 0,
       season: this.season, autumn: this.season === "autumn", k: this.autumnK,
       leaves: air, carpet,
       ripples: this.ripples.filter(r => this.t - r.t0 < 2.4).length,
@@ -1082,6 +1095,25 @@ class World {
     }
   }
 
+  private computeGrassSpots(mask: Set<string>): void {
+    this.grassSpots = [];
+    mask.forEach(k => {
+      const [x, y] = k.split(",").map(Number);
+      if (!isBeachIn(mask, x, y)) this.grassSpots.push({ x: WCX(x), z: WCZ(y) });
+    });
+  }
+
+  /** a bought/gifted land patch rises from the sea with a splash */
+  revealLand(id: string): void {
+    const def = LANDS[id];
+    if (!def) return;
+    this.landAnim = { keys: new Set(def.tiles.map(([x, y]) => x + "," + y)), t: 0 };
+    def.tiles.forEach(([x, y]) => {
+      this.addRipple(WCX(x), WCZ(y), .5);
+      this.fluid?.splat(WCX(x), WCZ(y), 0, 0, .6);
+    });
+  }
+
   revealIslet(): void {
     this.isletAnim = { t: 0 };
     this.isletTilesG.visible = true;
@@ -1183,6 +1215,23 @@ class World {
     const ghost = this.ghostG.children[0] as THREE.Group | undefined;
     const ring = ghost?.getObjectByName("ring") as THREE.Mesh | undefined;
     if (ring) (ring.material as THREE.MeshBasicMaterial).opacity = .45 + .35 * Math.sin(t * 4);
+    if (this.landAnim) {
+      this.landAnim.t += dt;
+      const k = Math.min(1, this.landAnim.t / 1.4);
+      const e = 1 - Math.pow(1 - k, 3);
+      this.tilesG.children.forEach(m => {
+        const tl = m.userData.tile as { x: number; y: number } | undefined;
+        if (tl && this.landAnim!.keys.has(tl.x + "," + tl.y))
+          m.position.y = -.45 - 2.4 * (1 - e);
+      });
+      if (k >= 1) {
+        this.tilesG.children.forEach(m => {
+          const tl = m.userData.tile as { x: number; y: number } | undefined;
+          if (tl && this.landAnim!.keys.has(tl.x + "," + tl.y)) m.position.y = -.45;
+        });
+        this.landAnim = null;
+      }
+    }
     if (this.isletAnim) {
       this.isletAnim.t += dt;
       const k = Math.min(1, this.isletAnim.t / 1.4);
@@ -1279,6 +1328,7 @@ class World {
     sc.add(dl);
     const g = id === "pet-cat" || id === "pet-dog"
       ? buildPet(id.slice(4) as PetKind)
+      : id.startsWith("land-") ? landThumb()
       : B3[id] ? B3[id]() : new THREE.Group();
     if (isAutumn()) {
       let j = 0;

@@ -377,6 +377,17 @@ export const B3: Record<string, () => THREE.Group> = {
   bridge() { return grp3(box3(.8, .08, .9, C3.woodL, 0, .1, 0)); },
 };
 
+/** shop thumbnail for a land expansion: a little grass patch rising from water */
+export function landThumb(): THREE.Group {
+  const g = new THREE.Group();
+  ([[0, 0, C3.grass[0]], [1, 0, 0x8FB07A], [0, 1, 0x7C9E64], [1, 1, C3.grass[0]]] as const)
+    .forEach(([a, b, c]) => g.add(box3(.95, .5, .95, c, a - .5, -.25, b - .5)));
+  g.add(box3(2.1, .12, 2.1, 0x679690, 0, -.56, 0));
+  g.add(cone3(.05, .22, 0x5A7D4A, -.3, .1, -.2, 5), cone3(.04, .18, 0x6F945C, -.2, .08, -.32, 5));
+  g.add(sph3(.07, C3.blossom, .3, .06, .25), sph3(.055, C3.gold, .45, .05, .1));
+  return g;
+}
+
 /* ---------- the companion: a proper little quadruped ----------
    Faces +z. Node names the animator relies on: "head" (nods when napping
    or drinking), "tail" (wags), "legFL/FR/BL/BR" (leg groups pivoted at

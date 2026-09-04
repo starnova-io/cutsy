@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useGame } from "../game/store";
 import { CATALOG, CATS, PETS, byId } from "../game/catalog";
 import { firstFreeSpot } from "../game/economy";
-import { buildBridge, buyAndPlace } from "../game/actions";
+import { buildBridge, buyAndPlace, buyLand } from "../game/actions";
 import { mutate } from "../game/store";
 import { world } from "../world/world3d";
 import { WorldView } from "../world/WorldView";
@@ -18,6 +18,7 @@ type ItemState = "adopted" | "adopt" | "built" | "gated" | "locked" | "inv" | "b
 function stateOf(s: GameState, e: Entry): ItemState {
   if (isPet(e)) return s.pet === e.petKey ? "adopted" : "adopt";
   if (e.special === "bridge" && s.bridge) return "built";
+  if (e.special === "land" && s.lands.includes(e.id)) return "built";
   if (e.premium && !s.premium) return "gated";
   if (e.unlock > s.totalMin) return "locked";
   if (s.inventory.includes(e.id)) return "inv";
@@ -56,6 +57,13 @@ export function Shop(props: {
       if (buildBridge()) {
         confettiBurst();
         toast("New area discovered!", 3000);
+      }
+      return;
+    }
+    if (a.special === "land") {
+      if (buyLand(a.id)) {
+        confettiBurst();
+        toast("New land rises from the sea!", 3000);
       }
       return;
     }
@@ -107,7 +115,7 @@ export function Shop(props: {
           <b id="sa-name">{selEntry ? (isPet(selEntry) ? PETS[selEntry.petKey].name : selEntry.name) : ""}</b>
           <span id="sa-note">
             {!selEntry ? "" : isPet(selEntry) ? PETS[selEntry.petKey].line
-              : selState === "built" ? "The isle across the water is yours"
+              : selState === "built" ? (selEntry.special === "land" ? "Part of your island now" : "The isle across the water is yours")
               : selState === "gated" ? "In the premium catalog"
               : selState === "locked" ? `Focus ${selEntry.unlock - s.totalMin} more min to unlock`
               : selState === "inv" ? "Yours — waiting to be placed"
@@ -139,7 +147,7 @@ export function Shop(props: {
               {selState === "inv" && <button className="btn buy-main" data-place={selEntry.id}
                 onClick={() => { mutate(st => { st.inventory = st.inventory.filter(x => x !== selEntry.id); }); props.onPlaceInventory(selEntry.id); }}>Place</button>}
               {selState === "buy" && <button className="btn buy-main" data-buy={selEntry.id} onClick={() => buy(selEntry)}>
-                {selEntry.special === "bridge" ? "Build" : "Buy"} · ✦ {selEntry.price}
+                {selEntry.special === "bridge" ? "Build" : selEntry.special === "land" ? "Raise" : "Buy"} · ✦ {selEntry.price}
               </button>}
               {selState === "poor" && <button className="btn buy-main" disabled>✦ {selEntry.price}</button>}
             </>

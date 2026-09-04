@@ -17,8 +17,11 @@ export function nextUnlockInfo(s: GameState): { item: CatalogItem; left: number;
 }
 
 export function newlyUnlocked(s: GameState, prevTotal: number): CatalogItem | null {
-  const news = CATALOG.filter(a => inTier(s, a) && a.unlock > prevTotal && a.unlock <= s.totalMin)
-                      .sort((a, b) => a.unlock - b.unlock);
+  /* milestone unlocks are free gifts — except purchasable land, which
+     appears in the shop instead (free land patches are still gifted) */
+  const news = CATALOG.filter(a => inTier(s, a) && a.unlock > prevTotal && a.unlock <= s.totalMin
+      && !(a.special === "land" && a.price > 0))
+    .sort((a, b) => a.unlock - b.unlock);
   return news[0] ?? null;
 }
 
