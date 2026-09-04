@@ -659,6 +659,7 @@ class World {
         if (this.season === "autumn" && o.name === "leaf")
           (mesh.material as THREE.MeshLambertMaterial).color.copy(linC(C3.fall[(lj++ * 3) % C3.fall.length]));
       }
+      if (this.season === "autumn" && o.name === "leafIM") this.tintLeafIM(o as THREE.InstancedMesh, 1);
     });
     g.rotation.y = -g0.rot * Math.PI / 2;
     const wrap = new THREE.Group();
@@ -769,6 +770,16 @@ class World {
     this.applyAutumnTint();
   }
 
+  /** lerp a leaf-cloud's instance colours between its summer/autumn ramps */
+  private tintLeafIM(im: THREE.InstancedMesh, k: number): void {
+    const c0 = im.userData.c0 as THREE.Color[] | undefined;
+    const c1 = im.userData.c1 as THREE.Color[] | undefined;
+    if (!c0 || !c1) return;
+    const cc = new THREE.Color();
+    for (let i = 0; i < c0.length; i++) im.setColorAt(i, cc.copy(c0[i]).lerp(c1[i], k));
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  }
+
   /* lerp deciduous foliage from summer green toward its turn color;
      each tree turns on a slightly different clock */
   private applyAutumnTint(): void {
@@ -778,6 +789,7 @@ class World {
       const k = Math.min(1, Math.max(0, this.autumnK * 1.5 - ((pidx * 7) % 4) * .12));
       let j = 0;
       wrap.traverse(o => {
+        if (o.name === "leafIM") { this.tintLeafIM(o as THREE.InstancedMesh, k); return; }
         if (o.name !== "leaf") return;
         const m = (o as THREE.Mesh).material as THREE.MeshLambertMaterial;
         if (!o.userData.c0) o.userData.c0 = m.color.clone();
@@ -1335,6 +1347,7 @@ class World {
       g.traverse(o => {
         if (o.name === "leaf")
           ((o as THREE.Mesh).material as THREE.MeshLambertMaterial).color.copy(linC(C3.fall[(j++ * 3) % C3.fall.length]));
+        if (o.name === "leafIM") this.tintLeafIM(o as THREE.InstancedMesh, 1);
       });
     }
     sc.add(g);

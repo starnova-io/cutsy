@@ -83,6 +83,59 @@ function blob(r: number, c: number, x: number, y: number, z: number,
   return m;
 }
 
+/* A cloud of individual instanced leaves scattered over the canopy lobes,
+   after ceramicSoda's falling-autumn-leaves pen: each leaf is a small quad
+   facing outward, coloured by a three-stop gradient over height+outerness
+   (their mix3). userData carries per-leaf summer (c0) and autumn (c1)
+   colours so the seasonal tint can lerp instance colours. */
+const h01 = (n: number): number => {
+  const v = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return v - Math.floor(v);
+};
+const mix3 = (a: THREE.Color, b: THREE.Color, c: THREE.Color, f: number): THREE.Color =>
+  f > .5 ? b.clone().lerp(c, (f - .5) * 2) : a.clone().lerp(b, f * 2);
+
+function leafCloud(lobes: [number, number, number, number][], count: number, seed: number): THREE.InstancedMesh {
+  const im = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(.1, .14),
+    new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
+    count);
+  im.name = "leafIM";
+  im.castShadow = true;
+  const dum = new THREE.Object3D();
+  const c0: THREE.Color[] = [], c1: THREE.Color[] = [];
+  let minY = 1e9, maxY = -1e9, maxR = 0;
+  lobes.forEach(([x, y, z, r]) => {
+    minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r);
+    maxR = Math.max(maxR, Math.hypot(x, z) + r);
+  });
+  /* the pen's autumn ramp: dusty red -> tan -> pale straw */
+  const A = linC(0xB45252), B = linC(0xD3A068), C = linC(0xEDE19E);
+  const GA = linC(C3.leafD), GB = linC(C3.leaf), GC = linC(C3.leafL);
+  for (let i = 0; i < count; i++) {
+    const [lx, ly, lz, lr] = lobes[Math.floor(h01(seed + i * 3.7) * lobes.length)];
+    const u = h01(seed + i * 7.3) * 2 - 1, az = h01(seed + i * 5.1) * Math.PI * 2;
+    const sq = Math.sqrt(1 - u * u);
+    const dx = sq * Math.cos(az), dy = u, dz = sq * Math.sin(az);
+    const rr = lr * (.82 + h01(seed + i * 9.2) * .3);
+    dum.position.set(lx + dx * rr, ly + dy * rr * .85, lz + dz * rr);
+    dum.lookAt(dum.position.x + dx, dum.position.y + dy, dum.position.z + dz);
+    dum.rotateZ(h01(seed + i * 11.7) * Math.PI * 2);
+    dum.scale.setScalar(.75 + h01(seed + i * 13.3) * .6);
+    dum.updateMatrix();
+    im.setMatrixAt(i, dum.matrix);
+    const t = Math.min(1, ((dum.position.y - minY) / (maxY - minY)) * .62
+      + (Math.hypot(dum.position.x, dum.position.z) / maxR) * .46);
+    c0.push(mix3(GA, GB, GC, t));
+    c1.push(mix3(A, B, C, t));
+    im.setColorAt(i, c0[i]);
+  }
+  im.userData.c0 = c0;
+  im.userData.c1 = c1;
+  if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  return im;
+}
+
 /* faceted cone with radial vertex jitter — pine tiers with a natural crook,
    or (with 4 segments and a light touch) a handmade-looking roof */
 function jcone(r: number, h: number, c: number, x: number, y: number, z: number,
@@ -128,14 +181,17 @@ export const B3: Record<string, () => THREE.Group> = {
     br1.rotation.z = -.75; br1.rotation.x = .15;
     const br2 = cyl3(.035, .05, .3, C3.woodD, -.14, .56, -.05);
     br2.rotation.z = .65; br2.rotation.x = -.3;
+    /* smaller dark lobes fill the core; the visible surface is a cloud of
+       individual leaves */
     const g = grp3(trunk, br1, br2,
-      blob(.34, C3.leaf, .02, 1.02, 0, 1.15, .82, 1, 1.3),
-      blob(.25, C3.leafL, .3, .84, .13, 1, .9, .95, 4.7),
-      blob(.24, C3.leafD, -.28, .9, -.1, 1.2, .78, .9, 8.2),
-      blob(.21, C3.leafL, .08, 1.26, -.14, .9, .8, 1.1, 2.9),
-      blob(.19, C3.leaf, -.16, 1.12, .25, 1.05, .85, .9, 6.1),
-      blob(.16, C3.leafD, .32, 1.14, -.2, .9, .95, 1, 9.4),
-      blob(.13, C3.leafD, -.33, .7, .14, 1.1, .8, .9, 5.5));
+      blob(.3, C3.leafD, .02, 1.02, 0, 1.1, .82, 1, 1.3),
+      blob(.22, C3.leafD, .3, .84, .13, 1, .9, .95, 4.7),
+      blob(.21, C3.leafD, -.28, .9, -.1, 1.15, .78, .9, 8.2),
+      blob(.18, C3.leafD, .08, 1.26, -.14, .9, .8, 1.1, 2.9),
+      blob(.16, C3.leafD, -.16, 1.12, .25, 1.05, .85, .9, 6.1),
+      blob(.12, C3.leafD, -.33, .7, .14, 1.1, .8, .9, 5.5),
+      leafCloud([[.02, 1.02, 0, .36], [.3, .84, .13, .26], [-.28, .9, -.1, .27],
+        [.08, 1.26, -.14, .22], [-.16, 1.12, .25, .2], [.32, 1.14, -.2, .17], [-.33, .7, .14, .15]], 330, 3.3));
     if (winter()) {
       g.add(blob(.24, C3.snow, .02, 1.3, -.03, 1.05, .4, 1, 1.3, false),
         blob(.16, C3.snow, .28, 1.02, .1, .8, .35, .8, 4.7, false),
@@ -164,11 +220,12 @@ export const B3: Record<string, () => THREE.Group> = {
   },
   bush() {
     const g = grp3(
-      blob(.21, C3.leaf, 0, .2, 0, 1.3, .72, 1.05, 2.4),
-      blob(.15, C3.leafL, .19, .24, .1, 1.1, .8, .95, 7.9),
-      blob(.15, C3.leafD, -.17, .22, -.07, 1.2, .7, .9, 4.2),
-      blob(.12, C3.leafL, .03, .34, -.11, 1, .8, 1.1, 9.8),
-      blob(.11, C3.leaf, -.15, .28, .14, 1.1, .75, .9, 6.6));
+      blob(.18, C3.leafD, 0, .2, 0, 1.3, .72, 1.05, 2.4),
+      blob(.13, C3.leafD, .19, .24, .1, 1.1, .8, .95, 7.9),
+      blob(.13, C3.leafD, -.17, .22, -.07, 1.2, .7, .9, 4.2),
+      blob(.1, C3.leafD, .03, .34, -.11, 1, .8, 1.1, 9.8),
+      leafCloud([[0, .2, 0, .23], [.19, .24, .1, .16], [-.17, .22, -.07, .16],
+        [.03, .34, -.11, .13], [-.15, .28, .14, .12]], 160, 8.8));
     if (winter()) {
       g.add(blob(.15, C3.snow, 0, .38, 0, 1.2, .35, 1, 2.4, false),
         blob(.1, C3.snow, .16, .3, .08, .9, .3, .85, 7.9, false));
