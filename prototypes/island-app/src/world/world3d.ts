@@ -426,9 +426,11 @@ class World {
     });
     const pebbleMat = new THREE.MeshLambertMaterial({ color: linC(C3.stoneD) });
     const deco = new THREE.Group();
+    const grassTiles: { x: number; y: number }[] = [];
     mask.forEach(k => {
       const [x, y] = k.split(",").map(Number);
       const beach = isBeach(x, y);
+      if (!beach) grassTiles.push({ x, y });
       const top = new THREE.Color(beach ? sandBase : grassBase);
       top.offsetHSL(0, beach ? 0 : (rng(x, y, 1) - .5) * .015, (rng(x, y, 2) - .5) * (beach ? .025 : .032));
       const s1 = beach ? sandSide : side, s2 = beach ? sandSideD : sideD;
@@ -515,6 +517,33 @@ class World {
         deco.add(p);
       }
     });
+    /* a carpet of instanced grass blades so the meadow reads as grass,
+       not paint (none in winter — snow covers it) */
+    if (sn !== "winter" && grassTiles.length) {
+      const per = 10;
+      const im = new THREE.InstancedMesh(
+        new THREE.ConeGeometry(.016, .11, 4),
+        new THREE.MeshLambertMaterial({ color: 0xffffff }),
+        grassTiles.length * per);
+      const colA = new THREE.Color(sn === "autumn" ? 0x97A05E : sn === "spring" ? 0x7FB864 : 0x749B60).convertSRGBToLinear();
+      const colB = new THREE.Color(sn === "autumn" ? 0xAAAE6C : sn === "spring" ? 0x93C774 : 0x87AD6F).convertSRGBToLinear();
+      const dum = new THREE.Object3D(), cc = new THREE.Color();
+      let i = 0;
+      for (const gt of grassTiles) {
+        for (let b = 0; b < per; b++) {
+          const r1 = rng(gt.x, gt.y, 30 + b), r2 = rng(gt.x, gt.y, 60 + b), r3 = rng(gt.x, gt.y, 90 + b);
+          dum.position.set(WCX(gt.x) + (r1 - .5) * .92, .05, WCZ(gt.y) + (r2 - .5) * .92);
+          dum.rotation.set((r3 - .5) * .4, r1 * 6.28, (r2 - .5) * .4);
+          dum.scale.setScalar(.65 + r3 * .75);
+          dum.updateMatrix();
+          im.setMatrixAt(i, dum.matrix);
+          im.setColorAt(i, cc.copy(colA).lerp(colB, r2));
+          i++;
+        }
+      }
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      deco.add(im);
+    }
     into.add(deco);
   }
 

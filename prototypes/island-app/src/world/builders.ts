@@ -45,23 +45,64 @@ export function grp3(...ms: THREE.Object3D[]): THREE.Group {
   return g;
 }
 
+/* faceted (flat-shaded) copy of a geometry — the low-poly foliage look */
+const facet = (geo: THREE.BufferGeometry): THREE.BufferGeometry => {
+  const g = geo.toNonIndexed();
+  g.computeVertexNormals();
+  geo.dispose();
+  return g;
+};
+/** faceted cone for foliage tiers */
+export function fcone3(r: number, h: number, c: number, x = 0, y = 0, z = 0, seg = 7): THREE.Mesh {
+  const m = shade(new THREE.Mesh(facet(new THREE.ConeGeometry(r, h, seg)), M(c)));
+  m.position.set(x, y, z);
+  return m;
+}
+/** one leafy canopy lobe: a faceted icosahedron, named for seasonal tinting */
+function lob(r: number, c: number, x: number, y: number, z: number, sy = .9): THREE.Mesh {
+  const m = shade(new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), M(c)));
+  m.position.set(x, y, z);
+  m.scale.set(1, sy, 1);
+  m.name = "leaf";
+  return m;
+}
+
 /* ---------- item builders (footprint-centered, ground y=0) ---------- */
 export const B3: Record<string, () => THREE.Group> = {
   pine() {
-    const g = grp3(cyl3(.07, .1, .3, C3.woodD, 0, .15), cone3(.36, .55, C3.leafD, 0, .62),
-      cone3(.28, .45, C3.leaf, 0, .98), cone3(.19, .34, C3.leafL, 0, 1.3));
-    if (winter()) g.add(cone3(.3, .22, C3.snow, 0, .78), cone3(.23, .2, C3.snow, 0, 1.12),
-      cone3(.16, .2, C3.snow, 0, 1.42));
+    const t1 = fcone3(.37, .55, C3.leafD, 0, .62);
+    const t2 = fcone3(.29, .45, C3.leaf, 0, .98);
+    const t3 = fcone3(.2, .35, C3.leafL, 0, 1.31);
+    t2.rotation.y = .45; t3.rotation.y = .9;
+    const g = grp3(cyl3(.07, .1, .3, C3.woodD, 0, .15), t1, t2, t3);
+    if (winter()) {
+      const s1 = fcone3(.3, .22, C3.snow, 0, .78), s2 = fcone3(.23, .2, C3.snow, 0, 1.12),
+        s3 = fcone3(.16, .2, C3.snow, 0, 1.43);
+      s2.rotation.y = .45; s3.rotation.y = .9;
+      g.add(s1, s2, s3);
+    }
     return g;
   },
   oak() {
-    const c1 = sph3(.42, C3.leaf, 0, .82, 0, 1, .85, 1), c2 = sph3(.3, C3.leafL, .18, 1.05, .1);
-    c1.name = "leaf"; c2.name = "leaf";
-    const g = grp3(cyl3(.09, .12, .55, C3.woodD, 0, .27), c1, c2);
-    if (winter()) g.add(sph3(.33, C3.snow, 0, 1.0, 0, 1, .45, 1), sph3(.24, C3.snow, .18, 1.18, .1, 1, .4, 1));
-    if (spring()) ([[.28, .98, .22], [-.3, .9, .18], [.05, 1.15, .28], [-.15, 1.05, -.28], [.35, .75, -.15], [.3, 1.22, .2]] as const)
-      .forEach(([x, y, z]) => g.add(sph3(.065, C3.blossom, x, y, z)));
-    g.userData.deciduous = { h: 1.1 };
+    /* a canopy of overlapping faceted lobes in three greens */
+    const g = grp3(cyl3(.09, .13, .6, C3.woodD, 0, .3),
+      lob(.33, C3.leaf, 0, .95, 0),
+      lob(.26, C3.leafL, .23, .8, .11),
+      lob(.25, C3.leafD, -.24, .84, -.07),
+      lob(.22, C3.leafL, .05, 1.14, -.15),
+      lob(.21, C3.leaf, -.12, 1.04, .21),
+      lob(.19, C3.leafD, .2, 1.02, -.21));
+    if (winter()) {
+      const s1 = new THREE.Mesh(new THREE.IcosahedronGeometry(.26, 1), lob(.1, C3.snow, 0, 0, 0).material);
+      s1.position.set(0, 1.22, -.02); s1.scale.set(1, .45, 1);
+      const s2 = s1.clone(); s2.position.set(.22, 1.0, .1); s2.scale.set(.65, .3, .65);
+      const s3 = s1.clone(); s3.position.set(-.22, 1.02, 0); s3.scale.set(.6, .28, .6);
+      g.add(s1, s2, s3);
+    }
+    if (spring()) ([[.3, .98, .24], [-.32, .92, .16], [.06, 1.28, .1], [-.16, 1.16, -.26], [.36, .78, -.14],
+      [.28, 1.18, -.2], [-.28, .74, .2], [.02, .9, .34]] as const)
+      .forEach(([x, y, z]) => g.add(sph3(.06, C3.blossom, x, y, z)));
+    g.userData.deciduous = { h: 1.15 };
     return g;
   },
   palm() {
@@ -80,13 +121,21 @@ export const B3: Record<string, () => THREE.Group> = {
     return g;
   },
   bush() {
-    const c1 = sph3(.3, C3.leaf, 0, .26, 0, 1, .8, 1), c2 = sph3(.22, C3.leafL, .16, .34, .1);
-    c1.name = "leaf"; c2.name = "leaf";
-    const g = grp3(c1, c2);
-    if (winter()) g.add(sph3(.24, C3.snow, 0, .4, 0, 1, .45, 1), sph3(.17, C3.snow, .16, .46, .1, 1, .4, 1));
-    if (spring()) ([[.2, .4, .2], [-.18, .35, .15], [.05, .5, -.15], [.3, .42, -.05]] as const)
-      .forEach(([x, y, z]) => g.add(sph3(.055, C3.blossom, x, y, z)));
-    g.userData.deciduous = { h: .45 };
+    const g = grp3(
+      lob(.22, C3.leaf, 0, .22, 0),
+      lob(.16, C3.leafL, .17, .27, .09),
+      lob(.15, C3.leafD, -.15, .25, -.06),
+      lob(.13, C3.leafL, .02, .37, -.09),
+      lob(.12, C3.leaf, -.13, .3, .13));
+    if (winter()) {
+      const s1 = new THREE.Mesh(new THREE.IcosahedronGeometry(.17, 1), lob(.1, C3.snow, 0, 0, 0).material);
+      s1.position.set(0, .42, 0); s1.scale.set(1, .42, 1);
+      const s2 = s1.clone(); s2.position.set(.15, .34, .08); s2.scale.set(.6, .3, .6);
+      g.add(s1, s2);
+    }
+    if (spring()) ([[.2, .38, .2], [-.2, .32, .14], [.05, .5, -.12], [.3, .28, -.03], [-.1, .44, -.16]] as const)
+      .forEach(([x, y, z]) => g.add(sph3(.05, C3.blossom, x, y, z)));
+    g.userData.deciduous = { h: .5 };
     return g;
   },
   flowerpatch() {
