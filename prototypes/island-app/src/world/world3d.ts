@@ -700,6 +700,7 @@ class World {
       if (g.userData.fire) wrap.userData.fire = true;
       if (g.userData.yarn) wrap.userData.yarn = true;
       if (g.userData.homeWindow) wrap.userData.homeWindow = g.userData.homeWindow;
+      if (g.userData.smoke) wrap.userData.smoke = g.userData.smoke;
       this.itemsG.add(wrap);
     });
     if (this.popQueue) {
@@ -1161,6 +1162,13 @@ class World {
       else if (shake) w.rotation.z = shake;
       if (w.userData.fire) (w.children[0] as THREE.Group).children.forEach(m => {
         if (m.name === "flame") m.scale.y = 1 + .18 * Math.sin(t * 11 + m.position.x * 9);
+      });
+      if (w.userData.smoke) (w.userData.smoke as THREE.Group).children.forEach((p, i) => {
+        const ph = (t * .2 + i * .37) % 1;
+        p.position.y = ph * .55;
+        p.position.x = Math.sin(t * 1.2 + i * 2.1) * .045;
+        p.scale.setScalar(.45 + ph * .95);
+        ((p as THREE.Mesh).material as THREE.MeshLambertMaterial).opacity = .45 * (1 - ph);
       });
       if (w.userData.yarn && this.yarnWobble > 0) {
         w.rotation.z = Math.sin(t * 14) * .3;

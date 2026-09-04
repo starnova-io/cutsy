@@ -83,16 +83,18 @@ function blob(r: number, c: number, x: number, y: number, z: number,
   return m;
 }
 
-/* faceted cone with radial vertex jitter — pine tiers with a natural crook */
-function jcone(r: number, h: number, c: number, x: number, y: number, z: number, seed = 0): THREE.Mesh {
-  const geo = new THREE.ConeGeometry(r, h, 7).toNonIndexed();
+/* faceted cone with radial vertex jitter — pine tiers with a natural crook,
+   or (with 4 segments and a light touch) a handmade-looking roof */
+function jcone(r: number, h: number, c: number, x: number, y: number, z: number,
+  seed = 0, seg = 7, amt = .34): THREE.Mesh {
+  const geo = new THREE.ConeGeometry(r, h, seg).toNonIndexed();
   const p = geo.attributes.position as THREE.BufferAttribute;
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
     v.set(p.getX(i), p.getY(i), p.getZ(i));
     const hh = Math.sin(v.x * 127.1 + v.y * 311.7 + v.z * 74.7 + seed) * 43758.5453;
-    const j = 1 + ((hh - Math.floor(hh)) - .5) * .34;
-    p.setXYZ(i, v.x * j, v.y + ((hh - Math.floor(hh)) - .5) * h * .1, v.z * j);
+    const j = 1 + ((hh - Math.floor(hh)) - .5) * amt;
+    p.setXYZ(i, v.x * j, v.y + ((hh - Math.floor(hh)) - .5) * h * .3 * amt, v.z * j);
   }
   geo.computeVertexNormals();
   const m = shade(new THREE.Mesh(geo, M(c)));
@@ -199,14 +201,22 @@ export const B3: Record<string, () => THREE.Group> = {
   },
   fence() {
     const g = new THREE.Group();
-    [-.36, 0, .36].forEach(px => g.add(box3(.08, .5, .08, C3.wood, px, .25, 0)));
-    g.add(box3(.9, .06, .05, C3.woodL, 0, .38, 0), box3(.9, .06, .05, C3.woodL, 0, .2, 0));
+    [-.36, 0, .36].forEach((px, i) => {
+      const p = box3(.08, .5, .08, C3.wood, px, .25, 0);
+      p.rotation.z = (i - 1) * .05;                               /* handmade lean */
+      g.add(p);
+    });
+    const r1 = box3(.9, .06, .05, C3.woodL, 0, .38, 0), r2 = box3(.9, .06, .05, C3.woodL, 0, .2, 0);
+    r1.rotation.z = .025; r2.rotation.z = -.02;
+    g.add(r1, r2);
     if (winter()) g.add(box3(.92, .04, .07, C3.snow, 0, .43, 0));
     return g;
   },
   sign() {
-    const g = grp3(box3(.07, .5, .07, C3.wood, 0, .25, 0), box3(.5, .3, .05, C3.woodL, 0, .5, .02));
+    const g = grp3(box3(.07, .5, .07, C3.wood, 0, .25, 0), box3(.5, .3, .05, C3.woodL, 0, .5, .02),
+      box3(.4, .022, .06, C3.woodD, 0, .55, .04), box3(.3, .022, .06, C3.woodD, 0, .48, .04));
     if (winter()) g.add(box3(.52, .04, .07, C3.snow, 0, .67, .02));
+    g.rotation.z = .06;                                           /* a friendly tilt */
     return g;
   },
   bench() {
@@ -242,43 +252,98 @@ export const B3: Record<string, () => THREE.Group> = {
     return g;
   },
   well() {
-    const roof = cone3(.42, .26, C3.terra, 0, .85, 0, 4);
+    const g = new THREE.Group();
+    /* rim of chunky stones instead of a smooth drum */
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      const st = shade(new THREE.Mesh(new THREE.DodecahedronGeometry(.11), M(i % 2 ? C3.stone : C3.stoneD)));
+      st.position.set(Math.cos(a) * .3, .12 + (i % 3) * .02, Math.sin(a) * .3);
+      st.rotation.set(i, i * 2, 0);
+      st.scale.set(1, .8, .9);
+      g.add(st);
+    }
+    g.add(cyl3(.26, .26, .26, 0x4E6E78, 0, .14, 0, 10));          /* dark water */
+    const p1 = box3(.06, .55, .06, C3.wood, -.3, .5, 0), p2 = box3(.06, .55, .06, C3.wood, .3, .5, 0);
+    p1.rotation.z = .05; p2.rotation.z = -.05;
+    const roof = jcone(.46, .28, C3.terra, 0, .9, 0, 21, 4, .16);
     roof.rotation.y = Math.PI / 4;
-    const g = grp3(cyl3(.34, .36, .3, C3.stone, 0, .15, 0, 10), cyl3(.26, .26, .3, 0x4E6E78, 0, .16, 0, 10),
-      box3(.06, .5, .06, C3.wood, -.3, .5, 0), box3(.06, .5, .06, C3.wood, .3, .5, 0),
-      roof, box3(.5, .04, .04, C3.woodD, 0, .62, 0));
+    g.add(p1, p2, roof, box3(.5, .04, .04, C3.woodD, 0, .66, 0),
+      cyl3(.006, .006, .2, C3.woodD, 0, .56, 0, 4),               /* rope */
+      cyl3(.05, .06, .08, C3.woodD, 0, .46, 0, 7));               /* bucket */
     if (winter()) {
-      const sr = cone3(.34, .18, C3.snow, 0, .92, 0, 4);
+      const sr = jcone(.38, .18, C3.snow, 0, .98, 0, 21, 4, .16);
       sr.rotation.y = Math.PI / 4;
       g.add(sr);
     }
     return g;
   },
   house() {
-    const roof = cone3(1.18, .6, C3.terra, 0, 1.1, 0, 4);
+    const g = new THREE.Group();
+    g.add(box3(1.58, .12, 1.38, C3.stoneD, 0, .06, 0));           /* stone footing */
+    g.add(box3(1.5, .78, 1.3, C3.cream, 0, .51, 0));
+    ([[-.72, .62], [.72, .62], [-.72, -.62], [.72, -.62]] as const)
+      .forEach(([px, pz]) => g.add(box3(.09, .78, .09, C3.wood, px, .51, pz)));
+    g.add(box3(1.6, .07, 1.4, C3.woodD, 0, .93, 0));              /* eaves trim */
+    const roof = jcone(1.24, .6, C3.terra, 0, 1.24, 0, 11, 4, .12);
     roof.rotation.y = Math.PI / 4;
-    const g = grp3(box3(1.5, .8, 1.3, C3.cream, 0, .4, 0),
-      box3(.4, .55, .06, C3.woodD, -.3, .28, .66),
-      box3(.3, .3, .06, 0xBFD8DC, .35, .5, .66, { c: 0xFFDF9E, i: 0 }),
-      box3(.2, .5, .2, C3.stoneD, .5, 1.15, -.3), roof);
-    g.userData.homeWindow = g.children[2];
+    g.add(roof, sph3(.07, C3.woodD, 0, 1.55, 0));                 /* ridge knob */
+    /* door with frame, knob and a stone step */
+    g.add(box3(.46, .6, .05, C3.wood, -.3, .34, .67),
+      box3(.38, .54, .06, C3.woodD, -.3, .32, .69),
+      sph3(.024, C3.gold, -.42, .32, .73),
+      box3(.5, .06, .2, C3.stoneD, -.3, .03, .76));
+    /* cross-framed window */
+    const glass = box3(.32, .32, .05, 0xBFD8DC, .35, .56, .67, { c: 0xFFDF9E, i: 0 });
+    g.add(box3(.4, .4, .04, C3.wood, .35, .56, .66), glass,
+      box3(.33, .03, .06, C3.wood, .35, .56, .68),
+      box3(.03, .33, .06, C3.wood, .35, .56, .68));
+    g.userData.homeWindow = glass;
+    /* stone chimney with cap and drifting smoke */
+    g.add(box3(.22, .6, .22, C3.stoneD, .48, 1.28, -.32),
+      box3(.28, .07, .28, C3.stone, .48, 1.6, -.32));
+    const smoke = new THREE.Group();
+    smoke.position.set(.48, 1.68, -.32);
+    for (let i = 0; i < 3; i++) {
+      const p = new THREE.Mesh(new THREE.IcosahedronGeometry(.055 + i * .012, 1),
+        new THREE.MeshLambertMaterial({ color: linC(0xD9D2D9), transparent: true, opacity: .5 }));
+      smoke.add(p);
+    }
+    g.add(smoke);
+    g.userData.smoke = smoke;
     if (winter()) {
-      const sr = cone3(1.06, .46, C3.snow, 0, 1.24, 0, 4);
+      const sr = jcone(1.1, .46, C3.snow, 0, 1.3, 0, 11, 4, .12);
       sr.rotation.y = Math.PI / 4;
-      g.add(sr, box3(.24, .06, .24, C3.snow, .5, 1.43, -.3));
+      g.add(sr, box3(.3, .06, .3, C3.snow, .48, 1.66, -.32));
     }
     return g;
   },
   cabin() {
-    const roof = cone3(1.15, .62, C3.leafD, 0, 1.06, 0, 4);
+    const g = new THREE.Group();
+    g.add(box3(1.56, .1, 1.36, C3.stoneD, 0, .05, 0));            /* stone footing */
+    g.add(box3(1.5, .68, 1.3, C3.wood, 0, .44, 0));
+    /* horizontal log seams + protruding log-ends at the corners */
+    for (let i = 0; i < 3; i++) {
+      const y = .22 + i * .21;
+      g.add(box3(1.52, .025, 1.32, C3.woodD, 0, y, 0));
+      ([[-.76, .66], [.76, .66], [-.76, -.66], [.76, -.66]] as const).forEach(([px, pz]) => {
+        const e = cyl3(.05, .05, .1, C3.woodD, px, y, pz, 6);
+        e.rotation.x = Math.PI / 2;
+        g.add(e);
+      });
+    }
+    g.add(box3(1.58, .08, 1.38, C3.woodD, 0, .79, 0));            /* eaves */
+    const roof = jcone(1.2, .6, C3.leafD, 0, 1.1, 0, 17, 4, .13);
     roof.rotation.y = Math.PI / 4;
-    const g = grp3(box3(1.5, .7, 1.3, C3.wood, 0, .35, 0),
-      box3(.38, .5, .06, C3.woodD, 0, .25, .66), box3(1.56, .1, 1.36, C3.woodD, 0, .72, 0),
-      roof, cone3(.3, .5, C3.leafD, .62, .28, .5, 6));
+    g.add(roof);
+    g.add(box3(.44, .52, .05, C3.woodD, 0, .3, .67),              /* door frame */
+      box3(.36, .46, .06, 0x6E4630, 0, .28, .69),
+      box3(.28, .24, .05, 0xBFD8DC, .48, .5, .67),                /* small window */
+      box3(.34, .3, .04, C3.woodD, .48, .5, .66));
+    g.add(jcone(.3, .5, C3.leafD, .62, .3, .5, 9));               /* little pine */
     if (winter()) {
-      const sr = cone3(.92, .42, C3.snow, 0, 1.21, 0, 4);
+      const sr = jcone(.95, .44, C3.snow, 0, 1.22, 0, 17, 4, .13);
       sr.rotation.y = Math.PI / 4;
-      g.add(sr, cone3(.2, .2, C3.snow, .62, .48, .5, 6));
+      g.add(sr, jcone(.21, .2, C3.snow, .62, .5, .5, 9));
     }
     return g;
   },
@@ -289,7 +354,12 @@ export const B3: Record<string, () => THREE.Group> = {
       g.add(p);
     }
     g.add(box3(.07, .4, .07, C3.woodD, -.85, .12, .35), box3(.07, .4, .07, C3.woodD, .85, .12, .35));
-    g.add(sph3(.4, C3.terra, 0, .06, -.85, 1.1, .5, 1.9),
+    const hull = blob(.38, C3.terra, 0, .06, -.85, 1.1, .5, 1.9, 13.7, false);
+    hull.rotation.set(0, 0, 0);
+    hull.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.3, 1),
+      hull.material).translateY(.12));                            /* inner lip */
+    (hull.children[0] as THREE.Mesh).scale.set(.85, .3, .85);
+    g.add(hull,
       box3(.02, .55, .35, C3.cream, .02, .5, -.85),
       cyl3(.02, .02, .6, C3.woodD, 0, .35, -.85, 6));
     return g;
