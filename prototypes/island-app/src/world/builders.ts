@@ -220,26 +220,74 @@ export const B3: Record<string, () => THREE.Group> = {
   bridge() { return grp3(box3(.8, .08, .9, C3.woodL, 0, .1, 0)); },
 };
 
-/* ---------- the companion ---------- */
+/* ---------- the companion: a proper little quadruped ----------
+   Faces +z. Node names the animator relies on: "head" (nods when napping
+   or drinking), "tail" (wags), "legFL/FR/BL/BR" (leg groups pivoted at
+   the hip, swung while walking). */
 export function buildPet(kind: PetKind): THREE.Group {
-  const B = kind === "dog" ? 0xD79754 : 0xEF9350, D = kind === "dog" ? 0xB0763C : 0xD5772E, CR = 0xFDECD4;
+  const B = kind === "dog" ? 0xD79754 : 0xEF9350;   /* coat */
+  const D = kind === "dog" ? 0xB0763C : 0xD5772E;   /* markings */
+  const CR = 0xFDECD4;                              /* cream chest & paws */
+  const INK = 0x33261F;
   const g = new THREE.Group();
-  const body = grp3(sph3(.24, B, 0, .24, -.04, 1, .82, 1.25));
-  body.add(sph3(.1, CR, 0, .2, .18, 1, .7, .6));
-  body.add(sph3(.06, CR, -.1, .05, .22), sph3(.06, CR, .1, .05, .22));
-  const head = grp3(sph3(.2, B, 0, .52, .22));
-  head.add(sph3(.1, CR, 0, .45, .38, 1, .75, .7));
-  head.add(sph3(.03, 0x33261F, -.085, .57, .37), sph3(.03, 0x33261F, .085, .57, .37));
-  head.add(sph3(.022, 0x33261F, 0, .5, .43));
+
+  const body = new THREE.Group();
+  body.name = "body";
+  /* torso: chest + hindquarters overlapping into one long back */
+  body.add(sph3(.17, B, 0, .3, .1, 1.02, .95, 1.15));
+  body.add(sph3(.165, B, 0, .3, -.13, 1.05, 1, 1.1));
+  body.add(sph3(.12, CR, 0, .23, .12, .95, .72, .95));         /* belly/chest */
+  if (kind === "dog") body.add(sph3(.13, D, 0, .4, -.12, 1, .55, 1.05)); /* saddle */
+  else for (let i = 0; i < 3; i++)                              /* tabby stripes */
+    body.add(box3(.2, .014, .045, D, 0, .445 - i * .012, -.02 - i * .09));
+
+  /* four legs, pivoted at the hip so they can swing */
+  const leg = (name: string, x: number, z: number) => {
+    const l = grp3(cyl3(.042, .05, .17, B, 0, -.085, 0, 8), sph3(.05, CR, 0, -.165, .012));
+    l.name = name;
+    l.position.set(x, .18, z);
+    body.add(l);
+  };
+  leg("legFL", -.095, .17); leg("legFR", .095, .17);
+  leg("legBL", -.1, -.17); leg("legBR", .1, -.17);
+
+  /* head on a neck pivot at the front */
+  const head = new THREE.Group();
+  head.name = "head";
+  head.position.set(0, .43, .2);
+  head.add(sph3(.145, B, 0, .07, .04, 1, .92, .95));
+  const mz = sph3(.075, CR, 0, .02, .16, 1, .7, .8);            /* muzzle */
+  head.add(mz);
+  head.add(sph3(.02, INK, 0, .045, .225));                      /* nose */
+  head.add(sph3(.024, INK, -.075, .1, .15), sph3(.024, INK, .075, .1, .15)); /* eyes */
   if (kind === "dog") {
-    head.add(box3(.09, .17, .05, D, -.16, .56, .18), box3(.09, .17, .05, D, .16, .56, .18));
-    const tail = sph3(.08, D, 0, .3, -.3); tail.name = "tail"; body.add(tail);
+    const earL = cone3(.05, .12, D, -.09, .2, .0, 4);
+    const earR = cone3(.05, .12, D, .09, .2, .0, 4);
+    earL.rotation.z = .25; earR.rotation.z = -.25;
+    head.add(earL, earR);
+    head.add(sph3(.05, CR, 0, -.02, .19, 1, .6, .6));           /* shiba chin */
   } else {
-    head.add(cone3(.06, .15, B, -.11, .72, .18, 4), cone3(.06, .15, B, .11, .72, .18, 4));
-    const tail = grp3(sph3(.055, D, 0, .16, -.3), sph3(.05, D, .01, .27, -.38), sph3(.045, D, .04, .38, -.4));
-    tail.name = "tail"; body.add(tail);
+    const earL = cone3(.055, .13, B, -.085, .2, 0, 4);
+    const earR = cone3(.055, .13, B, .085, .2, 0, 4);
+    earL.rotation.z = .18; earR.rotation.z = -.18;
+    head.add(earL, earR);
+    head.add(cone3(.03, .07, 0xF3B7CC, -.085, .19, .015, 4), cone3(.03, .07, 0xF3B7CC, .085, .19, .015, 4));
   }
-  body.name = "body"; head.name = "head";
+
+  /* tail, pivoted at the rump */
+  const tail = new THREE.Group();
+  tail.name = "tail";
+  tail.position.set(0, .36, -.24);
+  if (kind === "dog") {
+    /* shiba curl over the back */
+    tail.add(sph3(.05, B, 0, .03, -.02), sph3(.048, CR, 0, .1, .02), sph3(.04, B, 0, .13, .09));
+  } else {
+    /* upright cat tail with a crook */
+    tail.add(sph3(.042, B, 0, .04, -.03), sph3(.04, B, 0, .13, -.05),
+      sph3(.038, B, 0, .21, -.03), sph3(.036, D, 0, .27, .02));
+  }
+  body.add(tail);
+
   g.add(body, head);
   return g;
 }

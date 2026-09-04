@@ -1203,13 +1203,22 @@ class World {
     this.petRoot.position.set(pv.x - 5, 0, pv.y - 5.6);
     this.petRoot.rotation.y = pv.face;
     const walking = !!pv.path;
+    const nap = pv.napping && !walking;
     const bob = walking ? Math.abs(Math.sin(t * 12)) * .07
       : pv.mode === "happy" ? Math.abs(Math.sin(t * 9)) * .16
       : Math.sin(t * 2.4) * .015;
-    this.petBody.position.y = bob + (pv.napping && !walking ? -.06 : 0);
-    this.petBody.scale.y = (pv.napping && !walking ? .8 : 1) * 1.15;
+    this.petBody.position.y = bob + (nap ? -.12 : 0);
+    this.petBody.scale.y = (nap ? .82 : 1) * 1.15;
+    /* diagonal leg pairs swing while walking; folded into a loaf for naps */
+    const sw = walking ? Math.sin(t * 12) * .6 : 0;
+    const setLeg = (n: string, r: number) => {
+      const l = this.petBody!.getObjectByName(n);
+      if (l) l.rotation.x = r;
+    };
+    setLeg("legFL", nap ? 1.25 : sw); setLeg("legBR", nap ? -1.25 : sw);
+    setLeg("legFR", nap ? 1.25 : -sw); setLeg("legBL", nap ? -1.25 : -sw);
     const tail = this.petBody.getObjectByName("tail");
-    if (tail) tail.rotation.x = Math.sin(t * (walking ? 10 : 3)) * .4;
+    if (tail) tail.rotation.z = Math.sin(t * (walking ? 10 : pv.mode === "happy" ? 12 : 3)) * .35;
     const head = this.petBody.getObjectByName("head");
     if (head) head.rotation.x = pv.mode === "drink" && !walking
       ? .55 + .1 * Math.sin(t * 5)
