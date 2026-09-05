@@ -4,7 +4,7 @@ import { C3, PH3 } from "./palette";
 import { GW, GH, MASKS, LANDS, BRIDGE_TILES, WCX, WCZ, isBeachIn, mainMask, placeOK } from "./island";
 import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
 import { FluidSim, FLUID_WORLD } from "./fluid";
-import { GLBS, setGLBReady } from "./glb";
+import { GLBS, cloneGLB, setGLBReady } from "./glb";
 import { byId } from "../game/catalog";
 import { itemFootprint } from "../game/economy";
 import type { GameState, PetKind, Phase, PlacedItem, Season, Weather } from "../game/types";
@@ -657,7 +657,7 @@ class World {
 
   private makeGhost(g0: PlacedItem): THREE.Group {
     const a = byId(g0.id), f = itemFootprint(g0);
-    const g = GLBS[g0.id] ? GLBS[g0.id]!.clone() : B3[g0.id] ? B3[g0.id]() : new THREE.Group();
+    const g = GLBS[g0.id] ? cloneGLB(g0.id) : B3[g0.id] ? B3[g0.id]() : new THREE.Group();
     let lj = 0;
     g.traverse(o => {
       const mesh = o as THREE.Mesh;
@@ -702,7 +702,7 @@ class World {
       if (!B3[p.id] && !GLBS[p.id]) return;
       const a = byId(p.id);
       const f = itemFootprint(p);
-      const g = GLBS[p.id] ? GLBS[p.id]!.clone() : B3[p.id]();
+      const g = GLBS[p.id] ? cloneGLB(p.id) : B3[p.id]();
       g.rotation.y = -p.rot * Math.PI / 2;
       const wrap = new THREE.Group();
       wrap.add(g);
@@ -1350,7 +1350,7 @@ class World {
     const g = id === "pet-cat" || id === "pet-dog"
       ? buildPet(id.slice(4) as PetKind)
       : id.startsWith("land-") ? landThumb()
-      : GLBS[id] ? GLBS[id]!.clone()
+      : GLBS[id] ? cloneGLB(id)
       : B3[id] ? B3[id]() : new THREE.Group();
     if (isAutumn()) {
       let j = 0;
