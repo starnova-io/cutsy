@@ -87,6 +87,19 @@ gift at 260 total focused minutes, delivered on the session-complete
 screen like other milestone rewards. New land is immediately walkable
 and placeable; the camera frames the larger island automatically.
 
+## CC0 model trial (Kenney)
+
+The main house is now a real modelled cottage from Kenney's City Kit
+Suburban (CC0 — license text ships next to the asset in `src/assets/`),
+loaded via GLTFLoader from a data-URI so the single-file build stays
+self-contained. The shared Kenney palette texture is hue-remapped at
+build time into the Fig & Marigold family (teal roof gradients to leafy
+green, lavender trims to warm wood, window blues to pale glass), so the
+asset reads as ours. `src/world/glb.ts` swaps loaded models in for
+their catalog ids; anything not loaded keeps its procedural builder.
+Kenney's Nature Kit trees were evaluated and skipped — the procedural
+leaf-cloud trees are richer.
+
 ## Focus shield
 
 Leaving the app mid-session gently auto-pauses it — the island just
