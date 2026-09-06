@@ -100,7 +100,10 @@ their catalog ids; anything not loaded keeps its procedural builder.
 The fence, lantern and bench come from the Fantasy Town Kit; the cabin
 is assembled in code from Holiday Kit wall/roof modules (with the
 snow-covered roof variant in winter) and the well from Fantasy Town Kit
-parts (round fountain basin, wood pillars, pointed roof).
+parts (round fountain basin, wood pillars, pointed roof); the dock is
+Fantasy Town Kit plank platforms and mooring-pole rows with the lumpy
+procedural sailboat still moored alongside — every building is now
+Kenney-based while nature stays procedural.
 Kenney's Nature Kit trees were evaluated and skipped — the procedural
 leaf-cloud trees are richer.
 

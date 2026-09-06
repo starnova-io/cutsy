@@ -7,7 +7,7 @@
    relatively. */
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { box3, linC } from "./builders";
+import { box3, buildBoat, linC } from "./builders";
 import { curSeason } from "../game/weather";
 import houseUrl from "../assets/house-cottage.glb";
 import cksColormapUrl from "../assets/kenney-colormap.png";
@@ -15,6 +15,8 @@ import fenceUrl from "../assets/ftk-fence.glb";
 import lanternUrl from "../assets/ftk-lantern.glb";
 import benchUrl from "../assets/ftk-bench.glb";
 import fountainUrl from "../assets/ftk-fountain-round.glb";
+import planksUrl from "../assets/ftk-planks.glb";
+import polesUrl from "../assets/ftk-poles.glb";
 import pillarUrl from "../assets/ftk-pillar-wood.glb";
 import wellRoofUrl from "../assets/ftk-roof-point.glb";
 import ftkColormapUrl from "../assets/ftk-colormap.png";
@@ -140,6 +142,28 @@ Promise.all([
   GLBS.cabin = normalise(g, 1.8, Math.PI / 2, 2.15);
   onReady?.();
 }).catch(() => { /* keep procedural cabin */ });
+
+/* the dock: two Fantasy Town Kit plank platforms with pole rows at both
+   ends; the lumpy procedural sailboat still moors alongside */
+Promise.all([piece(ftkLoader, planksUrl), piece(ftkLoader, polesUrl)]).then(([planks, poles]) => {
+  const g = new THREE.Group();
+  planks.position.x = -.5;
+  const p2 = planks.clone();
+  p2.position.x = .5;
+  poles.position.x = .5;               /* piece's posts sit on its +x edge */
+  poles.scale.y = .45;                 /* mooring posts, not masts */
+  const poles2 = poles.clone();
+  poles2.rotation.y = Math.PI;
+  poles2.position.x = -.5;
+  g.add(planks, p2, poles, poles2);
+  const root = normalise(g, 1.9, 0);
+  const boat = buildBoat();
+  boat.position.set(0, 0, -.8);
+  boat.scale.setScalar(.9);
+  root.add(boat);
+  GLBS.dock = root;
+  onReady?.();
+}).catch(() => { /* keep procedural dock */ });
 
 /* the well: Fantasy Town Kit round fountain basin, two wood pillars and
    a small pointed roof */

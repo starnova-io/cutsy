@@ -449,14 +449,9 @@ export const B3: Record<string, () => THREE.Group> = {
       g.add(p);
     }
     g.add(box3(.07, .4, .07, C3.woodD, -.85, .12, .35), box3(.07, .4, .07, C3.woodD, .85, .12, .35));
-    const hull = blob(.38, C3.terra, 0, .06, -.85, 1.1, .5, 1.9, 13.7, false);
-    hull.rotation.set(0, 0, 0);
-    hull.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.3, 1),
-      hull.material).translateY(.12));                            /* inner lip */
-    (hull.children[0] as THREE.Mesh).scale.set(.85, .3, .85);
-    g.add(hull,
-      box3(.02, .55, .35, C3.cream, .02, .5, -.85),
-      cyl3(.02, .02, .6, C3.woodD, 0, .35, -.85, 6));
+    const boat = buildBoat();
+    boat.position.z = -.85;
+    g.add(boat);
     return g;
   },
   petbed() { return grp3(cyl3(.4, .44, .16, C3.wood, 0, .08, 0, 12), cyl3(.32, .32, .1, C3.cream, 0, .14, 0, 12)); },
@@ -481,6 +476,19 @@ export function landThumb(): THREE.Group {
   g.add(cone3(.05, .22, 0x5A7D4A, -.3, .1, -.2, 5), cone3(.04, .18, 0x6F945C, -.2, .08, -.32, 5));
   g.add(sph3(.07, C3.blossom, .3, .06, .25), sph3(.055, C3.gold, .45, .05, .1));
   return g;
+}
+
+/** the lumpy little sailboat that moors beside the dock */
+export function buildBoat(): THREE.Group {
+  const hull = blob(.38, C3.terra, 0, .06, 0, 1.1, .5, 1.9, 13.7, false);
+  hull.rotation.set(0, 0, 0);
+  const lip = new THREE.Mesh(new THREE.IcosahedronGeometry(.3, 1), hull.material);
+  lip.position.y = .12;
+  lip.scale.set(.85, .3, .85);
+  hull.add(lip);
+  return grp3(hull,
+    box3(.02, .55, .35, C3.cream, .02, .5, 0),
+    cyl3(.02, .02, .6, C3.woodD, 0, .35, 0, 6));
 }
 
 /* ---------- the companion: a proper little quadruped ----------
