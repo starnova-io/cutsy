@@ -97,6 +97,10 @@ build time into the Fig & Marigold family (teal roof gradients to leafy
 green, lavender trims to warm wood, window blues to pale glass), so the
 asset reads as ours. `src/world/glb.ts` swaps loaded models in for
 their catalog ids; anything not loaded keeps its procedural builder.
+The fence, lantern and bench come from the Fantasy Town Kit; the cabin
+is assembled in code from Holiday Kit wall/roof modules (with the
+snow-covered roof variant in winter) and the well from Fantasy Town Kit
+parts (round fountain basin, wood pillars, pointed roof).
 Kenney's Nature Kit trees were evaluated and skipped — the procedural
 leaf-cloud trees are richer.
 

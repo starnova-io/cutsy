@@ -8,12 +8,23 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { box3, linC } from "./builders";
+import { curSeason } from "../game/weather";
 import houseUrl from "../assets/house-cottage.glb";
 import cksColormapUrl from "../assets/kenney-colormap.png";
 import fenceUrl from "../assets/ftk-fence.glb";
 import lanternUrl from "../assets/ftk-lantern.glb";
 import benchUrl from "../assets/ftk-bench.glb";
+import fountainUrl from "../assets/ftk-fountain-round.glb";
+import pillarUrl from "../assets/ftk-pillar-wood.glb";
+import wellRoofUrl from "../assets/ftk-roof-point.glb";
 import ftkColormapUrl from "../assets/ftk-colormap.png";
+import cabDoorUrl from "../assets/hk-cabin-doorway.glb";
+import cabWallUrl from "../assets/hk-cabin-wall.glb";
+import cabWinUrl from "../assets/hk-cabin-window.glb";
+import cabCornerUrl from "../assets/hk-cabin-corner.glb";
+import cabRoofUrl from "../assets/hk-cabin-roof.glb";
+import cabRoofSnowUrl from "../assets/hk-cabin-roof-snow.glb";
+import hkColormapUrl from "../assets/hk-colormap.png";
 
 /** loaded, footprint-normalised model roots by catalog item id */
 export const GLBS: Record<string, THREE.Group | undefined> = {};
@@ -31,6 +42,10 @@ const mkLoader = (colormap: string): GLTFLoader => {
 };
 const cksLoader = mkLoader(cksColormapUrl);
 const ftkLoader = mkLoader(ftkColormapUrl);
+const hkLoader = mkLoader(hkColormapUrl);
+
+const piece = (loader: GLTFLoader, url: string): Promise<THREE.Group> =>
+  new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
 
 /** scale to the item's footprint (optionally height-capped), sit on the
     ground, face the camera side */
@@ -99,3 +114,44 @@ ftkLoader.load(benchUrl, gltf => {
   GLBS.bench = normalise(gltf.scene, .85, 0);
   onReady?.();
 }, undefined, () => { /* keep procedural bench */ });
+
+/* the cabin is assembled from Holiday Kit modules on their 1-unit cell:
+   doorway front, windows on the sides, plain wall at the back, corner
+   posts, and a pointed roof — the snow-covered variant in winter */
+Promise.all([
+  piece(hkLoader, cabDoorUrl), piece(hkLoader, cabWallUrl), piece(hkLoader, cabWinUrl),
+  piece(hkLoader, cabCornerUrl),
+  piece(hkLoader, curSeason() === "winter" ? cabRoofSnowUrl : cabRoofUrl),
+]).then(([door, wall, win, corner, roof]) => {
+  const g = new THREE.Group();
+  door.rotation.y = 0;
+  wall.rotation.y = Math.PI;
+  win.rotation.y = Math.PI / 2;
+  const win2 = win.clone();
+  win2.rotation.y = -Math.PI / 2;
+  g.add(door, wall, win, win2);
+  for (let i = 0; i < 4; i++) {
+    const c = corner.clone();
+    c.rotation.y = i * Math.PI / 2;
+    g.add(c);
+  }
+  roof.position.y = 1;
+  g.add(roof);
+  GLBS.cabin = normalise(g, 1.8, Math.PI / 2, 2.15);
+  onReady?.();
+}).catch(() => { /* keep procedural cabin */ });
+
+/* the well: Fantasy Town Kit round fountain basin, two wood pillars and
+   a small pointed roof */
+Promise.all([
+  piece(ftkLoader, fountainUrl), piece(ftkLoader, pillarUrl), piece(ftkLoader, wellRoofUrl),
+]).then(([basin, pillar, wroof]) => {
+  const g = new THREE.Group();
+  pillar.position.set(-.62, 0, 0);
+  const p2 = pillar.clone();
+  p2.position.set(.62, 0, 0);
+  wroof.position.y = .98;
+  g.add(basin, pillar, p2, wroof);
+  GLBS.well = normalise(g, .95, 0, 1.1);
+  onReady?.();
+}).catch(() => { /* keep procedural well */ });
