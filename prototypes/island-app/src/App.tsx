@@ -168,11 +168,15 @@ export default function App() {
     const onVis = () => {
       if (document.visibilityState === "hidden") {
         const s = sessionRef.current;
-        if (s && !s.paused) {
+        const st = getState();
+        /* island radio: mid-session, the soundscape (and the timer) carry on
+           with the screen off — pocket focus, ears on the island */
+        const radio = !!s && !s.paused && st.radio && st.sound;
+        if (s && !s.paused && !radio) {
           leavesRef.current += 1;
           setSession({ ...s, paused: true, awayPaused: true });
         }
-        ambientStop();
+        if (!radio) ambientStop();
       } else {
         if (getState().sound) ambientStart();
         if (sessionRef.current) void lockScreen();

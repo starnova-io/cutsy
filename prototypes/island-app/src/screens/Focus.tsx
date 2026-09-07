@@ -85,6 +85,11 @@ export function Focus(props: {
                     {hint && <span className="hint">{hint}</span>}
                   </button>
                 )}
+                {/* the island radio is pure web audio, so it works everywhere */}
+                <button className={"guard-row" + (s.radio ? " on" : "")} id="guard-radio"
+                  onClick={() => mutate(st => { st.radio = !st.radio; })}>
+                  <span className="sw" aria-hidden="true" />Island radio off-screen
+                </button>
                 {caps.block && caps.needsPicker && !!caps.chosen && (
                   <button className="guard-pick" id="guard-pick" onClick={props.onPickApps}>
                     {caps.chosen} app{caps.chosen === 1 ? "" : "s"} chosen — change

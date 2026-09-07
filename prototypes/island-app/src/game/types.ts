@@ -47,6 +47,8 @@ export interface GameState {
   guard: GuardPrefs;
   /** ambient soundscape on/off */
   sound: boolean;
+  /** island radio: keep the soundscape (and the session) running off-screen */
+  radio: boolean;
   /** purchased/gifted land-expansion ids (see LANDS in world/island) */
   lands: string[];
 }

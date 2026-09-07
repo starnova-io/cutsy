@@ -8,7 +8,7 @@ import { GLBS, cloneGLB, setGLBReady } from "./glb";
 import { byId } from "../game/catalog";
 import { fits, itemFootprint, occupied } from "../game/economy";
 import { tickHaptic } from "../native/haptics";
-import { rustle } from "../game/ambience";
+import { footstep, rustle } from "../game/ambience";
 import type { GameState, PetKind, Phase, PlacedItem, Season, Weather } from "../game/types";
 
 /* Ambient falling particles per season — autumn leaves, spring petals, snow —
@@ -144,6 +144,7 @@ class World {
   private lastSplat: { sx: number; sy: number; x: number; z: number } | null = null;
   private drinkSpot: { x: number; z: number } | null = null;
   private drinkTick = 0;
+  private strideUp = false;
   private firefliesG!: THREE.Group;
   private shootPts!: THREE.Points;
   private shootT = -1;
@@ -1465,6 +1466,14 @@ class World {
     this.petBody.scale.y = (nap ? .82 : 1) * 1.15;
     /* diagonal leg pairs swing while walking; folded into a loaf for naps */
     const sw = walking ? Math.sin(t * 12) * .6 : 0;
+    /* each swing reversal is a pair of paws landing */
+    const stride = Math.sin(t * 12) >= 0;
+    if (walking && !nap && stride !== this.strideUp) {
+      const gx = Math.round(pv.x), gy = Math.round(pv.y);
+      footstep(this.season === "winter" ? "snow"
+        : isBeachIn(mainMask(this.cb.getState()), gx, gy) ? "sand" : "grass");
+    }
+    this.strideUp = stride;
     const setLeg = (n: string, r: number) => {
       const l = this.petBody!.getObjectByName(n);
       if (l) l.rotation.x = r;

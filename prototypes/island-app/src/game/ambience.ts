@@ -5,6 +5,7 @@
    randomized timers. Storm days also flash the sky before the rumble. */
 import { audio } from "./audio";
 import { curPhase, curSeason, curWeather, isStorm } from "./weather";
+import { getState } from "./store";
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 
@@ -51,7 +52,7 @@ const pan = (ctx: AudioContext, v: number): AudioNode | null => {
 interface Bed { g: GainNode }
 interface Beds {
   waves: Bed; foam: Bed; wind: Bed; whistle: Bed;
-  rain: Bed; patter: Bed; crickets: Bed;
+  rain: Bed; patter: Bed; crickets: Bed; fire: Bed;
   whistleFilt: BiquadFilterNode;
 }
 
@@ -156,7 +157,33 @@ function buildBeds(ctx: AudioContext): void {
     crickets = bed(ctx, silent, master);
   }
 
-  beds = { waves, foam, wind, whistle, rain: rainBed, patter, crickets, whistleFilt: whF };
+  /* the fire's warm underside; its crackle pops ride on a timer below */
+  const fireF = ctx.createBiquadFilter();
+  fireF.type = "lowpass"; fireF.frequency.value = 190; fireF.Q.value = .4;
+  noiseSrc(ctx, brownBuf!).connect(fireF);
+  const fire = bed(ctx, fireF, master);
+  const popLoop = () => {
+    const lvl = targets.fire ?? 0;
+    if (running && lvl > 0) {
+      try {
+        const t = ctx.currentTime + .01;
+        const src = noiseSrc(ctx, whiteBuf!);
+        const f = ctx.createBiquadFilter();
+        f.type = "bandpass"; f.frequency.value = rand(1700, 4300); f.Q.value = 1.4;
+        const g = ctx.createGain();
+        const snap = Math.random() < .12;          /* the odd louder snap */
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime((snap ? .028 : rand(.006, .016)) * lvl, t + .004);
+        g.gain.exponentialRampToValueAtTime(.0001, t + (snap ? .07 : rand(.02, .045)));
+        src.connect(f); f.connect(g); g.connect(master!);
+        window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 150);
+      } catch { /* noop */ }
+      window.setTimeout(popLoop, rand(35, 230));
+    } else window.setTimeout(popLoop, 500);
+  };
+  popLoop();
+
+  beds = { waves, foam, wind, whistle, rain: rainBed, patter, crickets, fire, whistleFilt: whF };
 }
 
 /* ---- one-shot voices ---- */
@@ -305,11 +332,16 @@ function evalContext(): void {
     patter: rain ? (storm ? .45 : .3) : 0,
     crickets: night && !rain && !snowy && season !== "winter"
       ? (season === "summer" ? .5 : .32) : 0,
+    /* evenings by a lit window or lantern crackle; winter makes it dearer */
+    fire: (night || phase === "dusk")
+      && getState().placed.some(p => p.id === "lantern" || p.id === "house" || p.id === "cabin")
+      ? (season === "winter" ? .8 : .5) * (rain ? 1.25 : 1) : 0,
   };
   const ctx = audio();
   if (ctx) {
     const scale: Record<string, number> = {
       waves: .055, foam: .02, wind: .06, whistle: .012, rain: .05, patter: .02, crickets: .017,
+      fire: .04,
     };
     for (const k of Object.keys(T)) {
       targets[k] = T[k];
@@ -368,6 +400,33 @@ export function ambientStop(): void {
 
 export const ambientRunning = (): boolean => running;
 
+/* the pet's paws: a soft pat on grass, grit on sand, a crunch in snow */
+export type Ground = "grass" | "sand" | "snow";
+let stepCount = 0;
+export function footstep(ground: Ground): void {
+  stepCount++;
+  const ctx = audio();
+  if (!ctx || !running) return;
+  try {
+    noiseBufs(ctx);
+    const t = ctx.currentTime + .005;
+    const bursts = ground === "snow" ? 3 : ground === "sand" ? 2 : 1;
+    for (let i = 0; i < bursts; i++) {
+      const src = noiseSrc(ctx, whiteBuf!);
+      const f = ctx.createBiquadFilter();
+      if (ground === "grass") { f.type = "lowpass"; f.frequency.value = 750; }
+      else { f.type = "bandpass"; f.frequency.value = ground === "sand" ? rand(1300, 1900) : rand(2200, 3200); f.Q.value = 1.1; }
+      const g = ctx.createGain();
+      const at = t + i * .022;
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(ground === "grass" ? .011 : rand(.007, .013), at + .006);
+      g.gain.exponentialRampToValueAtTime(.0001, at + (ground === "grass" ? .06 : .045));
+      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 200);
+    }
+  } catch { /* noop */ }
+}
+
 /* a handful of leaves shaken from a tapped tree */
 export function rustle(): void {
   const ctx = audio();
@@ -393,4 +452,5 @@ export function rustle(): void {
   ctxState: audio()?.state ?? "none",
   targets: { ...targets },
   voices: Object.fromEntries(Object.entries(voices).map(([k, v]) => [k, v.on])),
+  steps: stepCount,
 });
