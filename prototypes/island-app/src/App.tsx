@@ -7,6 +7,7 @@ import { audio, startRain, stopRain } from "./game/audio";
 import { curSeason, curWeather } from "./game/weather";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
+import { hideSplash } from "./native/splash";
 import { registerFeedback, toast, ask as askFeedback, confettiBurst, heartAt } from "./ui/feedback";
 import { beginGuard, endGuard, guardAvailable, loadGuardCaps, NO_GUARD, pickBlockedApps,
   requestGuardAccess, type GuardCaps, type GuardStatus } from "./native/guard";
@@ -124,6 +125,7 @@ export default function App() {
       },
     });
     initPetPosition();
+    hideSplash();          /* the launch image stays up until the island is drawn */
     setWanderCtx({
       worldVisible: () => screenRef.current === "home" || screenRef.current === "shop",
       blocked: () => !!sessionRef.current || !!placingRef.current,

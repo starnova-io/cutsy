@@ -32,7 +32,7 @@ export function Focus(props: {
      both rows visibly inert, and a row the device can't honour — Do Not
      Disturb on iOS — isn't shown at all rather than sitting there dead. */
   const native = guardAvailable();
-  const hint = native ? null : "Phone app only";
+  const hint = native ? null : "Phone app";
   const sub = curWeather() === "rain" ? "Rain on the water, warm by the fire." : "Your island is waiting for you.";
   return (
     <section className={"screen active" + (running ? " running" : "")} id="screen-focus">
@@ -51,7 +51,7 @@ export function Focus(props: {
           </div>
           <div id="focus-sub">{sub}</div>
         </div>
-        <svg id="focus-scene" viewBox="0 0 300 170" aria-hidden="true"
+        <svg id="focus-scene" viewBox="0 0 300 152" aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: focusSceneSVG(s.pet, running && !session?.paused ? "sleep" : "idle") }} />
         <div id="focus-actions">
           {!running && (

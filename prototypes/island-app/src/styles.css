@@ -34,8 +34,11 @@
     position:absolute; inset:0; display:none; flex-direction:column;
     background:var(--cream); overflow:hidden;
   }
-  .screen.active{display:flex; animation:screenIn .28s ease both;}
-  @keyframes screenIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  .screen.active{display:flex; animation:screenIn .34s cubic-bezier(.22,.9,.3,1) both;}
+  @keyframes screenIn{from{opacity:0; transform:translateY(14px) scale(.985);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion:reduce){
+    .screen.active{animation:none;}
+  }
   .scroll{flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;}
 
   /* ---------- shared bits ---------- */
@@ -107,16 +110,19 @@
   }
   #focus-line{font-family:var(--font-display); font-size:19px; color:var(--dusk-ink);}
   #focus-sub{font-size:13.5px; color:var(--dusk-muted); font-weight:600;}
-  #focus-scene{width:min(300px,72vw); margin:4px 0;}
-  #dur-chips{display:flex; gap:8px; justify-content:center;}
+  #focus-scene{width:min(360px,88vw); margin:0;}
+  #dur-chips{display:flex; gap:9px; justify-content:center; width:100%; max-width:340px;}
+  #dur-chips .chip{flex:1 1 0;}
   #earn-line{font-size:13px; font-weight:600; color:var(--dusk-muted); margin:2px 0;}
   #earn-line b{color:#F2C14E; font-weight:800;}
   .chip{
     background:rgba(243,234,219,.08); border:1px solid rgba(243,234,219,.18); color:var(--dusk-ink);
     border-radius:999px; padding:9px 17px; font-weight:800; font-size:14px; cursor:pointer;
-    font-family:var(--font-ui); transition:background .15s;
+    font-family:var(--font-ui); transition:background .15s, transform .12s ease;
+    touch-action:manipulation;
   }
   .chip.on{background:var(--terra); border-color:var(--terra); color:#FFF7EF;}
+  .chip:active{transform:scale(.955);}
   #focus-actions{width:100%; display:flex; flex-direction:column; gap:6px; align-items:center;}
   #focus-actions .btn-primary{max-width:340px;}
   #demo-toggle{
@@ -317,18 +323,23 @@
     position:absolute; left:14px; right:14px; bottom:calc(10px + env(safe-area-inset-bottom));
     background:rgba(255,253,248,.94); backdrop-filter:blur(10px);
     border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow);
-    display:flex; padding:6px; gap:4px; z-index:20;
+    display:flex; padding:6px 8px; gap:2px; z-index:20;
   }
   #nav.hidden{display:none;}
   #nav button{
     flex:1 1 0; background:none; border:none; cursor:pointer; font-family:var(--font-ui);
     font-size:10.5px; font-weight:700; letter-spacing:.02em; color:var(--muted);
-    display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 0 5px;
-    border-radius:999px; transition:color .2s;
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0 6px;
+    /* fully round, like the bar itself — a 16px-corner pill on the first or
+       last tab collides with the bar's 999px end curve and looks chipped */
+    border-radius:999px; touch-action:manipulation;
+    transition:color .2s, background .2s, transform .12s ease;
   }
+  #nav button:active{transform:scale(.94);}
   #nav button svg{width:21px; height:21px; flex:none;}
   #nav button::after{content:""; width:4px; height:4px; border-radius:99px; background:transparent; transition:background .2s;}
-  #nav button.on{color:var(--terra-deep); font-weight:800;}
+  /* the tab you're on gets a soft pill, not just a colour change */
+  #nav button.on{color:var(--terra-deep); font-weight:800; background:var(--terra-soft);}
   #nav button.on::after{background:var(--terra);}
   #nav button:focus-visible{outline:3px solid var(--terra); outline-offset:-2px;}
 
@@ -397,6 +408,8 @@
   .ff{animation:ffTw 3.4s ease-in-out infinite;}
   .ff2{animation-delay:1.2s;} .ff3{animation-delay:2.3s;}
   @keyframes ffTw{0%,100%{opacity:0;} 50%{opacity:.95;}}
+  #focus-scene .ff{animation:ffTw 4.2s ease-in-out infinite;}
+  #focus-scene .ff2{animation-duration:5.6s; animation-delay:1.8s;}
   .star{animation:starTw 4.5s ease-in-out infinite;}
   .star2{animation-delay:1.6s;} .star3{animation-delay:3s;}
   @keyframes starTw{0%,100%{opacity:.35;} 50%{opacity:.9;}}
@@ -422,10 +435,15 @@
 #btn-arrange:focus-visible{outline:3px solid var(--terra); outline-offset:2px;}
 
 /* ---- focus shield toggles ---- */
-#guard-rows{display:flex;flex-direction:column;gap:8px;width:100%;max-width:280px;margin:2px auto 12px}
-.guard-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r-md);
+/* same column width as the chips and the Start button — a stack of three
+   different widths is what made this block look ragged */
+#guard-rows{display:flex;flex-direction:column;gap:8px;width:100%;max-width:340px;margin:2px auto 10px}
+.guard-row{display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:var(--r-md);
   background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
-  font:600 13px/1 var(--font-ui);color:var(--dusk-muted);cursor:pointer;transition:color .2s}
+  font:600 13.5px/1 var(--font-ui);color:var(--dusk-muted);cursor:pointer;
+  white-space:nowrap;touch-action:manipulation;
+  transition:color .2s,transform .12s ease,background .2s}
+.guard-row:not(.off):active{transform:scale(.978);background:rgba(255,255,255,.11)}
 .guard-row.on{color:var(--dusk-ink)}
 .guard-row .sw{width:32px;height:19px;border-radius:99px;background:rgba(255,255,255,.18);
   position:relative;flex:none;transition:background .2s}
@@ -437,7 +455,7 @@
   font:600 12px/1 var(--font-ui);color:var(--gold);text-decoration:underline}
 /* no native plugin on this platform: readable, plainly inert */
 .guard-row.off{opacity:.5;cursor:default}
-.guard-row .hint{margin-left:auto;font:700 9px/1 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;
+.guard-row .hint{margin-left:auto;white-space:nowrap;font:700 9px/1 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;
   color:var(--dusk-muted);background:rgba(255,255,255,.1);padding:3px 8px;border-radius:99px}
 
 /* ---- complete-screen focus quality ---- */

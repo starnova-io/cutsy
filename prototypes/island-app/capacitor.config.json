@@ -1,5 +1,14 @@
 {
   "appId": "io.starnova.hearth",
   "appName": "Hearth Island",
-  "webDir": "dist"
+  "webDir": "dist",
+  "backgroundColor": "#F2ECEB",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#F2ECEB",
+      "showSpinner": false,
+      "launchFadeOutDuration": 350
+    }
+  }
 }

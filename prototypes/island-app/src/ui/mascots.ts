@@ -103,16 +103,28 @@ export function dogSVG(mode: string): string {
     </g>`;
 }
 export function focusSceneSVG(kind: string, mode: string): string {
-  
-  return `<defs><radialGradient id="glowF"><stop offset="0%" stop-color="rgba(255,199,102,.4)"/><stop offset="100%" stop-color="rgba(255,199,102,0)"/></radialGradient><radialGradient id="lampGlow"><stop offset="0%" stop-color="rgba(255,206,110,.55)"/><stop offset="100%" stop-color="rgba(255,206,110,0)"/></radialGradient></defs>
-    <ellipse cx="150" cy="138" rx="104" ry="26" fill="rgba(0,0,0,.25)"/>
-    <ellipse cx="150" cy="134" rx="96" ry="22" fill="#463A4A"/>
-    <ellipse cx="150" cy="131" rx="84" ry="18" fill="#534459"/>
-    <g transform="translate(206,120)">${leaf(0,0,-16,20,"#5F7A50")}${leaf(0,0,18,23,"#526B45")}${leaf(0,0,-48,16,"#5F7A50")}
-      <path d="M-8,0 h16 l-2.5,12 h-11 Z" fill="#8A5A38"/></g>
-    <ellipse class="glow-pulse" cx="96" cy="86" rx="40" ry="30" fill="url(#glowF)"/>
-    <rect x="94" y="86" width="3" height="42" fill="#6B5638"/>
-    <path d="M84,88 L89,74 L102,74 L107,88 Z" fill="#E8CFA4"/>
-    <ellipse cx="95.5" cy="130" rx="14" ry="4.5" fill="#3A3040"/>
-    <g transform="translate(152,128)">${kind === "dog" ? dogSVG(mode) : catSVG(mode)}</g>`;
+  /* The companion is the whole point of this screen, so it gets the frame:
+     roughly half the height, centred, with the lamp and the plant staged
+     around it. It used to sit at a third of that, marooned in empty space. */
+  return `<defs>
+      <radialGradient id="glowF"><stop offset="0%" stop-color="rgba(255,199,102,.42)"/><stop offset="100%" stop-color="rgba(255,199,102,0)"/></radialGradient>
+      <radialGradient id="lampGlow"><stop offset="0%" stop-color="rgba(255,206,110,.6)"/><stop offset="100%" stop-color="rgba(255,206,110,0)"/></radialGradient>
+    </defs>
+    <ellipse cx="150" cy="140" rx="128" ry="30" fill="rgba(0,0,0,.25)"/>
+    <ellipse cx="150" cy="135" rx="118" ry="25" fill="#463A4A"/>
+    <ellipse cx="150" cy="131" rx="104" ry="20" fill="#534459"/>
+    <!-- potted plant, right -->
+    <g transform="translate(243,126) scale(1.25)">${leaf(0, 0, -16, 21, "#5F7A50")}${leaf(0, 0, 18, 24, "#526B45")}${leaf(0, 0, -48, 17, "#5F7A50")}
+      <path d="M-9,0 h18 l-2.8,14 h-12.4 Z" fill="#8A5A38"/></g>
+    <!-- the lamp: the only warm light in the room -->
+    <ellipse class="glow-pulse" cx="58" cy="64" rx="52" ry="42" fill="url(#lampGlow)"/>
+    <rect x="55.5" y="64" width="4" height="66" fill="#6B5638"/>
+    <path d="M40,66 L46.5,44 L71,44 L77.5,66 Z" fill="#E8CFA4"/>
+    <ellipse cx="57.5" cy="132" rx="17" ry="5.5" fill="#3A3040"/>
+    <!-- the curled sleeping poses are half the height of the sitting ones,
+         so they get their own scale rather than shrinking into the frame -->
+    <!-- two fireflies, so the room is never completely still -->
+    <circle class="ff" cx="104" cy="52" r="2.2" fill="#FFE9A8"/>
+    <circle class="ff ff2" cx="212" cy="72" r="1.8" fill="#FFE9A8"/>
+    <g transform="translate(${mode === "sleep" ? 144 : 150},${mode === "sleep" ? 126 : 130}) scale(${mode === "sleep" ? 2.2 : 1.62})">${kind === "dog" ? dogSVG(mode) : catSVG(mode)}</g>`;
 }
