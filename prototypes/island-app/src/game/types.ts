@@ -45,6 +45,8 @@ export interface GameState {
   pet: PetKind;
   premium: boolean;
   guard: GuardPrefs;
+  /** ambient soundscape on/off */
+  sound: boolean;
   /** purchased/gifted land-expansion ids (see LANDS in world/island) */
   lands: string[];
 }

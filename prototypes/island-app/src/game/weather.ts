@@ -5,18 +5,20 @@ export const dayStamp = (): string => {
   return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 };
 
-/* URL-hash overrides for demos: #night, #day, #dawn, #rain, #cloud,
+/* URL-hash overrides for demos: #night, #day, #dawn, #rain, #storm, #cloud,
    and seasons #spring, #summer, #autumn, #winter */
 let phaseOverride: Phase | null = null;
 let weatherOverride: Weather | null = null;
 let seasonOverride: Season | null = null;
+let stormOverride = false;
 {
   const h = typeof location !== "undefined" ? location.hash : "";
   if (h.includes("night")) phaseOverride = "night";
   else if (h.includes("dawn")) phaseOverride = "dawn";
   else if (h.includes("dusk")) phaseOverride = "dusk";
   else if (h.includes("day")) phaseOverride = "day";
-  if (h.includes("rain")) weatherOverride = "rain";
+  if (h.includes("storm")) { weatherOverride = "rain"; stormOverride = true; }
+  else if (h.includes("rain")) weatherOverride = "rain";
   else if (h.includes("cloud")) weatherOverride = "cloudy";
   if (h.includes("spring")) seasonOverride = "spring";
   else if (h.includes("summer") || h.includes("green")) seasonOverride = "summer";
@@ -30,15 +32,26 @@ export function dayPhase(): Phase {
   return h >= 5 && h < 8 ? "dawn" : h < 16 ? "day" : h < 19 ? "dusk" : "night";
 }
 
-export function todayWeather(): Weather {
+const dayRoll = (): number => {
   let h = 0;
   for (const c of dayStamp()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const r = h % 100;
+  return h % 100;
+};
+
+export function todayWeather(): Weather {
+  const r = dayRoll();
   return r < 45 ? "clear" : r < 75 ? "cloudy" : "rain";
 }
 
 export const curPhase = (): Phase => phaseOverride ?? dayPhase();
 export const curWeather = (): Weather => weatherOverride ?? todayWeather();
+
+/* the heaviest rain days blow into a proper storm — thunder and gusts */
+export function isStorm(): boolean {
+  if (stormOverride) return true;
+  if (weatherOverride) return false;
+  return dayRoll() >= 92;
+}
 
 /* the real calendar drives the island's season */
 export function curSeason(): Season {

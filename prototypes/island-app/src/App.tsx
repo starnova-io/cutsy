@@ -3,8 +3,8 @@ import type { CompletePayload, PlacedItem, Screen, SessionInfo } from "./game/ty
 import { getState, mutate, useGame } from "./game/store";
 import { fits, firstFreeSpot, itemFootprint } from "./game/economy";
 import { commitPlacement, completeSession, grantLand, pickUpPlaced } from "./game/actions";
-import { audio, startRain, stopRain } from "./game/audio";
-import { curSeason, curWeather } from "./game/weather";
+import { audio } from "./game/audio";
+import { ambientStart, ambientStop } from "./game/ambience";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { hideSplash } from "./native/splash";
@@ -130,9 +130,20 @@ export default function App() {
       worldVisible: () => screenRef.current === "home" || screenRef.current === "shop",
       blocked: () => !!sessionRef.current || !!placingRef.current,
     });
+    /* browsers only allow audio after a gesture — the first tap anywhere
+       wakes the island's soundscape */
+    const arm = () => { if (getState().sound) ambientStart(); };
+    window.addEventListener("pointerdown", arm, { once: true });
     const t = window.setTimeout(() => toast("Drag to spin your island · pinch to zoom", 3200), 1200);
-    return () => window.clearTimeout(t);
+    return () => { window.clearTimeout(t); window.removeEventListener("pointerdown", arm); };
   }, [startMove]);
+
+  const toggleSound = useCallback(() => {
+    const on = !getState().sound;
+    mutate(st => { st.sound = on; });
+    if (on) { audio(); ambientStart(); toast("Sound on — listen to your island"); }
+    else { ambientStop(); toast("Sound off"); }
+  }, []);
 
   /* ---- the focus session engine ---- */
   const remainRef = useRef(0);
@@ -146,7 +157,6 @@ export default function App() {
     } catch { wakeRef.current = null; }
   };
   const shieldDown = () => {
-    stopRain();
     setShield(null);
     void wakeRef.current?.release().catch(() => undefined);
     wakeRef.current = null;
@@ -160,10 +170,11 @@ export default function App() {
         const s = sessionRef.current;
         if (s && !s.paused) {
           leavesRef.current += 1;
-          stopRain();
           setSession({ ...s, paused: true, awayPaused: true });
         }
+        ambientStop();
       } else {
+        if (getState().sound) ambientStart();
         if (sessionRef.current) void lockScreen();
         if (sessionRef.current?.awayPaused)
           toast("Welcome back — your session paused itself, nothing lost.", 3200);
@@ -197,11 +208,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!session]);
 
-  /* in winter, "rain" days fall as silent snow */
-  const rainy = () => curWeather() === "rain" && curSeason() !== "winter";
   const startSession = () => {
     audio();
-    if (rainy()) startRain();
+    if (getState().sound) ambientStart();
     remainRef.current = chosenMin * 60000;
     lastTickRef.current = performance.now();
     leavesRef.current = 0;
@@ -226,7 +235,6 @@ export default function App() {
     setSession(s => {
       if (!s) return s;
       const paused = !s.paused;
-      if (paused) stopRain(); else if (rainy()) startRain();
       lastTickRef.current = performance.now();
       return { ...s, paused, awayPaused: false };
     });
@@ -310,6 +318,7 @@ export default function App() {
     <div id="phone">
       {screen === "home" && (
         <Home chosenMin={chosenMin} onFocus={() => setScreen("focus")} arrange={arrange}
+          sound={getState().sound} onToggleSound={toggleSound}
           onToggleArrange={() => {
             setArrange(a => {
               if (!a) toast("Arrange mode — tap anything to pick it up");

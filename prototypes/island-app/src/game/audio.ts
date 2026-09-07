@@ -46,33 +46,3 @@ export function plink(): void {
     o.start(t); o.stop(t + .4);
   } catch { /* noop */ }
 }
-
-/* soft rain loop for rainy-day sessions: filtered noise */
-let rainNode: { src: AudioBufferSourceNode; g: GainNode } | null = null;
-
-export function startRain(): void {
-  const ctx = audio();
-  if (!ctx || rainNode) return;
-  try {
-    const len = 2 * ctx.sampleRate;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    const filt = ctx.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 850; filt.Q.value = .6;
-    const g = ctx.createGain(); g.gain.value = 0;
-    src.connect(filt); filt.connect(g); g.connect(ctx.destination);
-    src.start();
-    g.gain.linearRampToValueAtTime(.035, ctx.currentTime + 2);
-    rainNode = { src, g };
-  } catch { /* noop */ }
-}
-
-export function stopRain(): void {
-  if (!rainNode || !AC) return;
-  const n = rainNode; rainNode = null;
-  try {
-    n.g.gain.linearRampToValueAtTime(0, AC.currentTime + .8);
-    setTimeout(() => { try { n.src.stop(); } catch { /* noop */ } }, 900);
-  } catch { /* noop */ }
-}

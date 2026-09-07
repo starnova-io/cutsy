@@ -7,6 +7,8 @@ export function Home(props: {
   onFocus: () => void;
   arrange: boolean;
   onToggleArrange: () => void;
+  sound: boolean;
+  onToggleSound: () => void;
 }) {
   const s = useGame();
   const nu = nextUnlockInfo(s);
@@ -23,6 +25,16 @@ export function Home(props: {
           title="Arrange your island" onClick={props.onToggleArrange}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v18M3 12h18" /><path d="M9.5 5.5 12 3l2.5 2.5M9.5 18.5 12 21l2.5-2.5M5.5 9.5 3 12l2.5 2.5M18.5 9.5 21 12l-2.5 2.5" />
+          </svg>
+        </button>
+        <button id="btn-sound" className={props.sound ? "" : "off"}
+          aria-label={props.sound ? "Turn island sounds off" : "Turn island sounds on"}
+          title="Island sounds" onClick={props.onToggleSound}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z" />
+            {props.sound
+              ? <><path d="M15 9.3a4 4 0 0 1 0 5.4" /><path d="M17.8 6.6a8 8 0 0 1 0 10.8" /></>
+              : <path d="m15.5 9.5 5 5m0-5-5 5" />}
           </svg>
         </button>
       </div>
