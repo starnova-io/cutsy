@@ -1,6 +1,6 @@
 import { mutate, useGame } from "../game/store";
 import { curWeather } from "../game/weather";
-import { guardAvailable } from "../native/guard";
+import { guardAvailable, type GuardCaps, type GuardStatus } from "../native/guard";
 import { focusSceneSVG } from "../ui/mascots";
 import type { SessionInfo } from "../game/types";
 
@@ -13,6 +13,11 @@ export function Focus(props: {
   session: SessionInfo | null;
   chosenMin: number;
   demo: boolean;
+  /** what the native shields actually managed to do — null before a session */
+  shield: GuardStatus | null;
+  /** what this device can do at all */
+  caps: GuardCaps;
+  onPickApps: () => void;
   onPickMin: (m: number) => void;
   onToggleDemo: () => void;
   onStart: () => void;
@@ -21,8 +26,13 @@ export function Focus(props: {
   onBack: () => void;
 }) {
   const s = useGame();
-  const { session, chosenMin } = props;
+  const { session, chosenMin, shield, caps } = props;
   const running = !!session;
+  /* Offer only what the platform can really do: no plugin at all (web) leaves
+     both rows visibly inert, and a row the device can't honour — Do Not
+     Disturb on iOS — isn't shown at all rather than sitting there dead. */
+  const native = guardAvailable();
+  const hint = native ? null : "Phone app only";
   const sub = curWeather() === "rain" ? "Rain on the water, warm by the fire." : "Your island is waiting for you.";
   return (
     <section className={"screen active" + (running ? " running" : "")} id="screen-focus">
@@ -30,9 +40,9 @@ export function Focus(props: {
         title="Speed up time for this prototype">Demo ×60</button>
       <div id="focus-inner">
         <div id="focus-top">
-          <span id="shield" style={{ visibility: running && (s.guard.dnd || s.guard.block) ? "visible" : "hidden" }}>
+          <span id="shield" style={{ visibility: running && shield && (shield.dnd || shield.block) ? "visible" : "hidden" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.8A8.6 8.6 0 0 1 9.2 3.8a8.6 8.6 0 1 0 11 11Z" fill="#A89AA6" /></svg>
-            {" "}{s.guard.block ? "Distracting apps shielded" : "Notifications silenced"}
+            {" "}{shield?.block ? "Distracting apps shielded" : "Notifications silenced"}
           </span>
           <div id="timer">{fmt(session ? session.remainMs : chosenMin * 60000)}</div>
           <div id="focus-line">
@@ -54,16 +64,32 @@ export function Focus(props: {
               </div>
               <div id="earn-line">You’ll earn <b>✦ {chosenMin}</b> when you finish</div>
               <div id="guard-rows">
-                <button className={"guard-row" + (s.guard.dnd ? " on" : "")} id="guard-dnd"
-                  onClick={() => mutate(st => { st.guard.dnd = !st.guard.dnd; })}>
-                  <span className="sw" aria-hidden="true" />Silence notifications
-                  {!guardAvailable() && <span className="hint">phone app</span>}
-                </button>
-                <button className={"guard-row" + (s.guard.block ? " on" : "")} id="guard-block"
-                  onClick={() => mutate(st => { st.guard.block = !st.guard.block; })}>
-                  <span className="sw" aria-hidden="true" />Shield distracting apps
-                  {!guardAvailable() && <span className="hint">phone app</span>}
-                </button>
+                {(caps.dnd || !native) && (
+                  <button className={"guard-row" + (caps.dnd && s.guard.dnd ? " on" : "") + (caps.dnd ? "" : " off")}
+                    id="guard-dnd" disabled={!caps.dnd}
+                    onClick={() => mutate(st => { st.guard.dnd = !st.guard.dnd; })}>
+                    <span className="sw" aria-hidden="true" />Silence notifications
+                    {hint && <span className="hint">{hint}</span>}
+                  </button>
+                )}
+                {(caps.block || !native) && (
+                  <button className={"guard-row" + (caps.block && s.guard.block ? " on" : "") + (caps.block ? "" : " off")}
+                    id="guard-block" disabled={!caps.block}
+                    onClick={() => {
+                      /* turning it on with nothing picked goes straight to the
+                         system picker — an empty blocklist shields nothing */
+                      if (!s.guard.block && caps.needsPicker && !caps.chosen) { props.onPickApps(); return; }
+                      mutate(st => { st.guard.block = !st.guard.block; });
+                    }}>
+                    <span className="sw" aria-hidden="true" />Shield distracting apps
+                    {hint && <span className="hint">{hint}</span>}
+                  </button>
+                )}
+                {caps.block && caps.needsPicker && !!caps.chosen && (
+                  <button className="guard-pick" id="guard-pick" onClick={props.onPickApps}>
+                    {caps.chosen} app{caps.chosen === 1 ? "" : "s"} chosen — change
+                  </button>
+                )}
               </div>
               <button className="btn btn-primary" id="btn-start" onClick={props.onStart}>Start</button>
               <button className="btn btn-ghost" id="btn-back-home" onClick={props.onBack}>Back to your island</button>

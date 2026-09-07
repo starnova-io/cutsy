@@ -8,7 +8,8 @@ import { curSeason, curWeather } from "./game/weather";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { registerFeedback, toast, ask as askFeedback, confettiBurst, heartAt } from "./ui/feedback";
-import { beginGuard, endGuard } from "./native/guard";
+import { beginGuard, endGuard, guardAvailable, loadGuardCaps, NO_GUARD, pickBlockedApps,
+  requestGuardAccess, type GuardCaps, type GuardStatus } from "./native/guard";
 import { Nav } from "./components/Nav";
 import { Home } from "./screens/Home";
 import { Focus } from "./screens/Focus";
@@ -35,6 +36,10 @@ export default function App() {
   const [placing, setPlacing] = useState<Placing | null>(null);
   const [payload, setPayload] = useState<CompletePayload | null>(null);
   const [arrange, setArrange] = useState(false);
+  /* which shields are actually up this session — null until the plugin answers */
+  const [shield, setShield] = useState<GuardStatus | null>(null);
+  /* what this device can do at all; the Focus screen only offers what's real */
+  const [caps, setCaps] = useState<GuardCaps>(NO_GUARD);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
 
@@ -44,6 +49,26 @@ export default function App() {
   const sessionRef = useRef(session); sessionRef.current = session;
   const arrangeRef = useRef(arrange); arrangeRef.current = arrange;
   const demoRef = useRef(demo); demoRef.current = demo;
+
+  useEffect(() => { void loadGuardCaps().then(setCaps); }, []);
+
+  /* Screen Time hands back opaque tokens, so on iOS the person picks the apps
+     in Apple's own sheet — we only ever learn how many. */
+  const pickApps = useCallback(async () => {
+    if (!(await requestGuardAccess())) {
+      toast("Screen Time access is needed to shield apps", 3200);
+      return;
+    }
+    const { chosen, apps, categories } = await pickBlockedApps();
+    setCaps(c => ({ ...c, chosen }));
+    /* picking *is* switching it on — coming back to a toggle still sitting
+       off reads as if the whole thing failed */
+    mutate(st => { st.guard.block = chosen > 0; });
+    if (!chosen) { toast("Pick at least one app to shield", 2600); return; }
+    const bits = [apps && `${apps} app${apps === 1 ? "" : "s"}`,
+      categories && `${categories} categor${categories === 1 ? "y" : "ies"}`].filter(Boolean);
+    toast(`Shielding ${bits.join(" · ")} during sessions`, 2800);
+  }, []);
 
   /* ---- feedback plumbing ---- */
   const toastTimer = useRef<number | undefined>(undefined);
@@ -77,22 +102,22 @@ export default function App() {
       },
       onTapItem: idx => {
         if (screenRef.current !== "home" || placingRef.current) return;
-        /* in leafy seasons a tree tap shakes leaves loose (move it via arrange mode) */
-        if (!arrangeRef.current) {
-          const id = getState().placed[idx]?.id;
-          const sn = curSeason();
-          const shakeable = sn === "winter"
-            ? id === "oak" || id === "bush" || id === "pine"
-            : (sn === "autumn" || sn === "spring") && (id === "oak" || id === "bush");
-          if (shakeable && world.burstLeaves(idx)) return;
-        }
-        setArrange(false);
-        startMove(idx);
+        /* Arrange mode is the only way to pick something up. A plain tap is for
+           playing with the island — otherwise tapping a tree to watch the leaves
+           fall would sometimes shake it and sometimes yank it off the ground,
+           depending on the season and the species. */
+        if (arrangeRef.current) { setArrange(false); startMove(idx); return; }
+        world.pokeItem(idx);
+      },
+      onMoveGhost: (x, y) => {
+        if (!placingRef.current) return;
+        setPlacing(p => (p ? { ...p, item: { ...p.item, x, y } } : p));
       },
       onTapTile: (x, y) => {
         if (screenRef.current === "place" && placingRef.current) {
-          const cand = { ...placingRef.current.item, x, y };
-          if (fits(getState(), cand)) setPlacing(p => (p ? { ...p, item: cand } : p));
+          /* tapping open ground sends the item there too — an invalid spot
+             turns the footprint red rather than silently doing nothing */
+          setPlacing(p => (p ? { ...p, item: { ...p.item, x, y } } : p));
           return;
         }
         if (screenRef.current === "home" && !sessionRef.current && !arrangeRef.current) petGoTo(x, y);
@@ -120,6 +145,7 @@ export default function App() {
   };
   const shieldDown = () => {
     stopRain();
+    setShield(null);
     void wakeRef.current?.release().catch(() => undefined);
     wakeRef.current = null;
     void endGuard();
@@ -178,7 +204,20 @@ export default function App() {
     lastTickRef.current = performance.now();
     leavesRef.current = 0;
     void lockScreen();
-    void beginGuard(getState().guard);
+    setShield(null);
+    void beginGuard(getState().guard).then(got => {
+      setShield(got);
+      /* on Android a shield can fail because the one-time grant is missing —
+         the plugin has just opened that settings screen, so say why */
+      if (!guardAvailable()) return;
+      const want = getState().guard;
+      if (caps.dnd && want.dnd && !got.dnd) toast("Allow Do Not Disturb access to silence notifications", 3200);
+      else if (caps.block && want.block && !got.block) {
+        toast(caps.needsPicker
+          ? "Choose the apps to shield, then start again"
+          : "Allow usage access and overlay to shield apps", 3200);
+      }
+    });
     setSession({ durMin: chosenMin, remainMs: remainRef.current, paused: false });
   };
   const togglePause = () => {
@@ -277,7 +316,8 @@ export default function App() {
           }} />
       )}
       {screen === "focus" && (
-        <Focus session={session} chosenMin={chosenMin} demo={demo}
+        <Focus session={session} chosenMin={chosenMin} demo={demo} shield={shield}
+          caps={caps} onPickApps={pickApps}
           onPickMin={setChosenMin} onToggleDemo={() => { setDemo(d => !d); toast(demo ? "Demo speed off" : "Demo speed ×60 — a minute passes each second"); }}
           onStart={startSession} onPause={togglePause} onEnd={endEarly} onBack={() => setScreen("home")} />
       )}

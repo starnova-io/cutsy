@@ -6,17 +6,23 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ios": "npm run build && cap sync ios && cap open ios",
+    "ios:run": "bash scripts/ios-run.sh",
+    "android": "npm run build && cap sync android && cap open android",
+    "assets": "npx @capacitor/assets generate --ios --android"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
     "@capacitor/core": "^6.2.2",
+    "@capacitor/haptics": "^6.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "0.128.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.2",
+    "@capacitor/ios": "^6.2.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/three": "0.128.0",

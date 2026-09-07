@@ -276,6 +276,73 @@ export const B3: Record<string, () => THREE.Group> = {
     });
     return g;
   },
+  tulips() {
+    const g = grp3(cyl3(.36, .38, .06, 0x7FA26A, 0, .03, 0, 10));
+    const cols = [0xE8837B, 0xDFA23A, 0xF3B7CC, 0xC96A4A];
+    ([[-.17, -.1], [.03, .15], [.19, -.05], [-.05, -.2], [.15, .2]] as const).forEach(([x, z], i) => {
+      g.add(cyl3(.016, .018, .26, 0x5A7D4A, x, .15, z, 5));
+      /* an upturned cone is a tulip cup; a sphere would just be another daisy */
+      const cup = cone3(.055, .13, cols[i % 4], x, .32, z, 6);
+      cup.rotation.x = Math.PI;
+      g.add(cup, sph3(.05, C3.leaf, x + .06, .13, z, .45, 1.6, .25));
+    });
+    if (winter()) g.add(cyl3(.37, .39, .04, C3.snow, 0, .08, 0, 10));
+    return g;
+  },
+  mushrooms() {
+    const g = new THREE.Group();
+    const cap = (x: number, z: number, r: number, h: number, c: number, seed: number) => {
+      g.add(cyl3(r * .32, r * .42, h, C3.cream, x, h / 2, z, 8));
+      /* gills under a dome: the underside is what says "mushroom" from the side */
+      g.add(cyl3(r * .92, r * .5, .06, 0xEFE0C8, x, h - r * .3, z, 10));
+      g.add(sph3(r, c, x, h - r * .28, z, 1, .8, 1));
+      for (let i = 0; i < 3; i++) {
+        const a = i * 2.1 + seed;
+        g.add(sph3(r * .15, C3.cream, x + Math.cos(a) * r * .45, h + r * .38, z + Math.sin(a) * r * .45, 1, .5, 1));
+      }
+    };
+    cap(-.2, .13, .18, .34, C3.terra, 1.7);
+    cap(.19, -.02, .13, .24, 0xE8837B, 5.2);
+    cap(-.02, -.26, .1, .17, C3.terra, 8.9);
+    if (winter()) g.add(sph3(.19, C3.snow, -.15, .4, .08, 1, .4, 1));
+    return g;
+  },
+  sunflower() {
+    const g = grp3(cyl3(.32, .34, .05, 0x7FA26A, 0, .025, 0, 10));
+    ([[-.13, .07, .64], [.11, -.07, .8], [.03, .17, .54]] as const).forEach(([x, z, h]) => {
+      g.add(cyl3(.022, .03, h, 0x5A7D4A, x, h / 2, z, 6));
+      g.add(sph3(.055, C3.leaf, x + .07, h * .5, z, .35, 1.5, .8));
+      const head = new THREE.Group();
+      head.position.set(x, h + .03, z);
+      head.rotation.x = -.35;                /* tipped up, following the sun */
+      for (let i = 0; i < 10; i++) {
+        const a = i * Math.PI / 5;
+        head.add(sph3(.05, C3.gold, Math.cos(a) * .1, Math.sin(a) * .1, 0, .85, 1.5, .35));
+      }
+      head.add(sph3(.07, 0x6E4630, 0, 0, .02, 1, 1, .6));
+      g.add(head);
+    });
+    return g;
+  },
+  maple() {
+    /* rounder and lower than the oak, and it turns a stop earlier */
+    const trunk = cyl3(.07, .12, .6, C3.woodD, 0, .3);
+    trunk.rotation.z = -.05;
+    const br = cyl3(.035, .05, .3, C3.woodD, -.15, .5, .04);
+    br.rotation.z = .7;
+    const g = grp3(trunk, br,
+      blob(.27, C3.fall[0], -.02, .88, 0, 1.15, .9, 1, 2.2),
+      blob(.2, C3.fall[0], .26, .76, -.1, 1, .95, .95, 6.4),
+      blob(.17, C3.fall[1], -.05, 1.12, .1, .95, .85, 1, 9.1),
+      blob(.14, C3.fall[0], -.26, .82, .16, 1.05, .9, .95, 3.7),
+      leafCloud([[-.02, .88, 0, .32], [.26, .76, -.1, .24], [-.05, 1.12, .1, .21],
+        [-.26, .82, .16, .18]], 290, 4.4));
+    if (winter()) g.add(blob(.22, C3.snow, -.02, 1.12, 0, 1.05, .4, 1, 2.2, false));
+    if (spring()) ([[.28, .86, .2], [-.3, .8, .1], [.04, 1.24, .04], [-.14, 1.06, -.22]] as const)
+      .forEach(([x, y, z]) => g.add(sph3(.055, C3.blossom, x, y, z)));
+    g.userData.deciduous = { h: 1.05 };
+    return g;
+  },
   rock() {
     const m = shade(new THREE.Mesh(new THREE.DodecahedronGeometry(.3), M(C3.stone)));
     m.position.y = .16;
@@ -367,6 +434,81 @@ export const B3: Record<string, () => THREE.Group> = {
     }
     return g;
   },
+  barrel() {
+    const g = grp3(cyl3(.2, .24, .28, C3.wood, 0, .14, 0, 14),      /* lower half, flaring out */
+      cyl3(.24, .2, .28, C3.wood, 0, .42, 0, 14),                   /* upper half, back in */
+      cyl3(.245, .245, .025, C3.woodD, 0, .16, 0, 14),
+      cyl3(.245, .245, .025, C3.woodD, 0, .4, 0, 14),
+      cyl3(.185, .185, .015, winter() ? C3.ice : 0x4E6E78, 0, .553, 0, 16));  /* caught rain */
+    return g;
+  },
+  birdbath() {
+    const g = grp3(cyl3(.16, .2, .08, C3.stoneD, 0, .04, 0, 10),
+      cyl3(.07, .09, .42, C3.stone, 0, .28, 0, 10),
+      cyl3(.26, .2, .1, C3.stone, 0, .54, 0, 14),
+      cyl3(.22, .18, .03, winter() ? C3.ice : 0x679690, 0, .58, 0, 14));
+    return g;
+  },
+  birdhouse() {
+    const g = grp3(box3(.07, .7, .07, C3.wood, 0, .35, 0),
+      box3(.28, .26, .24, C3.cream, 0, .82, 0),
+      sph3(.05, 0x33261F, 0, .84, .13, 1, 1, .4),        /* the way in */
+      cyl3(.018, .018, .1, C3.wood, 0, .77, .17, 6));    /* perch */
+    const rl = box3(.24, .04, .22, C3.terra, -.08, .98, 0), rr = box3(.24, .04, .22, C3.terra, .08, .98, 0);
+    rl.rotation.z = .5; rr.rotation.z = -.5;
+    g.add(rl, rr);
+    if (winter()) g.add(box3(.3, .04, .24, C3.snow, 0, 1.05, 0));
+    return g;
+  },
+  torii() {
+    const g = new THREE.Group();
+    [-.3, .3].forEach(x => {
+      const post = cyl3(.05, .065, .9, C3.terra, x, .45, 0, 8);
+      post.rotation.z = x > 0 ? .03 : -.03;              /* the legs splay, as they do */
+      g.add(post);
+    });
+    g.add(box3(.86, .05, .1, C3.terra, 0, .74, 0),       /* nuki, the lower beam */
+      box3(.16, .08, .11, C3.terra, 0, .84, 0),
+      box3(1, .075, .15, 0xB5432F, 0, .93, 0));          /* kasagi, with its overhang */
+    if (winter()) g.add(box3(1, .04, .15, C3.snow, 0, .98, 0));
+    return g;
+  },
+  sandcastle() {
+    const g = grp3(cyl3(.34, .4, .1, C3.sand, 0, .05, 0, 12));
+    const tower = (x: number, z: number, h: number, r: number) => {
+      g.add(cyl3(r, r * 1.15, h, 0xE7D2A2, x, .1 + h / 2, z, 8),
+        cyl3(r * 1.25, r * 1.25, .04, C3.sand, x, .1 + h, z, 8),      /* battlement lip */
+        cone3(r * 1.2, r * 1.5, C3.terra, x, .1 + h + r * .78, z, 8));
+    };
+    tower(-.14, .06, .32, .1); tower(.15, -.04, .23, .085); tower(.02, -.19, .17, .07);
+    g.add(box3(.34, .13, .06, C3.sand, 0, .19, .18));
+    g.add(sph3(.03, 0xF0E0E7, -.24, .12, -.18, 1, .6, 1),
+      sph3(.025, 0xF3B7CC, .26, .11, .15, 1, .6, 1));    /* two shells */
+    return g;
+  },
+  windmill() {
+    const g = grp3(cyl3(.16, .26, .8, C3.cream, 0, .4, 0, 10),
+      box3(.16, .22, .04, C3.wood, 0, .29, .23),
+      cone3(.3, .22, C3.terra, 0, .91, 0, 10));
+    const blades = new THREE.Group();
+    blades.position.set(0, .78, .3);
+    for (let i = 0; i < 4; i++) {
+      const arm = box3(.52, .05, .03, C3.woodD);
+      arm.geometry.translate(.26, 0, 0);                 /* pivot at the hub, not the middle */
+      const sail = box3(.36, .17, .02, C3.cream);
+      sail.geometry.translate(.3, .07, .015);            /* canvas hung off one side */
+      const spar = new THREE.Group();
+      spar.add(arm, sail);
+      spar.rotation.z = i * Math.PI / 2;
+      blades.add(spar);
+    }
+    const hub = cyl3(.05, .05, .08, C3.woodD, 0, 0, .02, 8);
+    hub.rotation.x = Math.PI / 2;
+    blades.add(hub);
+    g.add(blades);
+    g.userData.spin = blades;
+    return g;
+  },
   house() {
     const g = new THREE.Group();
     g.add(box3(1.58, .12, 1.38, C3.stoneD, 0, .06, 0));           /* stone footing */
@@ -454,6 +596,74 @@ export const B3: Record<string, () => THREE.Group> = {
     g.add(boat);
     return g;
   },
+  tent() {
+    const g = new THREE.Group();
+    /* A triangular prism is the whole shape of a tent; two thin sheets leaning
+       together just read as paper. Cylinder with 3 sides, laid on its side. */
+    const canvasGeo = new THREE.CylinderGeometry(.52, .52, .8, 3);
+    canvasGeo.rotateX(-Math.PI / 2);     /* apex up, flat side down, ridge along z */
+    const tent = shade(new THREE.Mesh(canvasGeo, M(winter() ? C3.snow : C3.cream)));
+    tent.position.y = .26;
+    g.add(tent);
+    /* a seam along the ridge, or the two slopes merge into one flat sheet */
+    g.add(box3(.05, .05, .84, C3.terra, 0, .77, 0));
+    /* the way in: a darker triangle set into the front face */
+    const doorGeo = new THREE.CylinderGeometry(.3, .3, .06, 3);
+    doorGeo.rotateX(-Math.PI / 2);
+    const door = shade(new THREE.Mesh(doorGeo, M(0x3A3040)));
+    door.position.set(0, .15, .41);
+    g.add(door);
+    g.add(cyl3(.015, .015, .18, C3.wood, 0, .87, -.34, 5),         /* a little pennant */
+      box3(.14, .09, .01, C3.plum, .07, .92, -.34));
+    /* guy ropes pegged out at both ends */
+    ([.5, -.5] as const).forEach(z => {
+      const rope = cyl3(.008, .008, .42, C3.woodL, 0, .3, z * .78, 4);
+      rope.rotation.x = z > 0 ? .95 : -.95;
+      g.add(rope);
+    });
+    return g;
+  },
+  greenhouse() {
+    /* glass needs its own material — M() has no transparency */
+    const glass = () => new THREE.MeshLambertMaterial({
+      color: linC(0xBFD8DC), transparent: true, opacity: .42, side: THREE.DoubleSide });
+    const g = grp3(box3(1.84, .12, .9, C3.stone, 0, .06, 0));
+    /* glass envelope, with the frame strictly inside it so nothing pokes out */
+    const walls = shade(new THREE.Mesh(rboxGeo(1.7, .58, .78, .03), glass()));
+    walls.position.y = .41;
+    g.add(walls);
+    const roofGeo = new THREE.CylinderGeometry(.46, .46, 1.7, 3);
+    roofGeo.rotateX(-Math.PI / 2);
+    roofGeo.rotateY(Math.PI / 2);                                /* ridge runs along x */
+    const roof = shade(new THREE.Mesh(roofGeo, glass()));
+    roof.position.y = .93;
+    roof.scale.set(1, .62, .845);
+    g.add(roof);
+    /* corner posts, sill and ridge: the frame is what makes it a building */
+    [-.83, .83].forEach(x => [-.37, .37].forEach(z => g.add(box3(.05, .62, .05, C3.leafD, x, .41, z))));
+    g.add(box3(1.74, .05, .82, C3.leafD, 0, .71, 0));            /* eaves plate */
+    g.add(box3(1.76, .06, .06, C3.leafD, 0, 1.12, 0));           /* ridge */
+    g.add(box3(.34, .54, .05, C3.leafD, 0, .39, .38),
+      sph3(.03, C3.gold, .12, .39, .41));                        /* door + handle */
+    /* something growing inside, seen through the glass */
+    g.add(blob(.15, C3.leaf, -.5, .28, 0, 1, .8, 1, 3.3, false),
+      blob(.12, C3.leaf, .52, .25, .06, 1, .85, 1, 7.1, false),
+      sph3(.05, 0xE8837B, .52, .4, .06));
+    if (winter()) g.add(box3(1.7, .06, .3, C3.snow, 0, 1.14, 0));
+    return g;
+  },
+  lighthouse() {
+    const g = grp3(cyl3(.3, .38, .12, C3.stoneD, 0, .06, 0, 12),
+      cyl3(.17, .3, 1.15, C3.cream, 0, .68, 0, 12),
+      /* two red bands: the thing that makes a lighthouse a lighthouse */
+      cyl3(.263, .275, .18, C3.terra, 0, .48, 0, 12),
+      cyl3(.208, .22, .16, C3.terra, 0, .95, 0, 12),
+      cyl3(.24, .24, .05, C3.stoneD, 0, 1.28, 0, 12));           /* gallery */
+    const lamp = cyl3(.15, .15, .22, 0xFFE9B0, 0, 1.41, 0, 10, { c: 0xFFC978, i: 0 });
+    g.add(lamp, cone3(.2, .18, C3.terra, 0, 1.61, 0, 10));
+    g.userData.homeWindow = lamp;                                /* lights itself at dusk */
+    return g;
+  },
   petbed() { return grp3(cyl3(.4, .44, .16, C3.wood, 0, .08, 0, 12), cyl3(.32, .32, .1, C3.cream, 0, .14, 0, 12)); },
   yarn() {
     const g = grp3(sph3(.16, C3.plum, 0, .16, 0));
@@ -462,6 +672,18 @@ export const B3: Record<string, () => THREE.Group> = {
     th.rotation.x = 1.2;
     g.add(th);
     g.userData.yarn = true;
+    return g;
+  },
+  foodbowl() {
+    return grp3(cyl3(.19, .14, .1, C3.terra, 0, .05, 0, 12),
+      cyl3(.15, .11, .04, C3.woodD, 0, .1, 0, 12));              /* kibble */
+  },
+  scratchpost() {
+    const g = grp3(box3(.44, .06, .44, C3.wood, 0, .03, 0),
+      cyl3(.09, .09, .62, C3.sand, 0, .37, 0, 10),               /* sisal */
+      box3(.36, .05, .36, C3.woodL, 0, .7, 0));
+    /* a dangling toy — a bare post is furniture, not something to play with */
+    g.add(cyl3(.006, .006, .16, C3.woodD, .13, .62, 0, 5), sph3(.05, C3.plum, .13, .53, 0));
     return g;
   },
   bridge() { return grp3(box3(.8, .08, .9, C3.woodL, 0, .1, 0)); },
@@ -496,66 +718,128 @@ export function buildBoat(): THREE.Group {
    or drinking), "tail" (wags), "legFL/FR/BL/BR" (leg groups pivoted at
    the hip, swung while walking). */
 export function buildPet(kind: PetKind): THREE.Group {
-  const B = kind === "dog" ? 0xD79754 : 0xEF9350;   /* coat */
-  const D = kind === "dog" ? 0xB0763C : 0xD5772E;   /* markings */
-  const CR = 0xFDECD4;                              /* cream chest & paws */
+  const cat = kind === "cat";
+  const B = cat ? 0xEF9350 : 0xD79754;              /* coat */
+  const D = cat ? 0xD5772E : 0xB0763C;              /* markings */
+  const CR = 0xFDECD4;                              /* cream: chest, socks, mask */
   const INK = 0x33261F;
+  const PINK = 0xF3B7CC;
   const g = new THREE.Group();
 
   const body = new THREE.Group();
   body.name = "body";
-  /* torso: chest + hindquarters overlapping into one long back */
-  body.add(sph3(.17, B, 0, .3, .1, 1.02, .95, 1.15));
-  body.add(sph3(.165, B, 0, .3, -.13, 1.05, 1, 1.1));
-  body.add(sph3(.12, CR, 0, .23, .12, .95, .72, .95));         /* belly/chest */
-  if (kind === "dog") body.add(sph3(.13, D, 0, .4, -.12, 1, .55, 1.05)); /* saddle */
-  else for (let i = 0; i < 3; i++)                              /* tabby stripes */
-    body.add(box3(.2, .014, .045, D, 0, .445 - i * .012, -.02 - i * .09));
+  if (cat) {
+    /* a cat is a curve: deep chest, tucked waist, arched topline */
+    body.add(sph3(.16, B, 0, .27, .09, 1.02, .98, 1.15));        /* chest */
+    body.add(sph3(.155, B, 0, .265, -.13, 1.02, 1, 1.08));       /* haunches */
 
-  /* four legs, pivoted at the hip so they can swing */
-  const leg = (name: string, x: number, z: number) => {
-    const l = grp3(cyl3(.042, .05, .17, B, 0, -.085, 0, 8), sph3(.05, CR, 0, -.165, .012));
-    l.name = name;
-    l.position.set(x, .18, z);
-    body.add(l);
-  };
-  leg("legFL", -.095, .17); leg("legFR", .095, .17);
-  leg("legBL", -.1, -.17); leg("legBR", .1, -.17);
-
-  /* head on a neck pivot at the front */
-  const head = new THREE.Group();
-  head.name = "head";
-  head.position.set(0, .43, .2);
-  head.add(sph3(.145, B, 0, .07, .04, 1, .92, .95));
-  const mz = sph3(.075, CR, 0, .02, .16, 1, .7, .8);            /* muzzle */
-  head.add(mz);
-  head.add(sph3(.02, INK, 0, .045, .225));                      /* nose */
-  head.add(sph3(.024, INK, -.075, .1, .15), sph3(.024, INK, .075, .1, .15)); /* eyes */
-  if (kind === "dog") {
-    const earL = cone3(.05, .12, D, -.09, .2, .0, 4);
-    const earR = cone3(.05, .12, D, .09, .2, .0, 4);
-    earL.rotation.z = .25; earR.rotation.z = -.25;
-    head.add(earL, earR);
-    head.add(sph3(.05, CR, 0, -.02, .19, 1, .6, .6));           /* shiba chin */
+    body.add(sph3(.115, CR, 0, .205, .06, .96, .74, 1.25));      /* belly */
+    body.add(sph3(.105, B, 0, .365, .155, .9, .95, .9));         /* neck */
+    /* Two-tone coat: a copy of each body sphere, nudged up, so the colour
+       break is a clean line that follows the body — a flat patch laid over
+       the back just reads as a sticker. */
+    body.add(sph3(.16, D, 0, .325, .09, 1.02, .98, 1.15));
+    body.add(sph3(.155, D, 0, .32, -.13, 1.02, 1, 1.08));
   } else {
-    const earL = cone3(.055, .13, B, -.085, .2, 0, 4);
-    const earR = cone3(.055, .13, B, .085, .2, 0, 4);
-    earL.rotation.z = .18; earR.rotation.z = -.18;
-    head.add(earL, earR);
-    head.add(cone3(.03, .07, 0xF3B7CC, -.085, .19, .015, 4), cone3(.03, .07, 0xF3B7CC, .085, .19, .015, 4));
+    /* a shiba is a barrel on stout legs: level back, cream ruff at the chest */
+    body.add(sph3(.17, B, 0, .275, .10, 1.06, 1.02, 1.1));       /* chest */
+    body.add(sph3(.165, B, 0, .27, -.14, 1.05, 1.02, 1.06));     /* haunches */
+
+    body.add(sph3(.115, CR, 0, .255, .175, 1.15, .95, .8));      /* chest ruff */
+    body.add(sph3(.12, CR, 0, .21, .03, .96, .72, 1.2));         /* belly */
+    body.add(sph3(.115, B, 0, .375, .165, .95, .95, .9));        /* neck */
+    /* the shiba's darker saddle, same trick */
+    body.add(sph3(.17, D, 0, .335, .10, 1.06, 1.02, 1.1));
+    body.add(sph3(.165, D, 0, .33, -.14, 1.05, 1.02, 1.06));
   }
 
-  /* tail, pivoted at the rump */
+  /* four short legs, pivoted at the hip so they can swing. Cream only on the
+     lowest joint — a whole white foot reads as a sock, not a paw. */
+  const leg = (name: string, x: number, z: number) => {
+    const l = new THREE.Group();
+    l.add(cyl3(cat ? .046 : .054, cat ? .05 : .058, .12, B, 0, -.055, 0, 8));
+    l.add(sph3(cat ? .05 : .056, CR, 0, -.115, .008, 1, .72, 1.15));   /* paw */
+    l.name = name;
+    l.position.set(x, .165, z);
+    body.add(l);
+  };
+  const lx = cat ? .095 : .105;
+  leg("legFL", -lx, .155); leg("legFR", lx, .155);
+  leg("legBL", -lx, -.155); leg("legBR", lx, -.155);
+
+  /* head on a neck pivot at the front — oversized on purpose, that's the
+     difference between a small animal and a toy of one */
+  const head = new THREE.Group();
+  head.name = "head";
+  head.position.set(0, cat ? .455 : .46, cat ? .215 : .225);
+  head.scale.setScalar(1.12);
+  head.add(sph3(.145, B, 0, .07, .03, cat ? 1.02 : 1, cat ? .98 : .94, cat ? .92 : 1));
+  /* cheeks: fluff on the cat, the shiba's cream mask on the dog */
+  head.add(sph3(cat ? .075 : .066, cat ? B : CR, -.10, cat ? .03 : 0, cat ? .06 : .085, .9, .9, .8),
+    sph3(cat ? .075 : .066, cat ? B : CR, .10, cat ? .03 : 0, cat ? .06 : .085, .9, .9, .8));
+  /* muzzle + nose — pink on a ginger cat, dark on the shiba */
+  head.add(cat ? sph3(.058, CR, 0, .005, .155, 1.1, .78, .8)
+    : sph3(.075, CR, 0, 0, .17, 1.05, .85, 1));
+  head.add(cat ? sph3(.022, PINK, 0, .035, .215, 1.2, .8, .8)
+    : sph3(.026, INK, 0, .03, .235, 1.15, .85, .8));
+  /* eyes, each with a catchlight — the single thing that makes them look alive */
+  const eye = (x: number) => {
+    head.add(sph3(.027, INK, x, .075, .152, .88, 1.05, .7));
+    head.add(sph3(.010, 0xFFFFFF, x + (x < 0 ? .011 : -.011), .095, .172, 1, 1, .6));
+  };
+  eye(-.068); eye(.068);
+  if (cat) {
+    /* forehead "M" of a tabby, then upright ears with pink inners */
+    head.add(sph3(.045, D, 0, .16, .075, 1.15, .22, .55));
+    const ear = (x: number, tilt: number) => {
+      const e = cone3(.058, .15, B, x, .20, .005, 4);
+      e.rotation.set(-.12, 0, tilt);
+      const inner = cone3(.032, .10, PINK, x, .195, .035, 4);
+      inner.rotation.set(-.12, 0, tilt);
+      head.add(e, inner);
+    };
+    ear(-.088, .18); ear(.088, -.18);
+    /* whiskers: flat slivers, because thin cylinders just shimmer at this size */
+    const whisker = (x: number, y: number, tilt: number) => {
+      const w = box3(.13, .006, .006, CR, x, y, .16);
+      w.rotation.z = tilt;
+      head.add(w);
+    };
+    whisker(-.13, .04, .1); whisker(-.13, .015, -.06);
+    whisker(.13, .04, -.1); whisker(.13, .015, .06);
+  } else {
+    /* shiba: cream brow dots and thick triangular ears */
+    head.add(sph3(.024, CR, -.075, .155, .115, 1.2, .7, .6),
+      sph3(.024, CR, .075, .155, .115, 1.2, .7, .6));
+    const ear = (x: number, tilt: number) => {
+      const e = cone3(.062, .125, B, x, .185, .01, 4);
+      e.rotation.set(-.08, 0, tilt);
+      const inner = cone3(.034, .08, CR, x, .18, .04, 4);
+      inner.rotation.set(-.08, 0, tilt);
+      head.add(e, inner);
+    };
+    ear(-.095, .22); ear(.095, -.22);
+  }
+
+  /* tail, pivoted at the rump. Overlapping spheres, close enough that it
+     reads as one tapering tail instead of a string of beads. */
   const tail = new THREE.Group();
   tail.name = "tail";
-  tail.position.set(0, .36, -.24);
-  if (kind === "dog") {
-    /* shiba curl over the back */
-    tail.add(sph3(.05, B, 0, .03, -.02), sph3(.048, CR, 0, .1, .02), sph3(.04, B, 0, .13, .09));
+  if (cat) {
+    tail.position.set(0, .33, -.22);
+    for (let i = 0; i < 7; i++) {
+      const k = i / 6;
+      tail.add(sph3(.046 - k * .012, i === 6 ? D : B,
+        0, .03 + k * .30, -.02 - Math.sin(k * 2.4) * .05 + k * .05));
+    }
   } else {
-    /* upright cat tail with a crook */
-    tail.add(sph3(.042, B, 0, .04, -.03), sph3(.04, B, 0, .13, -.05),
-      sph3(.038, B, 0, .21, -.03), sph3(.036, D, 0, .27, .02));
+    tail.position.set(0, .35, -.19);
+    /* the shiba curl: up off the rump, forward over the back, cream beneath */
+    const pts: [number, number, number][] = [
+      [.05, -.02, .052], [.115, .01, .05], [.15, .07, .047],
+      [.145, .135, .043], [.105, .18, .038],
+    ];
+    pts.forEach(([y, z, r], i) => tail.add(sph3(r, i === 4 ? CR : B, 0, y, z)));
   }
   body.add(tail);
 

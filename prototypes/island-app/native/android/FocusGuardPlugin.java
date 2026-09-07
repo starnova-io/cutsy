@@ -34,6 +34,25 @@ import java.util.ArrayList;
 public class FocusGuardPlugin extends Plugin {
     private Integer prevFilter = null;
 
+    /** what this build can actually deliver — the web side renders from this */
+    @PluginMethod
+    public void capabilities(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("dnd", true);
+        ret.put("block", true);
+        ret.put("needsPicker", false);   /* Android blocks by package name */
+        ret.put("chosen", 0);
+        call.resolve(ret);
+    }
+
+    /** Android grants are requested inline by start*, so nothing to do here */
+    @PluginMethod
+    public void requestAccess(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("granted", true);
+        call.resolve(ret);
+    }
+
     @PluginMethod
     public void enableDnd(PluginCall call) {
         NotificationManager nm =

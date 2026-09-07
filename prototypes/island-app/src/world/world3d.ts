@@ -6,7 +6,8 @@ import { curPhase, curSeason, curWeather, isAutumn } from "../game/weather";
 import { FluidSim, FLUID_WORLD } from "./fluid";
 import { GLBS, cloneGLB, setGLBReady } from "./glb";
 import { byId } from "../game/catalog";
-import { itemFootprint } from "../game/economy";
+import { fits, itemFootprint, occupied } from "../game/economy";
+import { tickHaptic } from "../native/haptics";
 import type { GameState, PetKind, Phase, PlacedItem, Season, Weather } from "../game/types";
 
 /* Ambient falling particles per season — autumn leaves, spring petals, snow —
@@ -71,6 +72,8 @@ export interface WorldCallbacks {
   onTapPet(clientX: number, clientY: number): void;
   onTapItem(pidx: number): void;
   onTapTile(x: number, y: number): void;
+  /** the ghost was dragged onto a new tile (may not fit — the bar gates that) */
+  onMoveGhost(x: number, y: number): void;
 }
 
 /* live pet pose, driven by the animation loop */
@@ -97,6 +100,17 @@ class World {
   private itemsG!: THREE.Group;
   private ghostG!: THREE.Group;
   private gridG!: THREE.Group;
+  /* the live ghost: cached so a drag repositions it instead of rebuilding
+     the model every pointermove (a GLB clone per frame stutters on device) */
+  private ghostWrap: THREE.Group | null = null;
+  private ghostKey = "";
+  private ghostFits = true;
+  /** finger-to-ghost offset in tiles, so a grabbed item doesn't jump */
+  private ghostDrag: { ox: number; oy: number } | null = null;
+  /** where the ghost sits right now — leads React by a frame while dragging */
+  private ghostPos: { x: number; y: number } | null = null;
+  private ghostLift = 0;
+  private groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private petRoot!: THREE.Group;
   private petBody: THREE.Group | null = null;
   private cloudsG!: THREE.Group;
@@ -168,7 +182,7 @@ class World {
     if (!this.cb) {
       this.cb = {
         getState: () => { throw new Error("world callbacks not registered"); },
-        onTapPet: () => {}, onTapItem: () => {}, onTapTile: () => {},
+        onTapPet: () => {}, onTapItem: () => {}, onTapTile: () => {}, onMoveGhost: () => {},
       };
     }
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -679,12 +693,109 @@ class World {
     ring.position.y = .03;
     ring.name = "ring";
     wrap.add(ring);
+    /* the tiles the item will actually stand on, lit green or red — the
+       footprint is what tells you whether it fits, not the model. */
+    const fp = new THREE.Group();
+    fp.name = "fp";
+    for (let dx = 0; dx < f.w; dx++) for (let dy = 0; dy < f.d; dy++) {
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(.92, .92),
+        new THREE.MeshBasicMaterial({ color: linC(0x6F945C), transparent: true, opacity: .55, side: THREE.DoubleSide }));
+      pl.rotation.x = -Math.PI / 2;
+      pl.position.set(dx - (f.w - 1) / 2, .05, dy - (f.d - 1) / 2);
+      fp.add(pl);
+    }
+    wrap.add(fp);
     wrap.position.set(WCX(g0.x, f.w), .01, WCZ(g0.y, f.d));
     void a;
     return wrap;
   }
 
+  /* ---------- placement ghost: grab it, drag it, snap it ---------- */
+
+  /** rebuild the ghost only when the item or its rotation changes */
+  private syncGhost(): void {
+    const g = this.opts.ghost;
+    if (!g) {
+      while (this.ghostG.children.length) this.ghostG.remove(this.ghostG.children[0]);
+      this.ghostWrap = null; this.ghostKey = ""; this.ghostPos = null;
+      this.ghostDrag = null; this.ghostLift = 0;
+      return;
+    }
+    const key = g.id + "|" + g.rot;
+    if (key !== this.ghostKey || !this.ghostWrap) {
+      while (this.ghostG.children.length) this.ghostG.remove(this.ghostG.children[0]);
+      this.ghostWrap = this.makeGhost(g);
+      this.ghostG.add(this.ghostWrap);
+      this.ghostKey = key;
+    }
+    /* a drag in flight owns the position; React catches up a frame later */
+    const p = this.ghostDrag && this.ghostPos ? this.ghostPos : { x: g.x, y: g.y };
+    this.ghostPos = p;
+    this.placeGhost(p.x, p.y);
+  }
+
+  /** park the ghost on a tile and repaint its footprint green (fits) or red */
+  private placeGhost(x: number, y: number): void {
+    const g = this.opts.ghost;
+    if (!g || !this.ghostWrap) return;
+    const f = itemFootprint(g);
+    this.ghostWrap.position.set(WCX(x, f.w), .01 + this.ghostLift, WCZ(y, f.d));
+    this.ghostFits = fits(this.cb.getState(), { ...g, x, y });
+    const col = linC(this.ghostFits ? 0x6F945C : 0xC96A4A);
+    const ring = this.ghostWrap.getObjectByName("ring") as THREE.Mesh | undefined;
+    if (ring) (ring.material as THREE.MeshBasicMaterial).color.copy(col);
+    this.ghostWrap.getObjectByName("fp")?.children.forEach(pl =>
+      ((pl as THREE.Mesh).material as THREE.MeshBasicMaterial).color.copy(col));
+  }
+
+  /** grid tile under a screen point, read off the y=0 plane so a finger that
+      wanders out over the water still steers the item instead of dropping it */
+  private tileAtPointer(clientX: number, clientY: number): { x: number; y: number } | null {
+    const r = this.canvas.getBoundingClientRect();
+    this.ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
+    this.ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
+    this.ray.setFromCamera(this.ndc, this.camera);
+    const p = new THREE.Vector3();
+    if (!this.ray.ray.intersectPlane(this.groundPlane, p)) return null;
+    return { x: Math.round(p.x + 5), y: Math.round(p.z + 5.6) };
+  }
+
+  /** a press that lands on the ghost (its model or its footprint) picks it up */
+  private grabGhost(ev: PointerEvent): boolean {
+    const g = this.opts.ghost;
+    if (!g || !this.ghostWrap) return false;
+    const t = this.tileAtPointer(ev.clientX, ev.clientY);   /* also aims this.ray */
+    const pos = this.ghostPos ?? { x: g.x, y: g.y };
+    const f = itemFootprint(g);
+    const onFoot = !!t && t.x >= pos.x && t.x < pos.x + f.w && t.y >= pos.y && t.y < pos.y + f.d;
+    const onModel = this.ray.intersectObject(this.ghostWrap, true).length > 0;
+    if (!onFoot && !onModel) return false;
+    /* grabbing the model of a tall item: treat the finger as being on its base */
+    this.ghostDrag = onFoot && t ? { ox: t.x - pos.x, oy: t.y - pos.y } : { ox: 0, oy: 0 };
+    return true;
+  }
+
+  /** follow the finger, one tile at a time, clamped to the board */
+  private dragGhostTo(x: number, y: number): void {
+    const g = this.opts.ghost;
+    if (!g) return;
+    const f = itemFootprint(g);
+    const nx = Math.max(0, Math.min(GW - f.w, x));
+    const ny = Math.max(0, Math.min(GH - f.d, y));
+    const pos = this.ghostPos ?? { x: g.x, y: g.y };
+    if (nx === pos.x && ny === pos.y) return;
+    this.ghostPos = { x: nx, y: ny };
+    this.placeGhost(nx, ny);
+    if (this.ghostDrag) tickHaptic();   /* a tap per tile, only while dragging */
+    this.cb.onMoveGhost(nx, ny);
+  }
+
   sync(): void {
+    /* While an item is being dragged the world already owns the ghost, and
+       a React re-render per tile would otherwise rebuild every placed model
+       (GLB clones) mid-gesture — which stutters on a phone. Phase/weather
+       catch up on the next sync, a second or two later. */
+    if (this.ghostDrag) { this.syncGhost(); return; }
     const S = this.cb.getState();
     /* rebuild the main island when a land expansion was raised */
     const lk = S.lands.join(",");
@@ -719,6 +830,7 @@ class World {
         this.canopies.push({ x: WCX(p.x, f.w), z: WCZ(p.y, f.d), h: dec.h * sc + .12, r: .4 * sc });
       }
       if (g.userData.fire) wrap.userData.fire = true;
+      if (g.userData.spin) wrap.userData.spin = g.userData.spin;
       if (g.userData.yarn) wrap.userData.yarn = true;
       if (g.userData.homeWindow) wrap.userData.homeWindow = g.userData.homeWindow;
       if (g.userData.smoke) wrap.userData.smoke = g.userData.smoke;
@@ -738,8 +850,7 @@ class World {
     if (!this.isletAnim) this.isletTilesG.position.y = S.bridge ? 0 : -2.2;
     this.isletTilesG.visible = S.bridge || !!this.isletAnim;
     this.bridgeG.visible = S.bridge;
-    while (this.ghostG.children.length) this.ghostG.remove(this.ghostG.children[0]);
-    if (this.opts.ghost) this.ghostG.add(this.makeGhost(this.opts.ghost));
+    this.syncGhost();
     while (this.gridG.children.length) this.gridG.remove(this.gridG.children[0]);
     if (this.opts.highlight) {
       S.placed.forEach(p => {
@@ -754,10 +865,17 @@ class World {
       });
     }
     if (this.opts.grid && this.opts.ghost) {
+      /* free land reads pale green, land already taken reads clay — you can
+         see where an item will and won't go before you drag it there */
+      const occ = occupied(S);
       for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
         if (!placeOK(S, x, y)) continue;
+        const taken = occ.has(x + "," + y);
         const pl = new THREE.Mesh(new THREE.PlaneGeometry(.85, .85),
-          new THREE.MeshBasicMaterial({ color: linC(0x8FB07A), transparent: true, opacity: .38, side: THREE.DoubleSide }));
+          new THREE.MeshBasicMaterial({
+            color: linC(taken ? 0xC96A4A : 0x8FB07A), transparent: true,
+            opacity: taken ? .3 : .38, side: THREE.DoubleSide,
+          }));
         pl.rotation.x = -Math.PI / 2;
         pl.position.set(WCX(x), .02, WCZ(y));
         this.gridG.add(pl);
@@ -922,6 +1040,18 @@ class World {
   }
 
   /** tap a tree: shake it, shed a burst of leaves, push nearby airborne ones */
+  /** A tap on something placed. Everything wobbles; foliage sheds — leaves in
+      the leafy seasons, and in winter the particles are snowflakes, so a pine
+      shakes its snow off too. Moving things is arrange mode's job, not a tap's. */
+  pokeItem(pidx: number): boolean {
+    const wrap = this.itemsG.children.find(w => w.userData.pidx === pidx);
+    if (!wrap) return false;
+    wrap.userData.shakeT = 1;
+    const g = wrap.children[0] as THREE.Group | undefined;
+    if (g?.userData.deciduous || this.season === "winter") this.burstLeaves(pidx);
+    return true;
+  }
+
   burstLeaves(pidx: number): boolean {
     if (!this.pconf || !this.leafIM) return false;
     const wrap = this.itemsG.children.find(w => w.userData.pidx === pidx);
@@ -1012,18 +1142,21 @@ class World {
     this.canvas.setPointerCapture(ev.pointerId);
     this.pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (this.pointers.size === 1) {
+      /* press on the item being placed = move the item, not the camera */
+      if (this.grabGhost(ev)) { this.drag = null; this.pinch = null; return; }
       this.drag = { x: ev.clientX, y: ev.clientY, sx: ev.clientX, sy: ev.clientY, moved: false, t: performance.now() };
       this.pinch = null;
     } else if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: this.camZoom };
       this.drag = null;
+      this.ghostDrag = null;   /* a second finger means zoom, not a move */
     }
   }
 
   /** moving the pointer over open water stirs the fluid under it */
   private hoverSplat(ev: PointerEvent): void {
-    if (!this.fluid) return;
+    if (!this.fluid || this.ghostDrag) return;
     const last = this.lastSplat;
     if (last && Math.hypot(ev.clientX - last.sx, ev.clientY - last.sy) < 6) return;
     const r = this.canvas.getBoundingClientRect();
@@ -1048,6 +1181,11 @@ class World {
     this.hoverSplat(ev);
     if (!this.pointers.has(ev.pointerId)) return;
     this.pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (this.ghostDrag && this.pointers.size === 1) {
+      const t = this.tileAtPointer(ev.clientX, ev.clientY);
+      if (t) this.dragGhostTo(t.x - this.ghostDrag.ox, t.y - this.ghostDrag.oy);
+      return;
+    }
     if (this.pinch && this.pointers.size >= 2) {
       const [a, b] = [...this.pointers.values()];
       this.setZoom(this.pinch.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / this.pinch.d0));
@@ -1066,6 +1204,7 @@ class World {
 
   private onPointerUp(ev: PointerEvent, cancelled = false): void {
     const wasTap = this.drag && !this.drag.moved && performance.now() - this.drag.t < 400 && !cancelled;
+    if (this.ghostDrag) this.ghostDrag = null;
     this.pointers.delete(ev.pointerId);
     if (this.pointers.size < 2) this.pinch = null;
     if (this.pointers.size === 0) this.drag = null;
@@ -1213,6 +1352,7 @@ class World {
       if (w.userData.sway !== undefined)
         w.rotation.z = Math.sin(t * 1.1 + (w.userData.sway as number)) * .025 + shake;
       else if (shake) w.rotation.z = shake;
+      if (w.userData.spin) (w.userData.spin as THREE.Object3D).rotation.z = t * .9;
       if (w.userData.fire) (w.children[0] as THREE.Group).children.forEach(m => {
         if (m.name === "flame") m.scale.y = 1 + .18 * Math.sin(t * 11 + m.position.x * 9);
       });
@@ -1236,6 +1376,12 @@ class World {
     const ghost = this.ghostG.children[0] as THREE.Group | undefined;
     const ring = ghost?.getObjectByName("ring") as THREE.Mesh | undefined;
     if (ring) (ring.material as THREE.MeshBasicMaterial).opacity = .45 + .35 * Math.sin(t * 4);
+    /* a held item rides just above the island, so it reads as picked up */
+    if (ghost) {
+      const lift = this.ghostDrag ? .18 : 0;
+      this.ghostLift += (lift - this.ghostLift) * Math.min(1, dt * 16);
+      ghost.position.y = .01 + this.ghostLift;
+    }
     if (this.landAnim) {
       this.landAnim.t += dt;
       const k = Math.min(1, this.landAnim.t / 1.4);

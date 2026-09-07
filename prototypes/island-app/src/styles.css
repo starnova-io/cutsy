@@ -433,6 +433,10 @@
   border-radius:50%;background:var(--dusk-ink);opacity:.75;transition:transform .2s,opacity .2s}
 .guard-row.on .sw{background:var(--gold)}
 .guard-row.on .sw::after{transform:translateX(12px);opacity:1;background:#fff}
+.guard-pick{align-self:center;background:none;border:none;padding:2px 6px;cursor:pointer;
+  font:600 12px/1 var(--font-ui);color:var(--gold);text-decoration:underline}
+/* no native plugin on this platform: readable, plainly inert */
+.guard-row.off{opacity:.5;cursor:default}
 .guard-row .hint{margin-left:auto;font:700 9px/1 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;
   color:var(--dusk-muted);background:rgba(255,255,255,.1);padding:3px 8px;border-radius:99px}
 

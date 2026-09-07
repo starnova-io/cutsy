@@ -15,7 +15,7 @@ export function Place(props: {
     <section className="screen active" id="screen-place">
       <header id="place-head">
         <h1 id="place-title">Place your item</h1>
-        <p>Tap a tile to move it — Cancel keeps it safe</p>
+        <p>{ok ? "Drag it where you like — pinch to zoom" : "Doesn’t fit here — drag it onto free land"}</p>
       </header>
       <WorldView id="place-world-wrap" opts={{ ghost: props.placing, grid: true }} />
       <div id="place-bar">
