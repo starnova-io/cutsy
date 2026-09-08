@@ -16,15 +16,14 @@ import { Home } from "./screens/Home";
 import { Focus } from "./screens/Focus";
 import { Complete } from "./screens/Complete";
 import { Shop } from "./screens/Shop";
-import { Place } from "./screens/Place";
 import { Profile } from "./screens/Profile";
 import { Paywall } from "./screens/Paywall";
 
 interface Placing {
   item: PlacedItem;
   origin: PlacedItem | null;
-  /* arranging in place on Home, Clash-of-Clans style: no Place screen, no
-     Done — pick a thing up, tap or drag it somewhere free, and it lands. */
+  /* Every placement is inline now — on the island, no Done. The flag stays
+     so a lifted piece is distinguishable from no piece at all. */
   inline?: boolean;
 }
 interface DialogState { msg: string; ok: string; cancel: string; resolve: (v: boolean) => void }
@@ -102,25 +101,33 @@ export default function App() {
       petView.x = spot.x; petView.y = spot.y; petView.napping = false;
     }
   }, []);
-  const startMove = useCallback((idx: number) => {
-    const item = pickUpPlaced(idx);
-    if (!item) return;
-    setPlacing({ item, origin: { ...item } });
-    setScreen("place");
-  }, []);
-  /** arrange mode: lift it, stay on the island, and wait for somewhere to put it */
+  /** lift a placed piece and wait for somewhere to put it */
   const liftItem = useCallback((idx: number) => {
     const item = pickUpPlaced(idx);
     if (!item) return;
     setPlacing({ item, origin: { ...item }, inline: true });
   }, []);
+  /** the same, from the Shop's list — it has to show you the island first */
+  const startMove = useCallback((idx: number) => {
+    liftItem(idx);
+    setScreen("home");
+  }, [liftItem]);
+  /** a piece that has never been on the island: from the Shop, or a gift */
+  const startPlacing = useCallback((id: string) => {
+    setPlacing({ item: firstFreeSpot(getState(), id), origin: null, inline: true });
+    setScreen("home");
+    toast("Tap where it should go");
+  }, []);
   /** land a lifted item if the tile it is on is free; otherwise leave it held */
   const dropInline = useCallback((cand: PlacedItem) => {
+    const p0 = placingRef.current;
+    if (!p0) return false;
     if (!fits(getState(), cand)) {
       setPlacing(p => (p ? { ...p, item: cand } : p));
       return false;
     }
     settle(cand);
+    if (!p0.origin) toast("It looks lovely here.");
     setPlacing(null);
     return true;
   }, [settle]);
@@ -141,7 +148,8 @@ export default function App() {
            fall would sometimes shake it and sometimes yank it off the ground,
            depending on the season and the species. */
         /* holding something already: the tap belongs to putting it down */
-        if (arrangeRef.current) { if (!placingRef.current) liftItem(idx); return; }
+        if (placingRef.current) return;
+        if (arrangeRef.current) { liftItem(idx); return; }
         world.pokeItem(idx);
       },
       onMoveGhost: (x, y) => {
@@ -156,12 +164,6 @@ export default function App() {
         const held = placingRef.current;
         if (screenRef.current === "home" && held?.inline) {
           dropInline({ ...held.item, x, y });
-          return;
-        }
-        if (screenRef.current === "place" && placingRef.current) {
-          /* tapping open ground sends the item there too — an invalid spot
-             turns the footprint red rather than silently doing nothing */
-          setPlacing(p => (p ? { ...p, item: { ...p.item, x, y } } : p));
           return;
         }
         if (screenRef.current === "home" && !sessionRef.current && !arrangeRef.current) petGoTo(x, y);
@@ -314,14 +316,7 @@ export default function App() {
   };
 
   /* ---- placement ---- */
-  const placeDone = () => {
-    const p = placingRef.current;
-    if (!p || !fits(getState(), p.item)) return;
-    settle(p.item);
-    setPlacing(null);
-    toast("It looks lovely here.");
-    setScreen("home");
-  };
+
   /** give a lifted piece back to where it came from */
   const putBack = useCallback(() => {
     const p = placingRef.current;
@@ -330,15 +325,7 @@ export default function App() {
     else mutate(st => { st.inventory.push(p.item.id); });
     setPlacing(null);
   }, []);
-  const placeCancel = () => {
-    const p = placingRef.current;
-    if (p) {
-      if (p.origin) mutate(st => { st.placed.push({ ...p.origin! }); });
-      else mutate(st => { st.inventory.push(p.item.id); });
-    }
-    setPlacing(null);
-    setScreen("home");
-  };
+
 
   /* ---- complete-screen gift handlers ---- */
   /* back on the island after a finished session, the companion celebrates */
@@ -349,8 +336,7 @@ export default function App() {
   const placeGift = () => {
     const item = payload?.item;
     if (!item) return;
-    setPlacing({ item: firstFreeSpot(getState(), item.id), origin: null });
-    setScreen("place");
+    startPlacing(item.id);
   };
   const buildGiftBridge = () => {
     mutate(st => { st.bridge = true; });
@@ -374,7 +360,7 @@ export default function App() {
     if (s !== screenRef.current) { if (s === "shop") shopWhoosh(); else uiTick(); }
     setScreen(s);
   };
-  const navHidden = screen === "place" || screen === "complete" || screen === "paywall" || (screen === "focus" && !!session);
+  const navHidden = screen === "complete" || screen === "paywall" || (screen === "focus" && !!session);
 
   return (
     <div id="phone">
@@ -412,13 +398,8 @@ export default function App() {
       )}
       {screen === "shop" && (
         <Shop onPaywall={() => setScreen("paywall")}
-          onPlaceInventory={id => { setPlacing({ item: firstFreeSpot(getState(), id), origin: null }); setScreen("place"); }}
+          onPlaceInventory={startPlacing}
           onMove={startMove} />
-      )}
-      {screen === "place" && placing && (
-        <Place placing={placing.item}
-          onRotate={() => setPlacing(p => (p ? { ...p, item: { ...p.item, rot: (p.item.rot + 1) % 4 } } : p))}
-          onDone={placeDone} onCancel={placeCancel} />
       )}
       {screen === "profile" && <Profile onPaywall={() => setScreen("paywall")} onHome={() => setScreen("home")} />}
       {screen === "paywall" && <Paywall onClose={() => setScreen("shop")} />}

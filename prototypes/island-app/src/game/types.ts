@@ -1,6 +1,6 @@
 export type Category = "plants" | "decor" | "buildings" | "pets" | "land";
 export type PetKind = "cat" | "dog";
-export type Screen = "home" | "focus" | "complete" | "shop" | "place" | "profile" | "paywall";
+export type Screen = "home" | "focus" | "complete" | "shop" | "profile" | "paywall";
 export type Phase = "dawn" | "day" | "dusk" | "night";
 export type Weather = "clear" | "cloudy" | "rain";
 export type Season = "spring" | "summer" | "autumn" | "winter";
