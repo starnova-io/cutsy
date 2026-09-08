@@ -36,13 +36,16 @@ export function Focus(props: {
   const sub = curWeather() === "rain" ? "Rain on the water, warm by the fire." : "Your island is waiting for you.";
   return (
     <section className={"screen active" + (running ? " running" : "")} id="screen-focus">
-      <button id="demo-toggle" className={props.demo ? "on" : ""} onClick={props.onToggleDemo}
-        title="Speed up time for this prototype">Demo ×60</button>
+      {/* dev-only time warp — visit with #demo (or ?demo) to reveal it, never in screenshots */}
+      {(location.hash.includes("demo") || location.search.includes("demo")) && (
+        <button id="demo-toggle" className={props.demo ? "on" : ""} onClick={props.onToggleDemo}
+          title="Speed up time for this prototype">Demo ×60</button>
+      )}
       <div id="focus-inner">
         <div id="focus-top">
           <span id="shield" style={{ visibility: running && shield && (shield.dnd || shield.block) ? "visible" : "hidden" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.8A8.6 8.6 0 0 1 9.2 3.8a8.6 8.6 0 1 0 11 11Z" fill="#A89AA6" /></svg>
-            {" "}{shield?.block ? "Distracting apps shielded" : "Notifications silenced"}
+            {" "}{shield?.block ? "Distracting apps blocked" : "Notifications silenced"}
           </span>
           <div id="timer">{fmt(session ? session.remainMs : chosenMin * 60000)}</div>
           <div id="focus-line">
@@ -81,14 +84,15 @@ export function Focus(props: {
                       if (!s.guard.block && caps.needsPicker && !caps.chosen) { props.onPickApps(); return; }
                       mutate(st => { st.guard.block = !st.guard.block; });
                     }}>
-                    <span className="sw" aria-hidden="true" />Shield distracting apps
+                    <span className="sw" aria-hidden="true" />Block distracting apps
                     {hint && <span className="hint">{hint}</span>}
                   </button>
                 )}
                 {/* the island radio is pure web audio, so it works everywhere */}
                 <button className={"guard-row" + (s.radio ? " on" : "")} id="guard-radio"
                   onClick={() => mutate(st => { st.radio = !st.radio; })}>
-                  <span className="sw" aria-hidden="true" />Island radio off-screen
+                  <span className="sw" aria-hidden="true" />Island radio
+                  <span className="hint">plays with the screen off</span>
                 </button>
                 {caps.block && caps.needsPicker && !!caps.chosen && (
                   <button className="guard-pick" id="guard-pick" onClick={props.onPickApps}>
@@ -105,7 +109,7 @@ export function Focus(props: {
               <button className="btn btn-primary" id="btn-pause" onClick={props.onPause}>
                 {session!.paused ? "Resume" : "Pause"}
               </button>
-              <button className="btn btn-ghost" id="btn-end" onClick={props.onEnd}>End session</button>
+              <button className="btn btn-ghost" id="btn-end" onClick={props.onEnd}>Finish early</button>
             </>
           )}
         </div>

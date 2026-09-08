@@ -98,6 +98,13 @@ export function Shop(props: {
         {list.map(e => {
           const k = keyOf(e);
           const st = isPet(e) ? null : stateOf(s, e);
+          /* the card badge answers "what's my relationship to this?" at a
+             glance: a price only while it still costs something */
+          const owned = !isPet(e) && !e.special && s.placed.some(p => p.id === e.id);
+          const badge = isPet(e) ? (s.pet === e.petKey ? "with you" : "a friend")
+            : st === "built" ? "yours"
+            : st === "inv" ? "to place"
+            : owned ? "owned" : "✦ " + e.price;
           return (
             <button key={k} data-sel={k}
               className={"sitem" + (k === selKey ? " on" : "") + (st === "locked" ? " dim" : "")}
@@ -105,7 +112,7 @@ export function Shop(props: {
               {!isPet(e) && e.premium && <span className="pb">✦</span>}
               <img alt="" src={world.thumb(k)} />
               <span>{isPet(e) ? PETS[e.petKey].name : e.name}</span>
-              <b>{isPet(e) ? (s.pet === e.petKey ? "with you" : "a friend") : "✦ " + e.price}</b>
+              <b>{badge}</b>
             </button>
           );
         })}
@@ -147,7 +154,8 @@ export function Shop(props: {
               {selState === "inv" && <button className="btn buy-main" data-place={selEntry.id}
                 onClick={() => { mutate(st => { st.inventory = st.inventory.filter(x => x !== selEntry.id); }); props.onPlaceInventory(selEntry.id); }}>Place</button>}
               {selState === "buy" && <button className="btn buy-main" data-buy={selEntry.id} onClick={() => buy(selEntry)}>
-                {selEntry.special === "bridge" ? "Build" : selEntry.special === "land" ? "Raise" : "Buy"} · ✦ {selEntry.price}
+                {selEntry.special === "bridge" ? "Build" : selEntry.special === "land" ? "Raise"
+                  : placedCount > 0 ? "Buy another" : "Buy"} · ✦ {selEntry.price}
               </button>}
               {selState === "poor" && <button className="btn buy-main" disabled>✦ {selEntry.price}</button>}
             </>

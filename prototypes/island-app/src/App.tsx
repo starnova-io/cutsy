@@ -57,7 +57,7 @@ export default function App() {
      in Apple's own sheet — we only ever learn how many. */
   const pickApps = useCallback(async () => {
     if (!(await requestGuardAccess())) {
-      toast("Screen Time access is needed to shield apps", 3200);
+      toast("Screen Time access is needed to block apps", 3200);
       return;
     }
     const { chosen, apps, categories } = await pickBlockedApps();
@@ -65,10 +65,10 @@ export default function App() {
     /* picking *is* switching it on — coming back to a toggle still sitting
        off reads as if the whole thing failed */
     mutate(st => { st.guard.block = chosen > 0; });
-    if (!chosen) { toast("Pick at least one app to shield", 2600); return; }
+    if (!chosen) { toast("Pick at least one app to block", 2600); return; }
     const bits = [apps && `${apps} app${apps === 1 ? "" : "s"}`,
       categories && `${categories} categor${categories === 1 ? "y" : "ies"}`].filter(Boolean);
-    toast(`Shielding ${bits.join(" · ")} during sessions`, 2800);
+    toast(`Blocking ${bits.join(" · ")} during sessions`, 2800);
   }, []);
 
   /* ---- feedback plumbing ---- */
@@ -229,8 +229,8 @@ export default function App() {
       if (caps.dnd && want.dnd && !got.dnd) toast("Allow Do Not Disturb access to silence notifications", 3200);
       else if (caps.block && want.block && !got.block) {
         toast(caps.needsPicker
-          ? "Choose the apps to shield, then start again"
-          : "Allow usage access and overlay to shield apps", 3200);
+          ? "Choose the apps to block, then start again"
+          : "Allow usage access and overlay to block apps", 3200);
       }
     });
     setSession({ durMin: chosenMin, remainMs: remainRef.current, paused: false });
@@ -248,8 +248,8 @@ export default function App() {
     if (!s) return;
     const focusedMin = Math.floor((s.durMin * 60000 - remainRef.current) / 60000);
     if (focusedMin >= 1) {
-      void askFeedback(`End the session early? You'll keep ✦ ${focusedMin} for the ${focusedMin} min you focused.`,
-        "End session", "Keep going").then(okd => {
+      void askFeedback(`Leave your focus session? You'll keep ✦ ${focusedMin} for the ${focusedMin} min you focused.`,
+        "End session", "Keep focusing").then(okd => {
           if (!okd || !sessionRef.current) return;
           shieldDown();
           const done = completeSession(focusedMin, false, leavesRef.current);
@@ -259,10 +259,14 @@ export default function App() {
           confettiBurst();
         });
     } else {
-      shieldDown();
-      setSession(null);
-      toast("No worries — your island will wait for you.");
-      setScreen("home");
+      void askFeedback("Leave your focus session? These first moments won't be counted.",
+        "Leave", "Keep focusing").then(okd => {
+          if (!okd || !sessionRef.current) return;
+          shieldDown();
+          setSession(null);
+          toast("No worries — your island will wait for you.");
+          setScreen("home");
+        });
     }
   };
 

@@ -64,7 +64,7 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
           <div className="pet-opts" id="pet-opts">
             {(["cat", "dog"] as PetKind[]).map(k => (
               <button key={k} className={"pet-opt" + (s.pet === k ? " on" : "")} data-pet={k} onClick={() => pickPet(k)}>
-                <svg viewBox="-27 -52 54 58" dangerouslySetInnerHTML={{ __html: k === "dog" ? dogSVG("idle") : catSVG("idle") }} />
+                <svg viewBox="-27 -56 54 62" dangerouslySetInnerHTML={{ __html: k === "dog" ? dogSVG("idle") : catSVG("idle") }} />
                 <span className="pn">{PETS[k].name}</span>
                 <span className="ps">{s.pet === k ? "Your companion" : "Choose"}</span>
               </button>
