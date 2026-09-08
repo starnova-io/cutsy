@@ -4,7 +4,7 @@ import { getState, mutate, useGame } from "./game/store";
 import { fits, firstFreeSpot, itemFootprint } from "./game/economy";
 import { commitPlacement, completeSession, grantLand, pickUpPlaced } from "./game/actions";
 import { audio } from "./game/audio";
-import { ambientStart, ambientStop } from "./game/ambience";
+import { ambientStart, ambientStop, shopWhoosh, uiTick } from "./game/ambience";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { hideSplash } from "./native/splash";
@@ -315,7 +315,10 @@ export default function App() {
     setScreen("home");
   };
 
-  const go = (s: Screen) => setScreen(s);
+  const go = (s: Screen) => {
+    if (s !== screenRef.current) { if (s === "shop") shopWhoosh(); else uiTick(); }
+    setScreen(s);
+  };
   const navHidden = screen === "place" || screen === "complete" || screen === "paywall" || (screen === "focus" && !!session);
 
   return (

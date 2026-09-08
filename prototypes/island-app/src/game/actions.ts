@@ -2,6 +2,7 @@ import { byId } from "./catalog";
 import { getState, mutate } from "./store";
 import { dayStamp } from "./weather";
 import { chime, plink } from "./audio";
+import { placeSound } from "./ambience";
 import { newlyUnlocked } from "./economy";
 import { world } from "../world/world3d";
 import type { CompletePayload, PlacedItem } from "./types";
@@ -65,12 +66,14 @@ export function buyAndPlace(id: string, spot: PlacedItem): boolean {
     st.placed.push({ ...spot });
   });
   plink();
+  placeSound(a);
   return true;
 }
 
 /** A milestone gift or inventory item placed via the placement screen. */
 export function commitPlacement(placing: PlacedItem): void {
   mutate(s => { s.placed.push({ ...placing }); });
+  placeSound(byId(placing.id));
 }
 
 export function pickUpPlaced(idx: number): PlacedItem | null {

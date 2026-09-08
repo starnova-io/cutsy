@@ -260,6 +260,29 @@ function drip(ctx: AudioContext, out: GainNode): void {
   o.start(t); o.stop(t + .25);
 }
 
+/* wind chimes by the house: pentatonic dings, busier as the wind picks up */
+const CHIME_NOTES = [880, 987.77, 1174.66, 1318.51, 1479.98];
+function windChimes(ctx: AudioContext, out: GainNode): void {
+  const w = targets.wind ?? 0;
+  const n = 1 + (Math.random() < w ? 1 : 0) + (Math.random() < .25 ? 1 : 0);
+  const p = pan(ctx, rand(-.35, .35));
+  const dest = p ? (p.connect(out), p) : out;
+  let t = ctx.currentTime + .02;
+  for (let i = 0; i < n; i++) {
+    const f = CHIME_NOTES[Math.floor(Math.random() * CHIME_NOTES.length)];
+    for (const [mul, lvl] of [[1, .013], [2.76, .004]] as const) {   /* tube + shimmer */
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = f * mul * rand(.995, 1.005);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(lvl, t + .005);
+      g.gain.exponentialRampToValueAtTime(.0001, t + rand(1.3, 2));
+      o.connect(g); g.connect(dest);
+      o.start(t); o.stop(t + 2.1);
+    }
+    t += rand(.05, .35);
+  }
+}
+
 let flashEl: HTMLDivElement | null = null;
 function skyFlash(): void {
   try {
@@ -309,6 +332,7 @@ const voices: Record<string, Voice> = {
   owl: { nextAt: 0, min: 70, max: 150, on: false, play: owlHoot },
   drip: { nextAt: 0, min: .7, max: 2.4, on: false, play: drip },
   thunder: { nextAt: 0, min: 13, max: 32, on: false, play: thunder },
+  chimes: { nextAt: 0, min: 6, max: 18, on: false, play: windChimes },
 };
 
 function evalContext(): void {
@@ -332,9 +356,11 @@ function evalContext(): void {
     patter: rain ? (storm ? .45 : .3) : 0,
     crickets: night && !rain && !snowy && season !== "winter"
       ? (season === "summer" ? .5 : .32) : 0,
-    /* evenings by a lit window or lantern crackle; winter makes it dearer */
-    fire: (night || phase === "dusk")
-      && getState().placed.some(p => p.id === "lantern" || p.id === "house" || p.id === "cabin")
+    /* evenings by a lit window or lantern crackle — a campfire burns all
+       day; winter makes the fire dearer */
+    fire: (getState().placed.some(p => p.id === "campfire")
+      || ((night || phase === "dusk")
+        && getState().placed.some(p => p.id === "lantern" || p.id === "house" || p.id === "cabin")))
       ? (season === "winter" ? .8 : .5) * (rain ? 1.25 : 1) : 0,
   };
   const ctx = audio();
@@ -359,6 +385,12 @@ function evalContext(): void {
   voices.owl.on = night && (season === "autumn" || season === "winter") && !rain;
   voices.drip.on = rain;
   voices.thunder.on = storm;
+  /* chimes hang by a house or cabin, and only sing when there's wind */
+  voices.chimes.on = windLvl >= .18
+    && getState().placed.some(p => p.id === "house" || p.id === "cabin");
+  const w = Math.min(1, windLvl);
+  voices.chimes.min = 1.2 + (1 - w) * 9;
+  voices.chimes.max = 3.5 + (1 - w) * 16;
 }
 
 function tickVoices(): void {
@@ -399,6 +431,111 @@ export function ambientStop(): void {
 }
 
 export const ambientRunning = (): boolean => running;
+
+/* ---- little UI sounds (they respect the speaker toggle) ---- */
+
+const uiCtx = (): AudioContext | null => (getState().sound ? audio() : null);
+
+/** one knock of something set down: a pitched thump plus a contact click */
+function knock(ctx: AudioContext, t: number, f: number, lvl: number): void {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(f, t);
+  o.frequency.exponentialRampToValueAtTime(f * .55, t + .1);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(lvl, t + .006);
+  g.gain.exponentialRampToValueAtTime(.0001, t + .16);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t); o.stop(t + .2);
+  const src = noiseSrc(ctx, whiteBuf!);
+  const fl = ctx.createBiquadFilter();
+  fl.type = "bandpass"; fl.frequency.value = f * 9; fl.Q.value = 1;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0, t);
+  ng.gain.linearRampToValueAtTime(lvl * .5, t + .004);
+  ng.gain.exponentialRampToValueAtTime(.0001, t + .05);
+  src.connect(fl); fl.connect(ng); ng.connect(ctx.destination);
+  window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 200);
+}
+
+const STONEY = new Set(["rock", "well", "lantern", "birdbath", "sandcastle"]);
+
+/** setting an item down sounds like what it's made of */
+export function placeSound(item: { id: string; cat: string }): void {
+  const ctx = uiCtx();
+  if (!ctx) return;
+  try {
+    noiseBufs(ctx);
+    const t = ctx.currentTime + .01;
+    if (item.cat === "plants") {
+      /* soil pat + leaf rustle */
+      knock(ctx, t, 95, .03);
+      const src = noiseSrc(ctx, whiteBuf!);
+      const f = ctx.createBiquadFilter();
+      f.type = "bandpass"; f.frequency.value = 4800; f.Q.value = .8;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.025, t + .03);
+      g.gain.exponentialRampToValueAtTime(.0001, t + .3);
+      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 400);
+    } else if (item.cat === "buildings") {
+      knock(ctx, t, 200, .05);           /* two mallet taps — built, not dropped */
+      knock(ctx, t + .14, 165, .045);
+    } else if (STONEY.has(item.id)) {
+      knock(ctx, t, 110, .06);
+    } else {
+      knock(ctx, t, 215, .05);           /* wood */
+    }
+  } catch { /* noop */ }
+}
+
+/** the faintest tap when hopping between screens */
+export function uiTick(): void {
+  const ctx = uiCtx();
+  if (!ctx) return;
+  try {
+    noiseBufs(ctx);
+    const t = ctx.currentTime + .005;
+    const src = noiseSrc(ctx, whiteBuf!);
+    const f = ctx.createBiquadFilter();
+    f.type = "highpass"; f.frequency.value = 2600;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.014, t + .003);
+    g.gain.exponentialRampToValueAtTime(.0001, t + .035);
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 100);
+  } catch { /* noop */ }
+}
+
+/** opening the shop: a soft page-swish with a bright little blip on top */
+export function shopWhoosh(): void {
+  const ctx = uiCtx();
+  if (!ctx) return;
+  try {
+    noiseBufs(ctx);
+    const t = ctx.currentTime + .01;
+    const src = noiseSrc(ctx, whiteBuf!);
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass"; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(700, t);
+    f.frequency.exponentialRampToValueAtTime(2600, t + .16);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.022, t + .05);
+    g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 300);
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.type = "sine"; o.frequency.value = 1320;
+    og.gain.setValueAtTime(0, t + .1);
+    og.gain.linearRampToValueAtTime(.02, t + .12);
+    og.gain.exponentialRampToValueAtTime(.0001, t + .4);
+    o.connect(og); og.connect(ctx.destination);
+    o.start(t + .1); o.stop(t + .45);
+  } catch { /* noop */ }
+}
 
 /* the pet's paws: a soft pat on grass, grit on sand, a crunch in snow */
 export type Ground = "grass" | "sand" | "snow";
