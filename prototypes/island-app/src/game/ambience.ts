@@ -162,26 +162,10 @@ function buildBeds(ctx: AudioContext): void {
   fireF.type = "lowpass"; fireF.frequency.value = 190; fireF.Q.value = .4;
   noiseSrc(ctx, brownBuf!).connect(fireF);
   const fire = bed(ctx, fireF, master);
-  const popLoop = () => {
-    const lvl = targets.fire ?? 0;
-    if (running && lvl > 0) {
-      try {
-        const t = ctx.currentTime + .01;
-        const src = noiseSrc(ctx, whiteBuf!);
-        const f = ctx.createBiquadFilter();
-        f.type = "bandpass"; f.frequency.value = rand(1700, 4300); f.Q.value = 1.4;
-        const g = ctx.createGain();
-        const snap = Math.random() < .12;          /* the odd louder snap */
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime((snap ? .028 : rand(.006, .016)) * lvl, t + .004);
-        g.gain.exponentialRampToValueAtTime(.0001, t + (snap ? .07 : rand(.02, .045)));
-        src.connect(f); f.connect(g); g.connect(master!);
-        window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 150);
-      } catch { /* noop */ }
-      window.setTimeout(popLoop, rand(35, 230));
-    } else window.setTimeout(popLoop, 500);
-  };
-  popLoop();
+  /* The crackle pops that used to ride on top are gone. Scattered ticks
+     firing from the moment the app opens read as something rustling nearby
+     — leaves falling, or worse — rather than as a hearth. What's left is the
+     fire's warm underside, which sits below anything you'd notice. */
 
   beds = { waves, foam, wind, whistle, rain: rainBed, patter, crickets, fire, whistleFilt: whF };
 }
@@ -247,17 +231,34 @@ function owlHoot(ctx: AudioContext, out: GainNode): void {
 
 function drip(ctx: AudioContext, out: GainNode): void {
   const t = ctx.currentTime + .01;
+  /* A narrower field: drops that jump right across your head every second
+     are unsettling rather than atmospheric. */
+  const p = pan(ctx, rand(-.32, .32));
+  const dest = p ? (p.connect(out), p) : out;
+  /* the impact tick — without a broadband transient a drop is just a beep */
+  if (whiteBuf) {
+    const n = noiseSrc(ctx, whiteBuf);
+    const nf = ctx.createBiquadFilter();
+    nf.type = "bandpass"; nf.frequency.value = rand(1900, 3400); nf.Q.value = 1.1;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(rand(.008, .015), t);
+    ng.gain.exponentialRampToValueAtTime(.0001, t + .035);
+    n.connect(nf); nf.connect(ng); ng.connect(dest);
+    n.stop(t + .06);
+  }
+  /* the bubble left behind by the drop. Its pitch RISES as the bubble
+     shrinks — the old downward sweep is why this read as a sonar ping in a
+     horror game rather than water. Lower and shorter, too. */
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = "sine";
-  const f = rand(750, 1900);
+  const f = rand(520, 1080);
   o.frequency.setValueAtTime(f, t);
-  o.frequency.exponentialRampToValueAtTime(f * .55, t + .1);
+  o.frequency.exponentialRampToValueAtTime(f * rand(1.18, 1.45), t + .085);
   g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(rand(.012, .025), t + .008);
-  g.gain.exponentialRampToValueAtTime(.0001, t + .2);
-  const p = pan(ctx, rand(-.7, .7));
-  o.connect(g); g.connect(p ? (p.connect(out), p) : out);
-  o.start(t); o.stop(t + .25);
+  g.gain.linearRampToValueAtTime(rand(.009, .018), t + .005);
+  g.gain.exponentialRampToValueAtTime(.0001, t + .13);
+  o.connect(g); g.connect(dest);
+  o.start(t); o.stop(t + .16);
 }
 
 /* wind chimes by the house: pentatonic dings, busier as the wind picks up */
@@ -330,7 +331,7 @@ const voices: Record<string, Voice> = {
   bird: { nextAt: 0, min: 4, max: 10, on: false, play: birdPhrase },
   gull: { nextAt: 0, min: 18, max: 45, on: false, play: gullCry },
   owl: { nextAt: 0, min: 70, max: 150, on: false, play: owlHoot },
-  drip: { nextAt: 0, min: .7, max: 2.4, on: false, play: drip },
+  drip: { nextAt: 0, min: 1.4, max: 4.4, on: false, play: drip },
   thunder: { nextAt: 0, min: 13, max: 32, on: false, play: thunder },
   chimes: { nextAt: 0, min: 6, max: 18, on: false, play: windChimes },
 };
@@ -366,7 +367,10 @@ function evalContext(): void {
   const ctx = audio();
   if (ctx) {
     const scale: Record<string, number> = {
-      waves: .055, foam: .02, wind: .06, whistle: .012, rain: .05, patter: .02, crickets: .017,
+      /* rain was the loudest thing in the mix after the sea, and its patter
+         layer is a 2.8kHz hiss — together they read as a downpour on a tin
+         roof rather than weather somewhere outside */
+      waves: .055, foam: .02, wind: .06, whistle: .012, rain: .022, patter: .007, crickets: .017,
       fire: .04,
     };
     for (const k of Object.keys(T)) {
@@ -414,7 +418,7 @@ export function ambientStart(): void {
     buildBeds(ctx);
     running = true;
     evalContext();
-    master!.gain.setTargetAtTime(.9, ctx.currentTime, 1.2);
+    master!.gain.setTargetAtTime(.45, ctx.currentTime, 1.2);
     if (!evalIv) evalIv = window.setInterval(evalContext, 5000);
     if (!voiceIv) voiceIv = window.setInterval(tickVoices, 500);
     const now = performance.now() / 1000;
@@ -468,17 +472,9 @@ export function placeSound(item: { id: string; cat: string }): void {
     noiseBufs(ctx);
     const t = ctx.currentTime + .01;
     if (item.cat === "plants") {
-      /* soil pat + leaf rustle */
+      /* just the pat of soil — the leaf rustle that rode on top of it was a
+         300ms hiss at 4.8kHz, which is static, not foliage */
       knock(ctx, t, 95, .03);
-      const src = noiseSrc(ctx, whiteBuf!);
-      const f = ctx.createBiquadFilter();
-      f.type = "bandpass"; f.frequency.value = 4800; f.Q.value = .8;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(.025, t + .03);
-      g.gain.exponentialRampToValueAtTime(.0001, t + .3);
-      src.connect(f); f.connect(g); g.connect(ctx.destination);
-      window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 400);
     } else if (item.cat === "buildings") {
       knock(ctx, t, 200, .05);           /* two mallet taps — built, not dropped */
       knock(ctx, t + .14, 165, .045);
@@ -544,6 +540,9 @@ export function footstep(ground: Ground): void {
   stepCount++;
   const ctx = audio();
   if (!ctx || !running) return;
+  /* Four paws at roughly four steps a second, every one identical, is a
+     typewriter. Drop one in five, and make no two of the rest alike. */
+  if (Math.random() < .2) return;
   try {
     noiseBufs(ctx);
     const t = ctx.currentTime + .005;
@@ -551,37 +550,31 @@ export function footstep(ground: Ground): void {
     for (let i = 0; i < bursts; i++) {
       const src = noiseSrc(ctx, whiteBuf!);
       const f = ctx.createBiquadFilter();
-      if (ground === "grass") { f.type = "lowpass"; f.frequency.value = 750; }
-      else { f.type = "bandpass"; f.frequency.value = ground === "sand" ? rand(1300, 1900) : rand(2200, 3200); f.Q.value = 1.1; }
+      if (ground === "grass") {
+        /* A paw in grass brushes, it doesn't knock. Lowpassing at 750Hz threw
+           away every blade of texture and left nothing but the thud. */
+        f.type = "bandpass"; f.frequency.value = rand(1100, 2200); f.Q.value = .55;
+      } else {
+        f.type = "bandpass";
+        f.frequency.value = ground === "sand" ? rand(1300, 1900) : rand(2200, 3200);
+        f.Q.value = 1.1;
+      }
       const g = ctx.createGain();
-      const at = t + i * .022;
+      const at = t + i * rand(.018, .028);
+      const lvl = (ground === "grass" ? .0065 : rand(.005, .009)) * rand(.7, 1.3);
+      const dec = ground === "grass" ? rand(.07, .11) : rand(.04, .065);
       g.gain.setValueAtTime(0, at);
-      g.gain.linearRampToValueAtTime(ground === "grass" ? .011 : rand(.007, .013), at + .006);
-      g.gain.exponentialRampToValueAtTime(.0001, at + (ground === "grass" ? .06 : .045));
+      g.gain.linearRampToValueAtTime(lvl, at + rand(.012, .02));   /* soft attack */
+      g.gain.exponentialRampToValueAtTime(.0001, at + dec);
       src.connect(f); f.connect(g); g.connect(ctx.destination);
-      window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 200);
+      window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 250);
     }
   } catch { /* noop */ }
 }
 
-/* a handful of leaves shaken from a tapped tree */
-export function rustle(): void {
-  const ctx = audio();
-  if (!ctx) return;
-  try {
-    noiseBufs(ctx);
-    const t = ctx.currentTime + .01;
-    const src = noiseSrc(ctx, whiteBuf!);
-    const f = ctx.createBiquadFilter();
-    f.type = "bandpass"; f.frequency.value = 5200; f.Q.value = .7;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(.05, t + .04);
-    g.gain.exponentialRampToValueAtTime(.0001, t + rand(.35, .5));
-    src.connect(f); f.connect(g); g.connect(ctx.destination);
-    window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 700);
-  } catch { /* noop */ }
-}
+/* Shaking a tree used to play a leaf rustle. Every attempt at it — one long
+   noise swell, then a scatter of grains — came out as hiss or radio static
+   rather than leaves, so the leaves now fall silently. */
 
 /* test hook */
 (window as unknown as Record<string, unknown>).__ambience = () => ({

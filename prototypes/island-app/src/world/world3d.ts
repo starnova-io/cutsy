@@ -8,7 +8,7 @@ import { GLBS, cloneGLB, setGLBReady } from "./glb";
 import { byId } from "../game/catalog";
 import { fits, itemFootprint, occupied } from "../game/economy";
 import { tickHaptic } from "../native/haptics";
-import { footstep, rustle } from "../game/ambience";
+import { footstep } from "../game/ambience";
 import type { GameState, PetKind, Phase, PlacedItem, Season, Weather } from "../game/types";
 
 /* Ambient falling particles per season — autumn leaves, spring petals, snow —
@@ -1068,7 +1068,7 @@ class World {
     if (!wrap) return false;
     wrap.userData.shakeT = 1;
     const g = wrap.children[0] as THREE.Group | undefined;
-    if (g?.userData.deciduous || this.season === "winter") { this.burstLeaves(pidx); rustle(); }
+    if (g?.userData.deciduous || this.season === "winter") this.burstLeaves(pidx);
     return true;
   }
 
