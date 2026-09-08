@@ -75,6 +75,8 @@ export interface WorldCallbacks {
   onTapTile(x: number, y: number): void;
   /** the ghost was dragged onto a new tile (may not fit — the bar gates that) */
   onMoveGhost(x: number, y: number): void;
+  /** the finger let go of a dragged ghost */
+  onDropGhost(): void;
 }
 
 /* live pet pose, driven by the animation loop */
@@ -189,7 +191,7 @@ class World {
     if (!this.cb) {
       this.cb = {
         getState: () => { throw new Error("world callbacks not registered"); },
-        onTapPet: () => {}, onTapItem: () => {}, onTapTile: () => {}, onMoveGhost: () => {},
+        onTapPet: () => {}, onTapItem: () => {}, onTapTile: () => {}, onMoveGhost: () => {}, onDropGhost: () => {},
       };
     }
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -1273,10 +1275,12 @@ class World {
 
   private onPointerUp(ev: PointerEvent, cancelled = false): void {
     const wasTap = this.drag && !this.drag.moved && performance.now() - this.drag.t < 400 && !cancelled;
-    if (this.ghostDrag) this.ghostDrag = null;
+    const dropped = !!this.ghostDrag;
+    this.ghostDrag = null;
     this.pointers.delete(ev.pointerId);
     if (this.pointers.size < 2) this.pinch = null;
     if (this.pointers.size === 0) this.drag = null;
+    if (dropped) this.cb.onDropGhost();
     if (wasTap) this.tapAt(ev.clientX, ev.clientY);
   }
 

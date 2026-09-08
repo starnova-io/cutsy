@@ -20,7 +20,13 @@ import { Place } from "./screens/Place";
 import { Profile } from "./screens/Profile";
 import { Paywall } from "./screens/Paywall";
 
-interface Placing { item: PlacedItem; origin: PlacedItem | null }
+interface Placing {
+  item: PlacedItem;
+  origin: PlacedItem | null;
+  /* arranging in place on Home, Clash-of-Clans style: no Place screen, no
+     Done — pick a thing up, tap or drag it somewhere free, and it lands. */
+  inline?: boolean;
+}
 interface DialogState { msg: string; ok: string; cancel: string; resolve: (v: boolean) => void }
 
 const initialScreen = (): Screen => {
@@ -85,12 +91,39 @@ export default function App() {
   }, []);
 
   /* ---- world boot ---- */
+  /** drop an item where it stands; shoos the companion out from under it */
+  const settle = useCallback((item: PlacedItem) => {
+    const f = itemFootprint(item);
+    const ptx = Math.round(petView.x), pty = Math.round(petView.y);
+    commitPlacement(item);
+    if (ptx >= item.x && ptx < item.x + f.w && pty >= item.y && pty < item.y + f.d) {
+      const spot = firstFreeSpot(getState(), "yarn");
+      mutate(st => { st.cat = { x: spot.x, y: spot.y }; });
+      petView.x = spot.x; petView.y = spot.y; petView.napping = false;
+    }
+  }, []);
   const startMove = useCallback((idx: number) => {
     const item = pickUpPlaced(idx);
     if (!item) return;
     setPlacing({ item, origin: { ...item } });
     setScreen("place");
   }, []);
+  /** arrange mode: lift it, stay on the island, and wait for somewhere to put it */
+  const liftItem = useCallback((idx: number) => {
+    const item = pickUpPlaced(idx);
+    if (!item) return;
+    setPlacing({ item, origin: { ...item }, inline: true });
+  }, []);
+  /** land a lifted item if the tile it is on is free; otherwise leave it held */
+  const dropInline = useCallback((cand: PlacedItem) => {
+    if (!fits(getState(), cand)) {
+      setPlacing(p => (p ? { ...p, item: cand } : p));
+      return false;
+    }
+    settle(cand);
+    setPlacing(null);
+    return true;
+  }, [settle]);
 
   useEffect(() => {
     world.init({
@@ -102,19 +135,29 @@ export default function App() {
         heartAt(cx, cy);
       },
       onTapItem: idx => {
-        if (screenRef.current !== "home" || placingRef.current) return;
+        if (screenRef.current !== "home") return;
         /* Arrange mode is the only way to pick something up. A plain tap is for
            playing with the island — otherwise tapping a tree to watch the leaves
            fall would sometimes shake it and sometimes yank it off the ground,
            depending on the season and the species. */
-        if (arrangeRef.current) { setArrange(false); startMove(idx); return; }
+        /* holding something already: the tap belongs to putting it down */
+        if (arrangeRef.current) { if (!placingRef.current) liftItem(idx); return; }
         world.pokeItem(idx);
       },
       onMoveGhost: (x, y) => {
         if (!placingRef.current) return;
         setPlacing(p => (p ? { ...p, item: { ...p.item, x, y } } : p));
       },
+      onDropGhost: () => {
+        const p = placingRef.current;
+        if (p?.inline) dropInline(p.item);
+      },
       onTapTile: (x, y) => {
+        const held = placingRef.current;
+        if (screenRef.current === "home" && held?.inline) {
+          dropInline({ ...held.item, x, y });
+          return;
+        }
         if (screenRef.current === "place" && placingRef.current) {
           /* tapping open ground sends the item there too — an invalid spot
              turns the footprint red rather than silently doing nothing */
@@ -136,7 +179,7 @@ export default function App() {
     window.addEventListener("pointerdown", arm, { once: true });
     const t = window.setTimeout(() => toast("Drag to spin your island · pinch to zoom", 3200), 1200);
     return () => { window.clearTimeout(t); window.removeEventListener("pointerdown", arm); };
-  }, [startMove]);
+  }, [startMove, liftItem, dropInline]);
 
   const toggleSound = useCallback(() => {
     const on = !getState().sound;
@@ -274,18 +317,19 @@ export default function App() {
   const placeDone = () => {
     const p = placingRef.current;
     if (!p || !fits(getState(), p.item)) return;
-    const f = itemFootprint(p.item);
-    const ptx = Math.round(petView.x), pty = Math.round(petView.y);
-    commitPlacement(p.item);
-    if (ptx >= p.item.x && ptx < p.item.x + f.w && pty >= p.item.y && pty < p.item.y + f.d) {
-      const spot = firstFreeSpot(getState(), "yarn");
-      mutate(st => { st.cat = { x: spot.x, y: spot.y }; });
-      petView.x = spot.x; petView.y = spot.y; petView.napping = false;
-    }
+    settle(p.item);
     setPlacing(null);
     toast("It looks lovely here.");
     setScreen("home");
   };
+  /** give a lifted piece back to where it came from */
+  const putBack = useCallback(() => {
+    const p = placingRef.current;
+    if (!p) return;
+    if (p.origin) mutate(st => { st.placed.push({ ...p.origin! }); });
+    else mutate(st => { st.inventory.push(p.item.id); });
+    setPlacing(null);
+  }, []);
   const placeCancel = () => {
     const p = placingRef.current;
     if (p) {
@@ -337,9 +381,13 @@ export default function App() {
       {screen === "home" && (
         <Home chosenMin={chosenMin} onFocus={() => setScreen("focus")} arrange={arrange}
           sound={getState().sound} onToggleSound={toggleSound}
+          held={placing?.inline ? placing.item : null}
+          onRotateHeld={() => setPlacing(p => (p ? { ...p, item: { ...p.item, rot: (p.item.rot + 1) % 4 } } : p))}
+          onCancelHeld={putBack}
           onToggleArrange={() => {
+            putBack();          /* leaving arrange mode never strands a piece */
             setArrange(a => {
-              if (!a) toast("Arrange mode — tap anything to pick it up");
+              if (!a) toast("Arrange mode — tap a piece, then tap where it goes");
               return !a;
             });
           }} />

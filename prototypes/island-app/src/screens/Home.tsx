@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "../game/store";
 import { nextUnlockInfo } from "../game/economy";
 import { WorldView } from "../world/WorldView";
+import type { PlacedItem } from "../game/types";
 
 export function Home(props: {
   chosenMin: number;
@@ -10,6 +11,10 @@ export function Home(props: {
   onToggleArrange: () => void;
   sound: boolean;
   onToggleSound: () => void;
+  /** the piece currently lifted off the island, if any */
+  held: PlacedItem | null;
+  onRotateHeld: () => void;
+  onCancelHeld: () => void;
 }) {
   const s = useGame();
   const nu = nextUnlockInfo(s);
@@ -31,7 +36,16 @@ export function Home(props: {
         <div id="home-title">My little island</div>
       </header>
       <div id="home-world-outer" onPointerDown={wake}>
-        <WorldView id="world-wrap" opts={{ highlight: arrange }} />
+        <WorldView id="world-wrap"
+          opts={props.held ? { ghost: props.held, grid: true } : { highlight: arrange }} />
+        {props.held && (
+          /* No Done here on purpose: tapping open ground or letting go of a
+             drag is what puts a piece down. These two are the ways out. */
+          <div id="hold-bar">
+            <button className="btn hold-btn" onClick={props.onRotateHeld}>⟳ Rotate</button>
+            <button className="btn hold-btn ghost" onClick={props.onCancelHeld}>Put back</button>
+          </div>
+        )}
         <button id="btn-arrange" className={(arrange ? "on" : "") + (tools || arrange ? "" : " ghosted")}
           aria-label="Arrange your island" title="Arrange your island" onClick={props.onToggleArrange}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

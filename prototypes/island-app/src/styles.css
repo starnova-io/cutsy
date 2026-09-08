@@ -94,6 +94,13 @@
   #next-unlock b{color:var(--ink);}
   #next-unlock .spark{color:var(--energy);}
 
+  /* the two ways out while a piece is lifted; putting it down needs no button */
+  #hold-bar{position:absolute; left:0; right:0; bottom:14px; display:flex; gap:8px;
+    justify-content:center; z-index:12;}
+  .hold-btn{background:var(--card); color:var(--ink); border:1px solid var(--line);
+    box-shadow:var(--shadow); padding:10px 16px; font-size:13.5px;}
+  .hold-btn.ghost{color:var(--muted);}
+
   /* ---------- focus ---------- */
   #screen-focus{background:linear-gradient(180deg,var(--dusk) 0%, var(--dusk-2) 100%); color:var(--dusk-ink);}
   #focus-inner{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:space-between;
