@@ -1,5 +1,6 @@
 import { byId, CATALOG, PETS } from "../game/catalog";
 import { mutate, resetState, useGame } from "../game/store";
+import { applyMix } from "../game/ambience";
 import { ask, toast } from "../ui/feedback";
 import { catSVG, dogSVG } from "../ui/mascots";
 import type { PetKind } from "../game/types";
@@ -11,6 +12,17 @@ const RICO = {
   paw: <svg className="row-ic" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.8" rx="4.6" ry="3.7" /><circle cx="6.3" cy="11.2" r="1.9" /><circle cx="9.9" cy="8.4" r="1.9" /><circle cx="14.1" cy="8.4" r="1.9" /><circle cx="17.7" cy="11.2" r="1.9" /></svg>,
   isle: <svg className="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17c2-1.4 4-1.4 6 0s4 1.4 6 0 4-1.4 6 0" /><path d="M12 13V5" /><path d="M12 5c3 0 5 1.5 5 3.5-2 .8-4 .3-5-1.2" /><path d="M12 6.5c-2.4-.6-4.3.3-5 2 1.8 1 3.8.6 5-.8" /></svg>,
 };
+
+/* Each row switches off a whole group at once — the beds and the one-shots
+   that belong together, so "Rain" also takes the drips and the thunder. */
+const MIX_LAYERS: [string, string, string][] = [
+  ["sea", "Sea", "waves and foam"],
+  ["wind", "Wind", "gusts and the chimes"],
+  ["rain", "Rain", "patter, drips, thunder"],
+  ["fire", "Fire", "the hearth's warm hum"],
+  ["wild", "Wildlife", "birds, gulls, owls, crickets"],
+  ["pet", "Companion", "paws on the ground"],
+];
 
 export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
   const s = useGame();
@@ -100,6 +112,40 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
             ))}
           </div>
           <div id="pet-desc">{PETS[s.pet].line}</div>
+        </div>
+        <div className="card" id="mix-card">
+          <h2>Island sounds</h2>
+          <div id="mix-vol-row">
+            <span className="mix-vol-lbl">Volume</span>
+            <input type="range" id="mix-vol" min="0" max="100" step="5"
+              value={Math.round((s.mix?.vol ?? .5) * 100)} disabled={!s.sound}
+              aria-label="Island sound volume"
+              onChange={e => {
+                const v = Number(e.target.value) / 100;
+                mutate(st => { st.mix.vol = v; });
+                applyMix();
+              }} />
+            <span className="mix-vol-num">{Math.round((s.mix?.vol ?? .5) * 100)}</span>
+          </div>
+          {!s.sound && <div className="mix-off-note">Sounds are off — turn them on from your island.</div>}
+          <div id="mix-rows">
+            {MIX_LAYERS.map(([key, label, note]) => {
+              const on = (s.mix as unknown as Record<string, boolean>)[key] !== false;
+              return (
+                <button key={key} className={"mix-row" + (on && s.sound ? " on" : "")}
+                  disabled={!s.sound} aria-pressed={on}
+                  onClick={() => {
+                    mutate(st => {
+                      (st.mix as unknown as Record<string, boolean>)[key] = !on;
+                    });
+                    applyMix();
+                  }}>
+                  <span className="sw" aria-hidden="true" />
+                  <span className="mix-lbl">{label}<em>{note}</em></span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="card" id="prem-card">
           {s.premium ? (

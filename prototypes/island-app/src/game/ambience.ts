@@ -360,6 +360,17 @@ const voices: Record<string, Voice> = {
   chimes: { nextAt: 0, min: 6, max: 18, on: false, play: windChimes },
 };
 
+/* .9 was the old fixed ceiling; the slider rides underneath it, and its .5
+   default lands exactly where the master already sat. */
+const masterLevel = (): number => .9 * (getState().mix?.vol ?? .5);
+
+/** the mix changed in Profile — apply it without waiting for the next tick */
+export function applyMix(): void {
+  const ctx = audio();
+  if (ctx && master && running) master.gain.setTargetAtTime(masterLevel(), ctx.currentTime, .12);
+  evalContext();
+}
+
 function evalContext(): void {
   if (!beds) return;
   const season = curSeason(), phase = curPhase();
@@ -388,6 +399,15 @@ function evalContext(): void {
         && getState().placed.some(p => p.id === "lantern" || p.id === "house" || p.id === "cabin")))
       ? (season === "winter" ? .8 : .5) * (rain ? 1.25 : 1) : 0,
   };
+  /* whatever the weather says, a layer switched off in Profile stays off */
+  const m = getState().mix;
+  if (m) {
+    if (!m.sea) { T.waves = 0; T.foam = 0; }
+    if (!m.wind) { T.wind = 0; T.whistle = 0; }
+    if (!m.rain) { T.rain = 0; T.patter = 0; }
+    if (!m.fire) T.fire = 0;
+    if (!m.wild) T.crickets = 0;
+  }
   const ctx = audio();
   if (ctx) {
     const scale: Record<string, number> = {
@@ -419,6 +439,14 @@ function evalContext(): void {
   const w = Math.min(1, windLvl);
   voices.chimes.min = 1.2 + (1 - w) * 9;
   voices.chimes.max = 3.5 + (1 - w) * 16;
+  if (m) {
+    voices.bird.on = voices.bird.on && m.wild;
+    voices.gull.on = voices.gull.on && m.wild;
+    voices.owl.on = voices.owl.on && m.wild;
+    voices.drip.on = voices.drip.on && m.rain;
+    voices.thunder.on = voices.thunder.on && m.rain;
+    voices.chimes.on = voices.chimes.on && m.wind;
+  }
 }
 
 function tickVoices(): void {
@@ -442,7 +470,7 @@ export function ambientStart(): void {
     buildBeds(ctx);
     running = true;
     evalContext();
-    master!.gain.setTargetAtTime(.45, ctx.currentTime, 1.2);
+    master!.gain.setTargetAtTime(masterLevel(), ctx.currentTime, 1.2);
     if (!evalIv) evalIv = window.setInterval(evalContext, 5000);
     if (!voiceIv) voiceIv = window.setInterval(tickVoices, 500);
     const now = performance.now() / 1000;
@@ -568,7 +596,7 @@ let stepCount = 0;
 export function footstep(ground: Ground): void {
   stepCount++;
   const ctx = audio();
-  if (!ctx || !running) return;
+  if (!ctx || !running || getState().mix?.pet === false) return;
   /* Four paws at roughly four steps a second, every one identical, is a
      typewriter. Drop one in five, and make no two of the rest alike. */
   if (Math.random() < .35) return;

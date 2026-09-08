@@ -1,7 +1,7 @@
 /* Sayly-style state: no state library — localStorage + a tiny
    subscribe/emit store consumed through useSyncExternalStore. */
 import { useSyncExternalStore } from "react";
-import type { GameState } from "./types";
+import type { GameState, MixPrefs } from "./types";
 import { dayStamp } from "./weather";
 import { fits } from "./economy";
 
@@ -23,8 +23,13 @@ function seedState(): GameState {
     ],
     inventory: [], cat: { x: 6, y: 5 }, pet: "cat", premium: false,
     guard: { dnd: true, block: false }, lands: [], sound: true, radio: false,
+    mix: DEFAULT_MIX(),
   };
 }
+
+/** .5 is where the master already sat, so an existing island sounds the same */
+const DEFAULT_MIX = (): MixPrefs =>
+  ({ vol: .5, sea: true, wind: true, rain: true, fire: true, wild: true, pet: true });
 
 function load(): GameState {
   let s: GameState;
@@ -37,6 +42,7 @@ function load(): GameState {
   if (!s.guard) s.guard = { dnd: true, block: false };
   if (!Array.isArray(s.lands)) s.lands = [];
   if (s.sound === undefined) s.sound = true;
+  if (!s.mix) s.mix = DEFAULT_MIX();
   if (s.radio === undefined) s.radio = false;
   /* older saves had no deciduous tree, so autumn/spring had nothing to shed —
      gift an oak (leaves and petals come from the island's own trees now) */

@@ -519,6 +519,34 @@
 .guard-row .hint{margin-left:auto;white-space:nowrap;font:700 9px/1 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;
   color:var(--dusk-muted);background:rgba(255,255,255,.1);padding:3px 8px;border-radius:99px}
 
+/* ---- the sound mixer in Profile ---- */
+#mix-vol-row{display:flex;align-items:center;gap:10px;margin:2px 0 10px}
+.mix-vol-lbl{font:700 12.5px/1 var(--font-ui);color:var(--muted);flex:none}
+.mix-vol-num{font:800 12.5px/1 var(--font-ui);color:var(--terra-deep);width:26px;text-align:right;flex:none}
+#mix-vol{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:99px;
+  background:var(--terra-soft);outline:none}
+#mix-vol::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:19px;height:19px;
+  border-radius:50%;background:var(--terra);border:3px solid var(--card);box-shadow:var(--shadow);cursor:pointer}
+#mix-vol:disabled{opacity:.45}
+.mix-off-note{font:600 12px/1.4 var(--font-ui);color:var(--muted);margin:-4px 0 10px}
+#mix-rows{display:flex;flex-direction:column;gap:7px}
+.mix-row{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:var(--r-md);
+  background:var(--cream);border:1px solid var(--line);cursor:pointer;text-align:left;
+  font-family:var(--font-ui);color:var(--muted);touch-action:manipulation;
+  transition:color .2s,background .2s,transform .12s ease}
+.mix-row:active{transform:scale(.985)}
+.mix-row:disabled{opacity:.5;cursor:default}
+.mix-row.on{color:var(--ink);background:var(--card)}
+.mix-lbl{display:flex;flex-direction:column;gap:2px;font:800 13px/1 var(--font-ui)}
+.mix-lbl em{font:600 11px/1 var(--font-ui);font-style:normal;color:var(--muted)}
+.mix-row .sw{width:32px;height:19px;border-radius:99px;background:var(--line);
+  position:relative;flex:none;transition:background .2s}
+.mix-row .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;
+  border-radius:50%;background:#FFF;box-shadow:0 1px 2px rgba(60,45,30,.25);
+  transition:transform .2s}
+.mix-row.on .sw{background:var(--terra)}
+.mix-row.on .sw::after{transform:translateX(12px)}
+
 /* ---- complete-screen focus quality ---- */
 #focus-quality{margin:6px 0 2px;font:600 13px/1.4 var(--font-ui);color:var(--muted)}
 #focus-quality.deep{color:var(--energy)}

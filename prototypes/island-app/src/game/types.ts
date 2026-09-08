@@ -28,6 +28,13 @@ export interface PlacedItem {
 /** focus-shield preferences: silence notifications / block apps (native builds) */
 export interface GuardPrefs { dnd: boolean; block: boolean }
 
+/** what the soundscape is allowed to play, and how loud */
+export interface MixPrefs {
+  /** master level, 0..1 */
+  vol: number;
+  sea: boolean; wind: boolean; rain: boolean; fire: boolean; wild: boolean; pet: boolean;
+}
+
 export interface GameState {
   energy: number;
   totalMin: number;
@@ -47,6 +54,8 @@ export interface GameState {
   guard: GuardPrefs;
   /** ambient soundscape on/off */
   sound: boolean;
+  /** per-layer mix, tuned from Profile */
+  mix: MixPrefs;
   /** island radio: keep the soundscape (and the session) running off-screen */
   radio: boolean;
   /** purchased/gifted land-expansion ids (see LANDS in world/island) */
