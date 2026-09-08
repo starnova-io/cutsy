@@ -1,7 +1,7 @@
 /* Sayly-style state: no state library — localStorage + a tiny
    subscribe/emit store consumed through useSyncExternalStore. */
 import { useSyncExternalStore } from "react";
-import type { GameState, MixPrefs } from "./types";
+import { MIX_KEYS, type GameState, type MixPrefs } from "./types";
 import { dayStamp } from "./weather";
 import { fits } from "./economy";
 
@@ -29,7 +29,7 @@ function seedState(): GameState {
 
 /** .5 is where the master already sat, so an existing island sounds the same */
 const DEFAULT_MIX = (): MixPrefs =>
-  ({ vol: .5, sea: true, wind: true, rain: true, fire: true, wild: true, pet: true });
+  ({ vol: .5, sea: 1, wind: 1, rain: 1, fire: 1, wild: 1, pet: 1 });
 
 function load(): GameState {
   let s: GameState;
@@ -43,6 +43,13 @@ function load(): GameState {
   if (!Array.isArray(s.lands)) s.lands = [];
   if (s.sound === undefined) s.sound = true;
   if (!s.mix) s.mix = DEFAULT_MIX();
+  /* the layers were on/off switches before they were faders */
+  for (const k of MIX_KEYS) {
+    const v = (s.mix as unknown as Record<string, unknown>)[k];
+    if (typeof v === "boolean") (s.mix as unknown as Record<string, number>)[k] = v ? 1 : 0;
+    else if (typeof v !== "number") (s.mix as unknown as Record<string, number>)[k] = 1;
+  }
+  if (typeof s.mix.vol !== "number") s.mix.vol = .5;
   if (s.radio === undefined) s.radio = false;
   /* older saves had no deciduous tree, so autumn/spring had nothing to shed —
      gift an oak (leaves and petals come from the island's own trees now) */

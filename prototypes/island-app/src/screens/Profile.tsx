@@ -3,7 +3,7 @@ import { mutate, resetState, useGame } from "../game/store";
 import { applyMix } from "../game/ambience";
 import { ask, toast } from "../ui/feedback";
 import { catSVG, dogSVG } from "../ui/mascots";
-import type { PetKind } from "../game/types";
+import type { MixKey, PetKind } from "../game/types";
 
 const RICO = {
   leaf: <svg className="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5.5 18.5C5.5 10.5 10.5 5.5 18.5 5.5c0 8-5 13-13 13Z" /><path d="M5.5 18.5c2.6-4.4 5.8-7.6 9.4-10" /></svg>,
@@ -13,9 +13,10 @@ const RICO = {
   isle: <svg className="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17c2-1.4 4-1.4 6 0s4 1.4 6 0 4-1.4 6 0" /><path d="M12 13V5" /><path d="M12 5c3 0 5 1.5 5 3.5-2 .8-4 .3-5-1.2" /><path d="M12 6.5c-2.4-.6-4.3.3-5 2 1.8 1 3.8.6 5-.8" /></svg>,
 };
 
-/* Each row switches off a whole group at once — the beds and the one-shots
-   that belong together, so "Rain" also takes the drips and the thunder. */
-const MIX_LAYERS: [string, string, string][] = [
+/* Each fader carries a whole group — the bed and the one-shots that belong
+   together, so "Rain" also takes the drips and the thunder. Pulled to zero
+   the group stops being scheduled at all, rather than playing silently. */
+const MIX_LAYERS: [MixKey, string, string][] = [
   ["sea", "Sea", "waves and foam"],
   ["wind", "Wind", "gusts and the chimes"],
   ["rain", "Rain", "patter, drips, thunder"],
@@ -114,7 +115,15 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
           <div id="pet-desc">{PETS[s.pet].line}</div>
         </div>
         <div className="card" id="mix-card">
-          <h2>Island sounds</h2>
+          <h2 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            Island sounds
+            <button className="mix-reset" id="mix-reset"
+              onClick={() => {
+                mutate(st => { st.mix = { vol: .5, sea: 1, wind: 1, rain: 1, fire: 1, wild: 1, pet: 1 }; });
+                applyMix();
+                toast("Sounds back to how they started");
+              }}>Reset</button>
+          </h2>
           <div id="mix-vol-row">
             <span className="mix-vol-lbl">Volume</span>
             <input type="range" id="mix-vol" min="0" max="100" step="5"
@@ -130,19 +139,20 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
           {!s.sound && <div className="mix-off-note">Sounds are off — turn them on from your island.</div>}
           <div id="mix-rows">
             {MIX_LAYERS.map(([key, label, note]) => {
-              const on = (s.mix as unknown as Record<string, boolean>)[key] !== false;
+              const lvl = s.mix?.[key] ?? 1;
+              const pct = Math.round(lvl * 100);
               return (
-                <button key={key} className={"mix-row" + (on && s.sound ? " on" : "")}
-                  disabled={!s.sound} aria-pressed={on}
-                  onClick={() => {
-                    mutate(st => {
-                      (st.mix as unknown as Record<string, boolean>)[key] = !on;
-                    });
-                    applyMix();
-                  }}>
-                  <span className="sw" aria-hidden="true" />
+                <div key={key} className={"mix-row" + (lvl > 0 && s.sound ? " on" : "")}>
                   <span className="mix-lbl">{label}<em>{note}</em></span>
-                </button>
+                  <input type="range" className="mix-fader" min="0" max="100" step="5"
+                    value={pct} disabled={!s.sound} aria-label={label + " volume"}
+                    onChange={e => {
+                      const v = Number(e.target.value) / 100;
+                      mutate(st => { st.mix[key] = v; });
+                      applyMix();
+                    }} />
+                  <span className="mix-num">{pct ? pct : "off"}</span>
+                </div>
               );
             })}
           </div>

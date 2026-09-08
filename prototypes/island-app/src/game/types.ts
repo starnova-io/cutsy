@@ -28,12 +28,16 @@ export interface PlacedItem {
 /** focus-shield preferences: silence notifications / block apps (native builds) */
 export interface GuardPrefs { dnd: boolean; block: boolean }
 
-/** what the soundscape is allowed to play, and how loud */
+/** how loud each part of the soundscape is; every value 0..1, 0 being off */
 export interface MixPrefs {
-  /** master level, 0..1 */
+  /** master level */
   vol: number;
-  sea: boolean; wind: boolean; rain: boolean; fire: boolean; wild: boolean; pet: boolean;
+  sea: number; wind: number; rain: number; fire: number; wild: number; pet: number;
 }
+
+/** the layers the mixer exposes, in the order Profile lists them */
+export const MIX_KEYS = ["sea", "wind", "rain", "fire", "wild", "pet"] as const;
+export type MixKey = typeof MIX_KEYS[number];
 
 export interface GameState {
   energy: number;

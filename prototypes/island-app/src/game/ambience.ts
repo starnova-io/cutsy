@@ -6,6 +6,7 @@
 import { audio } from "./audio";
 import { curPhase, curSeason, curWeather, isStorm } from "./weather";
 import { getState } from "./store";
+import { MIX_KEYS, type MixKey } from "./types";
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 
@@ -81,6 +82,7 @@ interface Beds {
 }
 
 let master: GainNode | null = null;
+let groupG: Record<string, GainNode> | null = null;
 let beds: Beds | null = null;
 let running = false;
 let evalIv = 0, voiceIv = 0;
@@ -99,6 +101,17 @@ function buildBeds(ctx: AudioContext): void {
   master = ctx.createGain();
   master.gain.value = 0;
   master.connect(ctx.destination);
+  /* One gain per fader, between everything it owns and the master, so a layer
+     can be turned down rather than only switched off — and so the one-shot
+     voices ride the same fader as the bed they belong to. */
+  const gg: Record<string, GainNode> = {};
+  for (const k of MIX_KEYS) {
+    const g = ctx.createGain();
+    g.gain.value = 1;
+    g.connect(master);
+    gg[k] = g;
+  }
+  groupG = gg;
 
   /* the sea breathing: pink noise swelling on two slow, offset cycles */
   const wavesF = ctx.createBiquadFilter();
@@ -110,7 +123,7 @@ function buildBeds(ctx: AudioContext): void {
   lfo.frequency.value = .07; lg.gain.value = .4;
   lfo.connect(lg); lg.connect(swell.gain); lfo.start();
   wavesF.connect(swell);
-  const waves = bed(ctx, swell, master);
+  const waves = bed(ctx, swell, gg["sea"]);
 
   /* the wash running up the sand: brighter, on its own cycle */
   const foamF = ctx.createBiquadFilter();
@@ -122,7 +135,7 @@ function buildBeds(ctx: AudioContext): void {
   lfo2.frequency.value = .052; lg2.gain.value = .35;
   lfo2.connect(lg2); lg2.connect(fSwell.gain); lfo2.start();
   foamF.connect(fSwell);
-  const foam = bed(ctx, fSwell, master);
+  const foam = bed(ctx, fSwell, gg["sea"]);
 
   /* wind through the trees; gusts arrive as a slow random walk */
   const windF = ctx.createBiquadFilter();
@@ -131,7 +144,7 @@ function buildBeds(ctx: AudioContext): void {
   const gust = ctx.createGain();
   gust.gain.value = .6;
   windF.connect(gust);
-  const wind = bed(ctx, gust, master);
+  const wind = bed(ctx, gust, gg["wind"]);
   const gustWalk = () => {
     try { gust.gain.setTargetAtTime(rand(.25, 1), ctx.currentTime, rand(.8, 2.2)); } catch { /* noop */ }
     window.setTimeout(gustWalk, rand(1800, 4200));
@@ -142,7 +155,7 @@ function buildBeds(ctx: AudioContext): void {
   const whF = ctx.createBiquadFilter();
   whF.type = "bandpass"; whF.frequency.value = 1050; whF.Q.value = 7;
   noiseSrc(ctx, whiteBuf!).connect(whF);
-  const whistle = bed(ctx, whF, master);
+  const whistle = bed(ctx, whF, gg["wind"]);
   const whistleWalk = () => {
     try { whF.frequency.setTargetAtTime(rand(750, 1500), ctx.currentTime, rand(1.5, 3)); } catch { /* noop */ }
     window.setTimeout(whistleWalk, rand(2500, 6000));
@@ -153,11 +166,11 @@ function buildBeds(ctx: AudioContext): void {
   const rainF = ctx.createBiquadFilter();
   rainF.type = "lowpass"; rainF.frequency.value = 1100; rainF.Q.value = .5;
   noiseSrc(ctx, whiteBuf!).connect(rainF);
-  const rainBed = bed(ctx, rainF, master);
+  const rainBed = bed(ctx, rainF, gg["rain"]);
   const patF = ctx.createBiquadFilter();
   patF.type = "highpass"; patF.frequency.value = 2800;
   noiseSrc(ctx, whiteBuf!).connect(patF);
-  const patter = bed(ctx, patF, master);
+  const patter = bed(ctx, patF, gg["rain"]);
 
   /* crickets: a 4.3 kHz trill gated into little bursts, all with LFOs —
      ConstantSource lifts the ±1 LFOs into 0..1 gates */
@@ -175,17 +188,17 @@ function buildBeds(ctx: AudioContext): void {
     b1.connect(bg); bg.connect(burst.gain); bc.connect(burst.gain); b1.start(); bc.start();
     car.connect(trill); trill.connect(burst);
     const cPan = pan(ctx, .35);
-    crickets = bed(ctx, cPan ? (burst.connect(cPan), cPan) : burst, master);
+    crickets = bed(ctx, cPan ? (burst.connect(cPan), cPan) : burst, gg["wild"]);
   } else {
     const silent = ctx.createGain(); silent.gain.value = 0;
-    crickets = bed(ctx, silent, master);
+    crickets = bed(ctx, silent, gg["wild"]);
   }
 
   /* the fire's warm underside; its crackle pops ride on a timer below */
   const fireF = ctx.createBiquadFilter();
   fireF.type = "lowpass"; fireF.frequency.value = 190; fireF.Q.value = .4;
   noiseSrc(ctx, brownBuf!).connect(fireF);
-  const fire = bed(ctx, fireF, master);
+  const fire = bed(ctx, fireF, gg["fire"]);
   /* The crackle pops that used to ride on top are gone. Scattered ticks
      firing from the moment the app opens read as something rustling nearby
      — leaves falling, or worse — rather than as a hearth. What's left is the
@@ -350,14 +363,17 @@ function thunder(ctx: AudioContext, out: GainNode): void {
 
 /* ---- the conductor ---- */
 
-interface Voice { nextAt: number; min: number; max: number; on: boolean; play: (ctx: AudioContext, out: GainNode) => void }
+interface Voice {
+  nextAt: number; min: number; max: number; on: boolean; grp: MixKey;
+  play: (ctx: AudioContext, out: GainNode) => void;
+}
 const voices: Record<string, Voice> = {
-  bird: { nextAt: 0, min: 4, max: 10, on: false, play: birdPhrase },
-  gull: { nextAt: 0, min: 18, max: 45, on: false, play: gullCry },
-  owl: { nextAt: 0, min: 70, max: 150, on: false, play: owlHoot },
-  drip: { nextAt: 0, min: 1.4, max: 4.4, on: false, play: drip },
-  thunder: { nextAt: 0, min: 13, max: 32, on: false, play: thunder },
-  chimes: { nextAt: 0, min: 6, max: 18, on: false, play: windChimes },
+  bird: { nextAt: 0, min: 4, max: 10, on: false, grp: "wild", play: birdPhrase },
+  gull: { nextAt: 0, min: 18, max: 45, on: false, grp: "wild", play: gullCry },
+  owl: { nextAt: 0, min: 70, max: 150, on: false, grp: "wild", play: owlHoot },
+  drip: { nextAt: 0, min: 1.4, max: 4.4, on: false, grp: "rain", play: drip },
+  thunder: { nextAt: 0, min: 13, max: 32, on: false, grp: "rain", play: thunder },
+  chimes: { nextAt: 0, min: 6, max: 18, on: false, grp: "wind", play: windChimes },
 };
 
 /* .9 was the old fixed ceiling; the slider rides underneath it, and its .5
@@ -367,7 +383,13 @@ const masterLevel = (): number => .9 * (getState().mix?.vol ?? .5);
 /** the mix changed in Profile — apply it without waiting for the next tick */
 export function applyMix(): void {
   const ctx = audio();
+  const m = getState().mix;
   if (ctx && master && running) master.gain.setTargetAtTime(masterLevel(), ctx.currentTime, .12);
+  if (ctx && groupG && m) {
+    for (const k of MIX_KEYS) {
+      try { groupG[k].gain.setTargetAtTime(m[k] ?? 1, ctx.currentTime, .12); } catch { /* noop */ }
+    }
+  }
   evalContext();
 }
 
@@ -399,15 +421,6 @@ function evalContext(): void {
         && getState().placed.some(p => p.id === "lantern" || p.id === "house" || p.id === "cabin")))
       ? (season === "winter" ? .8 : .5) * (rain ? 1.25 : 1) : 0,
   };
-  /* whatever the weather says, a layer switched off in Profile stays off */
-  const m = getState().mix;
-  if (m) {
-    if (!m.sea) { T.waves = 0; T.foam = 0; }
-    if (!m.wind) { T.wind = 0; T.whistle = 0; }
-    if (!m.rain) { T.rain = 0; T.patter = 0; }
-    if (!m.fire) T.fire = 0;
-    if (!m.wild) T.crickets = 0;
-  }
   const ctx = audio();
   if (ctx) {
     const scale: Record<string, number> = {
@@ -439,14 +452,10 @@ function evalContext(): void {
   const w = Math.min(1, windLvl);
   voices.chimes.min = 1.2 + (1 - w) * 9;
   voices.chimes.max = 3.5 + (1 - w) * 16;
-  if (m) {
-    voices.bird.on = voices.bird.on && m.wild;
-    voices.gull.on = voices.gull.on && m.wild;
-    voices.owl.on = voices.owl.on && m.wild;
-    voices.drip.on = voices.drip.on && m.rain;
-    voices.thunder.on = voices.thunder.on && m.rain;
-    voices.chimes.on = voices.chimes.on && m.wind;
-  }
+  /* a fader pulled all the way down stops the one-shots outright, rather
+     than scheduling sounds nobody will hear */
+  const m = getState().mix;
+  if (m) for (const v of Object.values(voices)) v.on = v.on && (m[v.grp] ?? 1) > 0;
 }
 
 function tickVoices(): void {
@@ -457,7 +466,7 @@ function tickVoices(): void {
     const v = voices[k];
     if (!v.on) { v.nextAt = Math.max(v.nextAt, now + rand(v.min, v.max) * .5); continue; }
     if (now >= v.nextAt) {
-      try { v.play(ctx, master); } catch { /* noop */ }
+      try { v.play(ctx, groupG?.[v.grp] ?? master); } catch { /* noop */ }
       v.nextAt = now + rand(v.min, v.max);
     }
   }
@@ -471,6 +480,8 @@ export function ambientStart(): void {
     running = true;
     evalContext();
     master!.gain.setTargetAtTime(masterLevel(), ctx.currentTime, 1.2);
+    const m0 = getState().mix;
+    if (groupG && m0) for (const k of MIX_KEYS) groupG[k].gain.value = m0[k] ?? 1;
     if (!evalIv) evalIv = window.setInterval(evalContext, 5000);
     if (!voiceIv) voiceIv = window.setInterval(tickVoices, 500);
     const now = performance.now() / 1000;
@@ -596,7 +607,7 @@ let stepCount = 0;
 export function footstep(ground: Ground): void {
   stepCount++;
   const ctx = audio();
-  if (!ctx || !running || getState().mix?.pet === false) return;
+  if (!ctx || !running || (getState().mix?.pet ?? 1) <= 0) return;
   /* Four paws at roughly four steps a second, every one identical, is a
      typewriter. Drop one in five, and make no two of the rest alike. */
   if (Math.random() < .35) return;
@@ -628,7 +639,7 @@ export function footstep(ground: Ground): void {
       /* through the master, not straight at the speakers: wired to
          ctx.destination these steps skipped every volume change made to the
          rest of the mix, so they sat twice as loud as anything around them */
-      src.connect(f); f.connect(g); g.connect(master ?? ctx.destination);
+      src.connect(f); f.connect(g); g.connect(groupG?.pet ?? master ?? ctx.destination);
       window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 250);
     }
   } catch { /* noop */ }
