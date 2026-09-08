@@ -145,6 +145,11 @@ class World {
   private drinkSpot: { x: number; z: number } | null = null;
   private drinkTick = 0;
   private strideUp = false;
+  /* little ground plants that nod in the breeze */
+  private swayers: { o: THREE.Object3D; ph: number; amp: number; base: number }[] = [];
+  /* the odd flock crossing the sky */
+  private birdsG: THREE.Group | null = null;
+  private birdT = 20;
   private firefliesG!: THREE.Group;
   private shootPts!: THREE.Points;
   private shootT = -1;
@@ -423,6 +428,12 @@ class World {
      rhythm, and rounded sand bumps scalloping the coastline. Decoration
      lives in a sub-group so tile raycasts (non-recursive) skip it. */
   private buildTiles(mask: Set<string>, into: THREE.Group): void {
+    /* drop sway entries whose meshes were removed with the old tiles */
+    this.swayers = this.swayers.filter(s => {
+      let n: THREE.Object3D = s.o;
+      while (n.parent) n = n.parent;
+      return n === this.scene;
+    });
     const sn = curSeason();
     const rng = (x: number, y: number, k: number) => {
       const v = Math.sin(x * 127.1 + y * 311.7 + k * 74.7) * 43758.5453;
@@ -509,6 +520,7 @@ class World {
           c.position.set(wx + ox + (rng(x, y, 7 + i) - .5) * .09, .07, wz + oz + (rng(x, y, 11 + i) - .5) * .09);
           c.rotation.z = (rng(x, y, 15 + i) - .5) * .5;
           deco.add(c);
+          this.swayers.push({ o: c, ph: rng(x, y, 19 + i) * 6.3, amp: .13, base: c.rotation.z });
         }
       } else if (r < .38) {
         const patch = new THREE.Mesh(new THREE.CircleGeometry(.2 + rng(x, y, 8) * .14, 10), patchMat);
@@ -516,13 +528,19 @@ class World {
         patch.position.set(wx + ox, .012, wz + oz);
         deco.add(patch);
       } else if (r < .48 && sn !== "autumn") {
+        /* the flower lives in its own little group so it can nod from
+           the roots without drifting off its tile */
+        const fg = new THREE.Group();
+        fg.position.set(wx + ox, 0, wz + oz);
         const stem = new THREE.Mesh(new THREE.CylinderGeometry(.008, .008, .09, 5),
           new THREE.MeshLambertMaterial({ color: linC(0x5A7D4A) }));
-        stem.position.set(wx + ox, .045, wz + oz);
+        stem.position.y = .045;
         const head = new THREE.Mesh(new THREE.SphereGeometry(.032, 7, 6),
           new THREE.MeshLambertMaterial({ color: linC(rng(x, y, 9) < .5 ? 0xF0E7EE : C3.gold) }));
-        head.position.set(wx + ox, .1, wz + oz);
-        deco.add(stem, head);
+        head.position.y = .1;
+        fg.add(stem, head);
+        deco.add(fg);
+        this.swayers.push({ o: fg, ph: rng(x, y, 21) * 6.3, amp: .09, base: 0 });
       } else if (r < .48) {
         /* autumn: a little mushroom instead of flowers */
         const stem = new THREE.Mesh(new THREE.CylinderGeometry(.02, .025, .06, 6),
@@ -1094,6 +1112,54 @@ class World {
     }
   }
 
+  /** a small flock crosses the sky — day birds, none in rain or at night */
+  spawnBirds(): void {
+    if (this.birdsG) return;
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: linC(0x4B4550) });
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.SphereGeometry(.055, 7, 6), mat);
+      body.scale.set(1.7, .8, .8);
+      b.add(body);
+      for (const sgn of [-1, 1]) {
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(.1, .012, .22), mat);
+        wing.position.z = sgn * .13;
+        wing.name = sgn < 0 ? "wingL" : "wingR";
+        wing.userData.sgn = sgn;
+        b.add(wing);
+      }
+      /* loose V behind the leader */
+      b.position.set(-i * .5, (i ? -.12 * i : 0), (i === 1 ? .45 : i === 2 ? -.45 : 0));
+      g.add(b);
+    }
+    g.position.set(-13, 2.6 + Math.random() * .9, -2.5 + Math.random() * 5);
+    g.rotation.y = Math.PI / 2;         /* face along +x */
+    this.scene.add(g);
+    this.birdsG = g;
+  }
+
+  private updateBirds(dt: number, t: number): void {
+    if (!this.birdsG) {
+      this.birdT -= dt;
+      if (this.birdT <= 0 && curPhase() !== "night" && curWeather() !== "rain") this.spawnBirds();
+      return;
+    }
+    const g = this.birdsG;
+    g.position.x += dt * 2.1;
+    g.children.forEach((b, i) => {
+      b.position.y += Math.sin(t * 2.2 + i * 1.9) * .0035;
+      b.children.forEach(w => {
+        if (w.name.startsWith("wing")) w.rotation.x = Math.sin(t * 12 + i * .8) * .7 * (w.userData.sgn as number);
+      });
+    });
+    if (g.position.x > 13) {
+      this.scene.remove(g);
+      this.birdsG = null;
+      this.birdT = 28 + Math.random() * 50;
+    }
+  }
+
   private updateFireflies(t: number): void {
     if (!this.firefliesG.visible) return;
     this.firefliesG.children.forEach(f => {
@@ -1125,7 +1191,7 @@ class World {
   }
 
   /** test/debug hook */
-  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean; fluid: number; splats: number; tiles: number } {
+  get seasonInfo(): { season: Season; autumn: boolean; k: number; leaves: number; carpet: number; ripples: number; fireflies: boolean; fluid: number; splats: number; tiles: number; birds: { x: number; y: number; z: number } | null } {
     let air = 0, carpet = 0;
     this.leafSt.forEach(s => { if (s.ph === 1) air++; else if (s.ph === 2) carpet++; });
     return {
@@ -1136,6 +1202,7 @@ class World {
       fireflies: !!this.firefliesG?.visible,
       fluid: this.fluid ? this.fluid.frames : -1,
       splats: this.fluid ? this.fluid.splats : -1,
+      birds: this.birdsG ? { x: +this.birdsG.position.x.toFixed(2), y: +this.birdsG.position.y.toFixed(2), z: +this.birdsG.position.z.toFixed(2) } : null,
     };
   }
 
@@ -1423,6 +1490,8 @@ class World {
     if (this.pconf && this.leafIM) this.updateLeaves(dt, t);
     this.updateFireflies(t);
     this.updateShooting(dt);
+    this.updateBirds(dt, t);
+    for (const s of this.swayers) s.o.rotation.z = s.base + Math.sin(t * 1.8 + s.ph) * s.amp;
     if (this.seaMat) this.seaMat.uniforms.uTime.value = t;
     if (this.fluid) {
       this.fluid.step(dt);

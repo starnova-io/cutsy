@@ -202,4 +202,5 @@ import("./world3d").then(m => {
   (window as any).__seasonInfo = () => m.world.seasonInfo;
   (window as any).__autumnInfo = () => m.world.seasonInfo;
   (window as any).__petDrinkTrip = petDrinkTrip;
+  (window as any).__spawnBirds = () => m.world.spawnBirds();
 });

@@ -297,6 +297,11 @@ export default function App() {
   };
 
   /* ---- complete-screen gift handlers ---- */
+  /* back on the island after a finished session, the companion celebrates */
+  const petCheer = () => {
+    petView.mode = "happy";
+    petView.modeT = 3.5;
+  };
   const placeGift = () => {
     const item = payload?.item;
     if (!item) return;
@@ -306,6 +311,7 @@ export default function App() {
   const buildGiftBridge = () => {
     mutate(st => { st.bridge = true; });
     world.revealIslet();
+    petCheer();
     confettiBurst();
     toast("New area discovered!", 3000);
     setScreen("home");
@@ -314,6 +320,7 @@ export default function App() {
     const item = payload?.item;
     if (!item) return;
     grantLand(item.id);
+    petCheer();
     confettiBurst();
     toast("New land rises from the sea!", 3000);
     setScreen("home");
@@ -351,6 +358,7 @@ export default function App() {
             if (item && item.special === "land") grantLand(item.id, false); /* still theirs, just quietly */
             else if (item && item.special !== "bridge" && !getState().inventory.includes(item.id))
               mutate(st => { st.inventory.push(item.id); });
+            petCheer();
             setScreen("home");
           }} />
       )}
