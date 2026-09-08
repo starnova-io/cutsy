@@ -17,12 +17,17 @@ let whiteBuf: AudioBuffer | null = null;
 function noiseBufs(ctx: AudioContext): void {
   if (pinkBuf) return;
   const len = 4 * ctx.sampleRate;
-  const mk = () => ctx.createBuffer(1, len, ctx.sampleRate);
-  whiteBuf = mk(); pinkBuf = mk(); brownBuf = mk();
-  const w = whiteBuf.getChannelData(0), p = pinkBuf.getChannelData(0), br = brownBuf.getChannelData(0);
+  /* Generated with an overhang, so the tail can be folded back over the head.
+     The pink and brown filters start from silence, so without that the last
+     sample of the buffer sits nowhere near the first — and every one of these
+     buffers is looped. That step was a click once per four-second pass on
+     every bed at once, low and thumping through the fire's 190Hz lowpass:
+     a stuck record, which is exactly what it sounded like. */
+  const xf = Math.min(4096, len >> 4);
+  const w = new Float32Array(len + xf), p = new Float32Array(len + xf), br = new Float32Array(len + xf);
   /* pink via Paul Kellet's filter; brown by leaky integration */
   let b0 = 0, b1 = 0, b2 = 0, last = 0;
-  for (let i = 0; i < len; i++) {
+  for (let i = 0; i < len + xf; i++) {
     const x = Math.random() * 2 - 1;
     w[i] = x;
     b0 = .997 * b0 + .0297 * x;
@@ -32,6 +37,25 @@ function noiseBufs(ctx: AudioContext): void {
     last = (last + x * .02) / 1.02;
     br[i] = last * 12;
   }
+  const seamless = (a: Float32Array): Float32Array => {
+    for (let i = 0; i < xf; i++) {
+      const k = i / xf;
+      a[i] = a[i] * k + a[len + i] * (1 - k);
+    }
+    const out = a.subarray(0, len);
+    /* the leaky integrator leaves DC behind, and a step in DC is a thud */
+    let m = 0;
+    for (let i = 0; i < len; i++) m += out[i];
+    m /= len;
+    for (let i = 0; i < len; i++) out[i] -= m;
+    return out;
+  };
+  const mk = (a: Float32Array): AudioBuffer => {
+    const b = ctx.createBuffer(1, len, ctx.sampleRate);
+    b.getChannelData(0).set(seamless(a));
+    return b;
+  };
+  whiteBuf = mk(w); pinkBuf = mk(p); brownBuf = mk(br);
 }
 
 const noiseSrc = (ctx: AudioContext, buf: AudioBuffer): AudioBufferSourceNode => {
@@ -437,6 +461,11 @@ export function ambientStop(): void {
 export const ambientRunning = (): boolean => running;
 
 /* ---- little UI sounds (they respect the speaker toggle) ---- */
+/* These go through the master like everything else. Wired straight to
+   ctx.destination they skipped every volume change made to the mix and ended
+   up louder than the island they belong to. `sound` being on is what starts
+   the ambience, so the master is always up by the time any of these fire;
+   before that it doesn't exist yet and they fall back to the speakers. */
 
 const uiCtx = (): AudioContext | null => (getState().sound ? audio() : null);
 
@@ -449,7 +478,7 @@ function knock(ctx: AudioContext, t: number, f: number, lvl: number): void {
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(lvl, t + .006);
   g.gain.exponentialRampToValueAtTime(.0001, t + .16);
-  o.connect(g); g.connect(ctx.destination);
+  o.connect(g); g.connect(master ?? ctx.destination);
   o.start(t); o.stop(t + .2);
   const src = noiseSrc(ctx, whiteBuf!);
   const fl = ctx.createBiquadFilter();
@@ -458,7 +487,7 @@ function knock(ctx: AudioContext, t: number, f: number, lvl: number): void {
   ng.gain.setValueAtTime(0, t);
   ng.gain.linearRampToValueAtTime(lvl * .5, t + .004);
   ng.gain.exponentialRampToValueAtTime(.0001, t + .05);
-  src.connect(fl); fl.connect(ng); ng.connect(ctx.destination);
+  src.connect(fl); fl.connect(ng); ng.connect(master ?? ctx.destination);
   window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 200);
 }
 
@@ -500,7 +529,7 @@ export function uiTick(): void {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(.014, t + .003);
     g.gain.exponentialRampToValueAtTime(.0001, t + .035);
-    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.connect(f); f.connect(g); g.connect(master ?? ctx.destination);
     window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 100);
   } catch { /* noop */ }
 }
@@ -521,14 +550,14 @@ export function shopWhoosh(): void {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(.022, t + .05);
     g.gain.exponentialRampToValueAtTime(.0001, t + .22);
-    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.connect(f); f.connect(g); g.connect(master ?? ctx.destination);
     window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 300);
     const o = ctx.createOscillator(), og = ctx.createGain();
     o.type = "sine"; o.frequency.value = 1320;
     og.gain.setValueAtTime(0, t + .1);
     og.gain.linearRampToValueAtTime(.02, t + .12);
     og.gain.exponentialRampToValueAtTime(.0001, t + .4);
-    o.connect(og); og.connect(ctx.destination);
+    o.connect(og); og.connect(master ?? ctx.destination);
     o.start(t + .1); o.stop(t + .45);
   } catch { /* noop */ }
 }
@@ -542,7 +571,7 @@ export function footstep(ground: Ground): void {
   if (!ctx || !running) return;
   /* Four paws at roughly four steps a second, every one identical, is a
      typewriter. Drop one in five, and make no two of the rest alike. */
-  if (Math.random() < .2) return;
+  if (Math.random() < .35) return;
   try {
     noiseBufs(ctx);
     const t = ctx.currentTime + .005;
@@ -561,12 +590,17 @@ export function footstep(ground: Ground): void {
       }
       const g = ctx.createGain();
       const at = t + i * rand(.018, .028);
-      const lvl = (ground === "grass" ? .0065 : rand(.005, .009)) * rand(.7, 1.3);
+      /* A companion trotting about is background, not a lead instrument —
+         you should notice it only when you stop hearing it. */
+      const lvl = (ground === "grass" ? .0011 : rand(.0009, .0016)) * rand(.7, 1.3);
       const dec = ground === "grass" ? rand(.07, .11) : rand(.04, .065);
       g.gain.setValueAtTime(0, at);
       g.gain.linearRampToValueAtTime(lvl, at + rand(.012, .02));   /* soft attack */
       g.gain.exponentialRampToValueAtTime(.0001, at + dec);
-      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      /* through the master, not straight at the speakers: wired to
+         ctx.destination these steps skipped every volume change made to the
+         rest of the mix, so they sat twice as loud as anything around them */
+      src.connect(f); f.connect(g); g.connect(master ?? ctx.destination);
       window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 250);
     }
   } catch { /* noop */ }
