@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useGame } from "../game/store";
 import { nextUnlockInfo } from "../game/economy";
 import { WorldView } from "../world/WorldView";
@@ -13,16 +14,26 @@ export function Home(props: {
   const s = useGame();
   const nu = nextUnlockInfo(s);
   const { chosenMin, onFocus, arrange } = props;
+  /* the arrange tool only appears while the person is touching their
+     island — an idle Home shows just the world and the speaker */
+  const [tools, setTools] = useState(false);
+  const hideT = useRef<number | undefined>(undefined);
+  const wake = () => {
+    setTools(true);
+    window.clearTimeout(hideT.current);
+    hideT.current = window.setTimeout(() => setTools(false), 6000);
+  };
+  useEffect(() => () => window.clearTimeout(hideT.current), []);
   return (
     <section className="screen active" id="screen-home">
       <header id="home-head">
         <div id="home-energy"><span className="spark">✦</span><b id="energy-pill">{s.energy}</b></div>
         <div id="home-title">My little island</div>
       </header>
-      <div id="home-world-outer">
+      <div id="home-world-outer" onPointerDown={wake}>
         <WorldView id="world-wrap" opts={{ highlight: arrange }} />
-        <button id="btn-arrange" className={arrange ? "on" : ""} aria-label="Arrange your island"
-          title="Arrange your island" onClick={props.onToggleArrange}>
+        <button id="btn-arrange" className={(arrange ? "on" : "") + (tools || arrange ? "" : " ghosted")}
+          aria-label="Arrange your island" title="Arrange your island" onClick={props.onToggleArrange}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v18M3 12h18" /><path d="M9.5 5.5 12 3l2.5 2.5M9.5 18.5 12 21l2.5-2.5M5.5 9.5 3 12l2.5 2.5M18.5 9.5 21 12l-2.5 2.5" />
           </svg>

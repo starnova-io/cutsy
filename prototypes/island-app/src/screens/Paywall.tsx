@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { PLANS, type PlanKey } from "../game/catalog";
+import { CATALOG, PLANS, type PlanKey } from "../game/catalog";
 import { mutate } from "../game/store";
 import { chime } from "../game/audio";
+import { world } from "../world/world3d";
 import { confettiBurst, toast } from "../ui/feedback";
 import { catSVG, dogSVG } from "../ui/mascots";
 
@@ -28,6 +29,16 @@ export function Paywall({ onClose }: { onClose: () => void }) {
         }} />
         <h1>Hearth Premium</h1>
         <p className="pw-sub">More islands to grow into. Your focus still earns every single piece.</p>
+        {/* the tease: the real things waiting, not a list of promises */}
+        <div id="pw-tease" aria-label="Waiting in the premium catalog">
+          {CATALOG.filter(a => a.premium).map(a => (
+            <div className="pw-item" key={a.id}>
+              <img alt="" src={world.thumb(a.id)} />
+              <span>{a.name}</span>
+            </div>
+          ))}
+        </div>
+        <div id="pw-tease-cap">All of this is waiting — earn it with focus</div>
         <ul id="pw-perks">
           <li><svg className="row-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5.5 18.5C5.5 10.5 10.5 5.5 18.5 5.5c0 8-5 13-13 13Z" /><path d="M5.5 18.5c2.6-4.4 5.8-7.6 9.4-10" /></svg>The full premium catalog — palms, campfires, wishing wells and docks</li>
           <li><svg className="row-ic" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.8" rx="4.6" ry="3.7" /><circle cx="6.3" cy="11.2" r="1.9" /><circle cx="9.9" cy="8.4" r="1.9" /><circle cx="14.1" cy="8.4" r="1.9" /><circle cx="17.7" cy="11.2" r="1.9" /></svg>Companion accessories and future friends</li>

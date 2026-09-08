@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { useGame } from "../game/store";
 import { nextUnlockInfo } from "../game/economy";
 import { world } from "../world/world3d";
+import { catSVG, dogSVG } from "../ui/mascots";
 import type { CompletePayload } from "../game/types";
 
 export function Complete(props: {
@@ -14,18 +16,32 @@ export function Complete(props: {
   const { payload } = props;
   const item = payload.item;
   const nu = nextUnlockInfo(s);
+  /* the earned sparks count up while little ✦ fly home */
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const total = payload.minutes;
+    const t0 = performance.now();
+    const iv = window.setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0 - 350) / 900);
+      setShown(Math.max(0, Math.round(total * (1 - Math.pow(1 - Math.max(0, k), 3)))));
+      if (k >= 1) window.clearInterval(iv);
+    }, 40);
+    return () => window.clearInterval(iv);
+  }, [payload.minutes]);
   return (
     <section className="screen active" id="screen-complete">
       <div id="complete-inner">
         <div id="complete-spark">
-          <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M30 8l3.4 15.6L49 27l-15.6 3.4L30 46l-3.4-15.6L11 27l15.6-3.4Z" fill="#DFA23A" />
-            <path d="M48 38l1.9 7.1L57 47l-7.1 1.9L48 56l-1.9-7.1L39 47l7.1-1.9Z" fill="#9C4F76" />
-            <path d="M14 42l1.4 5.1L20.5 48.5l-5.1 1.4L14 55l-1.4-5.1L7.5 48.5l5.1-1.4Z" fill="#8FB07A" />
-          </svg>
+          <svg id="complete-pet" viewBox="-30 -58 60 64" aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: s.pet === "dog" ? dogSVG("happy") : catSVG("happy") }} />
+          <div id="spark-burst" aria-hidden="true">
+            {Array.from({ length: 7 }, (_, i) => (
+              <span key={i} className="fly-spark" style={{ ["--i" as never]: i as never }}>✦</span>
+            ))}
+          </div>
         </div>
         <div id="complete-min">{payload.minutes} min focused</div>
-        <div id="complete-energy">+ ✦ {payload.minutes}</div>
+        <div id="complete-energy">+ ✦ {shown}</div>
         <div id="complete-grew">{payload.full ? "Your island grew a little." : "Every minute counts."}</div>
         <div id="focus-quality" className={payload.leaves === 0 ? "deep" : ""}>
           {payload.leaves === 0

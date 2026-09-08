@@ -1,4 +1,4 @@
-import { byId, PETS } from "../game/catalog";
+import { byId, CATALOG, PETS } from "../game/catalog";
 import { mutate, resetState, useGame } from "../game/store";
 import { ask, toast } from "../ui/feedback";
 import { catSVG, dogSVG } from "../ui/mascots";
@@ -41,12 +41,41 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
       <div className="scroll">
         <div className="card" id="profile">
           <h2>Your progress</h2>
-          <div id="prog-top"><span className="spark">✦</span><b id="pts-all">{s.totalMin}</b><span className="pts-lbl">earned all-time</span></div>
           <div id="level-row">
             <span id="level-lbl">Level {lvl}</span>
             <div id="level-track"><div id="level-fill" style={{ width: (s.totalMin % 100) + "%" }} /></div>
           </div>
+          <div id="level-next">{100 - (s.totalMin % 100)} min of focus until Level {lvl + 1}</div>
           <div id="week-line">This week · {s.weekMin} min focused · {s.sessions} sessions · {s.daysActive} days</div>
+          <div id="alltime-line"><span className="spark">✦</span> <b id="pts-all">{s.totalMin}</b> earned all-time</div>
+        </div>
+        <div className="card">
+          <h2>Your journey</h2>
+          <div id="journey">
+            {[{ id: "start", name: "Little Island", unlock: 0 },
+              ...CATALOG.filter(a => a.cat === "land")].map((m, i, all) => {
+              const done = m.id === "start" ? true
+                : m.id === "bridge" ? s.bridge : s.lands.includes(m.id);
+              const isNext = !done && all.slice(0, i).every(p =>
+                p.id === "start" || (p.id === "bridge" ? s.bridge : s.lands.includes(p.id)));
+              const pct = Math.min(100, Math.round(s.totalMin / Math.max(1, m.unlock) * 100));
+              return (
+                <div key={m.id} className={"j-row" + (done ? " done" : isNext ? " next" : "")}>
+                  <span className="j-dot" aria-hidden="true" />
+                  <div className="j-body">
+                    <span className="j-name">{m.name}</span>
+                    {done ? <span className="j-sub">{m.id === "start" ? "Home" : "Part of your island"}</span>
+                      : isNext
+                        ? <span className="j-sub">{m.unlock > s.totalMin
+                            ? `${m.unlock - s.totalMin} min of focus to go · ${pct}%`
+                            : m.id === "bridge" ? "Unlocked — build it from the Shop"
+                            : "Unlocked — raise it from the Shop"}</span>
+                        : <span className="j-sub">{m.unlock} min of focus</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
         <div className="card">
           <h2>Your island</h2>
