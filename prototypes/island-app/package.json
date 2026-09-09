@@ -10,13 +10,17 @@
     "ios": "npm run build && cap sync ios && cap open ios",
     "ios:run": "bash scripts/ios-run.sh",
     "android": "npm run build && cap sync android && cap open android",
-    "assets": "npx @capacitor/assets generate --ios --android"
+    "assets": "npx @capacitor/assets generate --ios --android",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@capacitor-firebase/analytics": "^6.3.1",
     "@capacitor/android": "^6.2.2",
     "@capacitor/core": "^6.2.2",
     "@capacitor/haptics": "^6.0.3",
     "@capacitor/splash-screen": "^6.0.4",
+    "@revenuecat/purchases-capacitor": "^9.2.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "0.128.0"
@@ -24,6 +28,7 @@
   "devDependencies": {
     "@capacitor/cli": "^6.2.2",
     "@capacitor/ios": "^6.2.2",
+    "@playwright/test": "^1.63.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/three": "0.128.0",

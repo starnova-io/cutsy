@@ -184,12 +184,12 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
           )}
         </div>
         <p className="foot-note">
-          Prototype — everything stays on this device.<br />
-          In the real app, focus sessions silence distracting apps via Screen&nbsp;Time&nbsp;/&nbsp;Focus APIs.
+          Everything stays on this device.<br />
+          Focus sessions can silence distracting apps via Screen&nbsp;Time&nbsp;/&nbsp;Focus.
         </p>
         <div style={{ textAlign: "center", paddingBottom: "calc(20px + env(safe-area-inset-bottom) + 88px)" }}>
-          <button id="reset-link" onClick={() => { void ask("Reset the prototype to its starting state?", "Reset", "Cancel").then(ok => { if (ok) { resetState(); toast("Fresh start."); props.onHome(); } }); }}>
-            Reset prototype data
+          <button id="reset-link" onClick={() => { void ask("Reset your island to its starting state?", "Reset", "Cancel").then(ok => { if (ok) { resetState(); toast("Fresh start."); props.onHome(); } }); }}>
+            Reset app data
           </button>
         </div>
       </div>

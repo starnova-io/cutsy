@@ -11,13 +11,27 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorFirebaseAnalytics', :path => '../../node_modules/@capacitor-firebase/analytics'
   pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
+  pod 'RevenuecatPurchasesCapacitor', :path => '../../node_modules/@revenuecat/purchases-capacitor'
 end
 
 target 'App' do
   capacitor_pods
-  # Add your Pods here
+  # CapacitorFirebaseAnalytics defaults to its "Lite" subspec, which ships no
+  # Firebase SDK at all — its own sources import FirebaseCore/FirebaseAnalytics,
+  # so the build fails without this. Declared here rather than as a subspec on
+  # the plugin pod because `cap sync` rewrites the capacitor_pods block.
+  #
+  # WithoutAdIdSupport keeps the IDFA out of the app: nothing here advertises,
+  # and carrying the ad identifier would mean an App Tracking Transparency
+  # prompt and a heavier privacy label for nothing.
+  # A pod target only sees its own dependencies, so putting FirebaseAnalytics
+  # in this target is not enough — the dependency has to hang off the plugin
+  # pod itself, which is what its subspec is for.
+  pod 'CapacitorFirebaseAnalytics/AnalyticsWithoutAdIdSupport',
+      :path => '../../node_modules/@capacitor-firebase/analytics'
 end
 
 post_install do |installer|

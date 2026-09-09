@@ -5,14 +5,51 @@ import { chime } from "../game/audio";
 import { world } from "../world/world3d";
 import { confettiBurst, toast } from "../ui/feedback";
 import { catSVG, dogSVG } from "../ui/mascots";
+import { billingConfigured, purchasePlan, restorePurchases } from "../native/purchases";
+import { logEvent } from "../native/analytics";
 
 export function Paywall({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = useState<PlanKey>("yearly");
-  const subscribe = () => {
-    mutate(s => { s.premium = true; });
-    confettiBurst(); chime();
-    toast("Welcome to Hearth Premium — the whole catalog is open.");
-    onClose();
+  const [busy, setBusy] = useState(false);
+  const subscribe = async () => {
+    if (busy) return;
+    /* web / any build without the public key: preview the unlock, no charge */
+    if (!billingConfigured()) {
+      mutate(s => { s.premium = true; });
+      confettiBurst(); chime();
+      toast("Preview — Premium is unlocked in this build.");
+      onClose();
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await purchasePlan(plan);
+      if (ok) {
+        logEvent("purchase_success", { plan });
+        confettiBurst(); chime();
+        toast("Welcome to Hearth Premium — the whole catalog is open.");
+        onClose();
+      }
+    } catch (e) {
+      const msg = String((e as { message?: string })?.message ?? e);
+      if (!/cancel/i.test(msg)) toast("That purchase couldn't complete. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restore = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const ok = await restorePurchases();
+      toast(ok ? "Purchases restored — welcome back." : "No purchases to restore.");
+      if (ok) onClose();
+    } catch {
+      toast("Couldn't reach the store to restore right now.");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <section className="screen active" id="screen-paywall">
@@ -58,10 +95,20 @@ export function Paywall({ onClose }: { onClose: () => void }) {
             );
           })}
         </div>
-        <button className="btn btn-primary" id="pw-cta" onClick={subscribe}>{PLANS[plan].cta}</button>
+        <button className="btn btn-primary" id="pw-cta" onClick={subscribe} disabled={busy}>{busy ? "One moment…" : PLANS[plan].cta}</button>
+        <button className="btn btn-ghost" id="pw-restore" onClick={restore} disabled={busy}>Restore purchases</button>
         <button className="btn btn-ghost" id="pw-later" onClick={onClose}>Not now</button>
         <p className="pw-fine">
-          Prototype — no real purchase happens. In production, billing runs through the App&nbsp;Store (RevenueCat), cancel anytime.
+          Monthly ($4.99) and Yearly ($29.99, with a 7-day free trial) are auto-renewing
+          subscriptions; Lifetime ($59.99) is a one-time purchase. Payment is charged to your
+          Apple&nbsp;Account. A subscription renews unless turned off at least 24 hours before the
+          period ends — manage or cancel any time in Settings. Premium items still cost the Focus
+          Energy you earn; money only opens the catalog.
+        </p>
+        <p className="pw-fine">
+          <a href="https://starnova-io.github.io/hearth-island/terms.html" target="_blank" rel="noopener">Terms of Use</a>
+          {" · "}
+          <a href="https://starnova-io.github.io/hearth-island/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
         </p>
       </div>
     </section>

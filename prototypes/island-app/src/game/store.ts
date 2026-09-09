@@ -31,6 +31,9 @@ function seedState(): GameState {
 const DEFAULT_MIX = (): MixPrefs =>
   ({ vol: .5, sea: 1, wind: 1, rain: 1, fire: 1, wild: 1, pet: 1 });
 
+/** set when load() had to put something right, so it gets written back out */
+let repaired = false;
+
 function load(): GameState {
   let s: GameState;
   try { s = JSON.parse(localStorage.getItem(KEY) || "") as GameState; } catch { s = seedState(); }
@@ -43,6 +46,14 @@ function load(): GameState {
   if (!Array.isArray(s.lands)) s.lands = [];
   if (s.sound === undefined) s.sound = true;
   if (!s.mix) s.mix = DEFAULT_MIX();
+  /* the app closed while something was in mid-air: give it back. Where it came
+     from is the only safe answer — the drop it was heading for never happened. */
+  if (s.held) {
+    if (s.held.origin) s.placed.push({ ...s.held.origin });
+    else if (s.held.item) s.inventory.push(s.held.item.id);
+    s.held = null;
+    repaired = true;
+  }
   /* the layers were on/off switches before they were faders */
   for (const k of MIX_KEYS) {
     const v = (s.mix as unknown as Record<string, unknown>)[k];
@@ -67,6 +78,9 @@ const listeners = new Set<() => void>();
 function persist(): void {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* private mode */ }
 }
+/* a rescued piece only exists in memory until something writes — and the next
+   thing to write might be a long way off */
+if (repaired) persist();
 
 export function getState(): GameState { return state; }
 

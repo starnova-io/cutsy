@@ -18,6 +18,8 @@ import { Complete } from "./screens/Complete";
 import { Shop } from "./screens/Shop";
 import { Profile } from "./screens/Profile";
 import { Paywall } from "./screens/Paywall";
+import { configurePurchases, isPremium, onEntitlementChange } from "./native/purchases";
+import { initAnalytics, logEvent, logScreen } from "./native/analytics";
 
 interface Placing {
   item: PlacedItem;
@@ -57,6 +59,24 @@ export default function App() {
   const demoRef = useRef(demo); demoRef.current = demo;
 
   useEffect(() => { void loadGuardCaps().then(setCaps); }, []);
+
+  /* ---- billing + analytics boot (native only; no-ops on web) ---- */
+  useEffect(() => {
+    void (async () => {
+      await configurePurchases();
+      await initAnalytics();
+      logEvent("app_open");
+      const prem = await isPremium();
+      if (prem && !getState().premium) mutate(st => { st.premium = true; });
+      await onEntitlementChange(prem => mutate(st => { st.premium = prem; }));
+    })();
+  }, []);
+
+  /* log every screen; the paywall gets its own funnel event */
+  useEffect(() => {
+    logScreen(screen);
+    if (screen === "paywall") logEvent("paywall_shown");
+  }, [screen]);
 
   /* Screen Time hands back opaque tokens, so on iOS the person picks the apps
      in Apple's own sheet — we only ever learn how many. */
@@ -105,7 +125,9 @@ export default function App() {
   const liftItem = useCallback((idx: number) => {
     const item = pickUpPlaced(idx);
     if (!item) return;
-    setPlacing({ item, origin: { ...item }, inline: true });
+    const origin = { ...item };
+    mutate(st => { st.held = { item, origin }; });   /* survives a kill mid-move */
+    setPlacing({ item, origin, inline: true });
   }, []);
   /** the same, from the Shop's list — it has to show you the island first */
   const startMove = useCallback((idx: number) => {
@@ -114,7 +136,9 @@ export default function App() {
   }, [liftItem]);
   /** a piece that has never been on the island: from the Shop, or a gift */
   const startPlacing = useCallback((id: string) => {
-    setPlacing({ item: firstFreeSpot(getState(), id), origin: null, inline: true });
+    const item = firstFreeSpot(getState(), id);
+    mutate(st => { st.held = { item, origin: null }; });
+    setPlacing({ item, origin: null, inline: true });
     setScreen("home");
     toast("Tap where it should go");
   }, []);
@@ -127,6 +151,7 @@ export default function App() {
       return false;
     }
     settle(cand);
+    mutate(st => { st.held = null; });
     if (!p0.origin) toast("It looks lovely here.");
     setPlacing(null);
     return true;
@@ -244,6 +269,7 @@ export default function App() {
         window.clearInterval(iv);
         shieldDown();
         const done = completeSession(s.durMin, true, leavesRef.current);
+        logEvent("focus_complete", { minutes: s.durMin, full: true });
         setSession(null);
         setPayload(done);
         setScreen("complete");
@@ -259,6 +285,7 @@ export default function App() {
 
   const startSession = () => {
     audio();
+    logEvent("focus_start", { minutes: chosenMin, demo });
     if (getState().sound) ambientStart();
     remainRef.current = chosenMin * 60000;
     lastTickRef.current = performance.now();
@@ -298,6 +325,7 @@ export default function App() {
           if (!okd || !sessionRef.current) return;
           shieldDown();
           const done = completeSession(focusedMin, false, leavesRef.current);
+          logEvent("focus_complete", { minutes: focusedMin, full: false });
           setSession(null);
           setPayload(done);
           setScreen("complete");
@@ -321,8 +349,11 @@ export default function App() {
   const putBack = useCallback(() => {
     const p = placingRef.current;
     if (!p) return;
-    if (p.origin) mutate(st => { st.placed.push({ ...p.origin! }); });
-    else mutate(st => { st.inventory.push(p.item.id); });
+    mutate(st => {
+      if (p.origin) st.placed.push({ ...p.origin });
+      else st.inventory.push(p.item.id);
+      st.held = null;
+    });
     setPlacing(null);
   }, []);
 

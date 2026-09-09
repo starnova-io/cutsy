@@ -60,6 +60,9 @@ export interface GameState {
   sound: boolean;
   /** per-layer mix, tuned from Profile */
   mix: MixPrefs;
+  /** a piece lifted off the island and not yet put down — saved so that
+      closing the app mid-move can't swallow it */
+  held?: { item: PlacedItem; origin: PlacedItem | null } | null;
   /** island radio: keep the soundscape (and the session) running off-screen */
   radio: boolean;
   /** purchased/gifted land-expansion ids (see LANDS in world/island) */

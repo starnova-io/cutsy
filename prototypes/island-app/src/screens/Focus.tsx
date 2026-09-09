@@ -39,7 +39,7 @@ export function Focus(props: {
       {/* dev-only time warp — visit with #demo (or ?demo) to reveal it, never in screenshots */}
       {(location.hash.includes("demo") || location.search.includes("demo")) && (
         <button id="demo-toggle" className={props.demo ? "on" : ""} onClick={props.onToggleDemo}
-          title="Speed up time for this prototype">Demo ×60</button>
+          title="Speed up time to preview the loop">Demo ×60</button>
       )}
       <div id="focus-inner">
         <div id="focus-top">
