@@ -794,3 +794,21 @@
 #reward-card.after-level{animation-delay:1.5s;}
 #reward-card.after-level #reward-img{animation-delay:2.25s;}
 #reward-card.after-level::after{animation-delay:2.05s;}
+
+/* ---- Focus before you start: everything has to fit above the nav ---- */
+/* The setup view carries chips, shields, a soundscape and Start; on a real
+   iPhone (safe areas taken) it ran under the nav and hid Start. Tighter
+   here, and it scrolls — centred when there's room — rather than clip. */
+#screen-focus:not(.running) #focus-inner{justify-content:flex-start; overflow-y:auto; gap:10px;
+  padding-top:calc(14px + env(safe-area-inset-top)); padding-bottom:calc(92px + env(safe-area-inset-bottom));}
+#screen-focus:not(.running) #focus-inner > :first-child{margin-top:auto;}
+#screen-focus:not(.running) #focus-inner > :last-child{margin-bottom:auto;}
+#screen-focus:not(.running) #focus-top{gap:6px;}
+#screen-focus:not(.running) #timer{font-size:clamp(54px,16vw,68px);}
+#screen-focus:not(.running) #focus-line{font-size:17px;}
+#screen-focus:not(.running) #focus-scene{width:min(270px,70vw);}
+#screen-focus:not(.running) #guard-rows{gap:6px; margin:0 auto 6px;}
+#screen-focus:not(.running) .guard-row{padding:10px 14px;}
+#screen-focus:not(.running) #btn-start{padding:14px 28px; flex:none;}
+#screen-focus:not(.running) #focus-actions{gap:5px;}
+#screen-focus:not(.running) #btn-back-home{padding:8px 20px;}
