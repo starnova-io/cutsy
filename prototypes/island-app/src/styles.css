@@ -812,3 +812,15 @@
 #screen-focus:not(.running) #btn-start{padding:14px 28px; flex:none;}
 #screen-focus:not(.running) #focus-actions{gap:5px;}
 #screen-focus:not(.running) #btn-back-home{padding:8px 20px;}
+/* WebKit squeezes a flex child with no intrinsic height (the scene svg) to
+   nothing once the column is tight — nothing in this column may shrink */
+#focus-inner > *, #focus-top > *, #focus-actions > *{flex-shrink:0;}
+#focus-scene{height:auto; aspect-ratio:300 / 152;}
+/* short screens (Safari's toolbar, small phones): the scene shrinks and the
+   weather line goes, so Start still lands above the nav */
+@media (max-height:760px){
+  #screen-focus:not(.running) #focus-scene{width:min(200px,52vw);}
+  #screen-focus:not(.running) #timer{font-size:52px;}
+  #screen-focus:not(.running) #focus-sub{display:none;}
+}
+@media (max-height:640px){ #screen-focus:not(.running) #focus-scene{display:none;} }
