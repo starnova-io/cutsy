@@ -77,11 +77,17 @@ export interface WorldCallbacks {
   onMoveGhost(x: number, y: number): void;
   /** the finger let go of a dragged ghost */
   onDropGhost(): void;
+  /** the camera moved — zoom and azimuth, for sound that follows the view */
+  onCamera?(zoom: number, theta: number): void;
+  /** open water was tapped */
+  onTapWater?(): void;
 }
+
+const FLOWERS = new Set(["flowerpatch", "tulips", "sunflower", "mushrooms"]);
 
 /* live pet pose, driven by the animation loop */
 export const petView = {
-  x: 6, y: 5, face: 0, mode: "idle" as "idle" | "happy" | "drink",
+  x: 6, y: 5, face: 0, mode: "idle" as "idle" | "happy" | "drink" | "look" | "scratch" | "spin",
   modeT: 0, napping: false,
   path: null as { x: number; y: number }[] | null,
   seg: 0, prog: 0,
@@ -170,6 +176,22 @@ class World {
   private pointers = new Map<number, { x: number; y: number }>();
   private drag: { x: number; y: number; sx: number; sy: number; moved: boolean; t: number } | null = null;
   private pinch: { d0: number; z0: number } | null = null;
+  /* a flick keeps the island turning for a moment after the finger lifts */
+  private spinV = 0;
+  private lastDragT = 0;
+  /* scripted camera moves: the launch dolly, the step into arrange mode */
+  private camAnim: { t: number; dur: number; z0: number; z1: number; th0: number; th1: number } | null = null;
+  private arrangeZoom = false;
+  private ringsBornAt = -1;
+  private settleQueue: { x: number; y: number } | null = null;
+  private ghostShakeT = 0;
+  private glowT = -1;
+  private lastCam = "";
+  private hostRO: ResizeObserver | null = null;
+  /* little petals shaken loose from flowers — a handful of meshes, reused */
+  private motes: { m: THREE.Mesh; t: number; vx: number; vy: number; vz: number }[] = [];
+  private snapPending = false;
+  private unlockT = -1;
 
   /** the next sync scale-pops the newest item with this id */
   queuePop(id: string): void { this.popQueue = id; }
@@ -202,7 +224,10 @@ class World {
     this.renderer.toneMappingExposure = 1;
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.canvas = this.renderer.domElement;
-    this.canvas.style.cssText = "width:100%;height:100%;display:block;touch-action:none;";
+    /* pinned to its host's box: WebKit won't resolve height:100% inside a
+       stretched flex item, and the canvas then fell back to whatever height
+       its drawing buffer had when first measured — a band of bare sky under it */
+    this.canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;";
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog(0xE2EFE6, 22, 40);
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
@@ -421,6 +446,9 @@ class World {
     }, { passive: false });
     this.canvas.addEventListener("dblclick", () => this.resetCamera());
     window.addEventListener("resize", () => this.resize());
+    /* layout can settle after the first measure (fonts, safe areas, the
+       splash handing over) — follow the host's real size, not a snapshot */
+    this.hostRO = new ResizeObserver(() => { this.needProj = true; });
     requestAnimationFrame(now => this.loop(now));
   }
 
@@ -592,21 +620,117 @@ class World {
 
   mount(wrap: HTMLElement, opts: WorldOpts = {}): void {
     this.ensure();
+    this.arrangeCamera(opts);
     this.opts = opts;
-    if (this.canvas.parentElement !== wrap) wrap.appendChild(this.canvas);
+    if (this.canvas.parentElement !== wrap) {
+      wrap.appendChild(this.canvas);
+      this.hostRO?.disconnect();
+      this.hostRO?.observe(wrap);
+    }
     this.resize();
     try { this.sync(); } catch { /* callbacks not registered yet — first sync comes with init */ }
   }
 
-  setOpts(opts: WorldOpts): void { this.opts = opts; this.sync(); }
+  setOpts(opts: WorldOpts): void {
+    this.arrangeCamera(opts);
+    this.opts = opts;
+    this.sync();
+  }
 
-  private viewHalf(): number {
-    let base = 5.7;
-    try {
-      const S = this.cb.getState();
-      base = (S.bridge ? 6.35 : 5.7) + Math.min(1.1, S.lands.length * .28);
-    } catch { /* pre-init */ }
-    return base / this.camZoom;
+  /* stepping into arrange mode leans the camera in a little and lets the
+     rings arrive one after another, so the island reads as an editor */
+  private arrangeCamera(opts: WorldOpts): void {
+    const on = !!opts.highlight;
+    if (on === this.arrangeZoom) return;
+    this.arrangeZoom = on;
+    const z = this.camAnim ? this.camAnim.z1 : this.camZoom;
+    this.animateCamera(on ? z * 1.08 : z / 1.08, this.camAnim ? this.camAnim.th1 : this.camTheta, .45);
+    if (on) this.ringsBornAt = this.t;
+  }
+
+  /** ease the camera to a zoom and azimuth */
+  animateCamera(zoom: number, theta: number, dur: number): void {
+    /* reduced motion, or a test driver computing tile positions: arrive at once */
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || navigator.webdriver) dur = .01;
+    this.camAnim = { t: 0, dur, z0: this.camZoom, z1: zoom, th0: this.camTheta, th1: theta };
+  }
+
+  /** the launch shot: from a small island far off, dolly in to Home */
+  introDolly(): void {
+    const th = this.camTheta, z = this.camZoom;
+    this.camZoom = z * .42;
+    this.camTheta = th - .55;
+    this.needProj = true;
+    this.animateCamera(z, th, 1.25);
+  }
+
+  /** a freshly placed piece lands with a soft squash */
+  queueSettle(x: number, y: number): void { this.settleQueue = { x, y }; }
+
+  /** the held piece couldn't go there — a small no-shake, no popup */
+  shakeGhost(): void { this.ghostShakeT = .32; }
+
+  /** a finished session reaches the island: rings on the water, a warm
+     brightening, every piece giving a little shiver */
+  celebrate(): void {
+    this.glowT = 0;
+    let S: GameState;
+    try { S = this.cb.getState(); } catch { return; }
+    const { cx, cz } = this.fit;
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      setTimeout(() => this.addRipple(cx + Math.cos(a) * 5.6, cz + Math.sin(a) * 4.6, .7), i * 90);
+    }
+    this.itemsG.children.forEach((w, i) => { setTimeout(() => { w.userData.pulseT = 0; }, 120 + i * 45); });
+    void S;
+  }
+
+  /** which way the pet should face to look into the camera */
+  get cameraFace(): number { return this.camTheta; }
+
+  /* Framing fits the land that actually exists, seen from the default pose:
+     a fixed view size left the island at half the screen on one phone and
+     cropped on another, with a band of empty sea under it either way. The
+     fit is taken once per land/aspect change, never per orbit frame, so a
+     spin doesn't make the island breathe. */
+  private fit = { key: "", cx: 0, cz: -1.3, half: 5.7 };
+  private fitView(aspect: number): typeof this.fit {
+    let S: GameState;
+    try { S = this.cb.getState(); } catch { return this.fit; }
+    const key = S.lands.join(",") + "|" + S.bridge + "|" + aspect.toFixed(3);
+    if (key === this.fit.key) return this.fit;
+    const tiles: [number, number][] = [];
+    mainMask(S).forEach(k => { const [x, y] = k.split(",").map(Number); tiles.push([x, y]); });
+    if (S.bridge) MASKS.islet.forEach(k => { const [x, y] = k.split(",").map(Number); tiles.push([x, y]); });
+    let cx = 0, cz = 0;
+    tiles.forEach(([x, y]) => { cx += WCX(x); cz += WCZ(y); });
+    cx /= tiles.length; cz /= tiles.length;
+    const th = Math.atan2(10, 11.3), ph = Math.asin(8.6 / 15.1);
+    const d = new THREE.Vector3(Math.cos(ph) * Math.sin(th), Math.sin(ph), Math.cos(ph) * Math.cos(th));
+    const r = new THREE.Vector3(0, 1, 0).cross(d).normalize();
+    const u = d.clone().cross(r).normalize();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    const p = new THREE.Vector3();
+    /* tile corners from the sand skirt up to roof height, so a house on the
+       back row isn't clipped */
+    for (const [x, y] of tiles) for (const ox of [-.6, .6]) for (const oz of [-.6, .6]) for (const oy of [-.5, 1.4]) {
+      p.set(WCX(x) + ox - cx, oy, WCZ(y) + oz - cz);
+      const sx = p.dot(r), sy = p.dot(u);
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    /* On a portrait phone the width is what binds. Let the outermost sand
+       tips kiss the edges rather than shrink the whole island to clear them,
+       and sit it a touch low so the sea gap lands above — under the clouds —
+       instead of between the island and the Focus button. */
+    const half = Math.max((y1 - y0) / 2 * 1.08, (x1 - x0) / 2 / aspect * .93);
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 + half * .14;
+    const c = new THREE.Vector3(cx, 0, cz).addScaledVector(r, mx).addScaledVector(u, my);
+    this.fit = { key, cx: c.x - (c.y * d.x) / d.y, cz: c.z - (c.y * d.z) / d.y, half };
+    return this.fit;
+  }
+
+  private viewHalf(aspect: number): number {
+    return this.fitView(aspect).half / this.camZoom;
   }
 
   private setZoom(z: number): void {
@@ -626,7 +750,7 @@ class World {
     if (!wrap) return;
     const w = wrap.clientWidth || 400, h = wrap.clientHeight || 420;
     this.renderer.setSize(w, h, false);
-    const halfH = this.viewHalf(), aspect = w / h;
+    const aspect = w / h, halfH = this.viewHalf(aspect);
     this.camera.left = -halfH * aspect; this.camera.right = halfH * aspect;
     this.camera.top = halfH; this.camera.bottom = -halfH;
     this.camera.updateProjectionMatrix();
@@ -634,14 +758,15 @@ class World {
 
   private frameCamera(): void {
     if (this.needProj) { this.resize(); this.needProj = false; }
-    let tz = -1.3;
-    try { tz = this.cb.getState().bridge ? 0.2 : -1.3; } catch { /* pre-init */ }
+    const { cx, cz } = this.fit;
     const R = 15.1;
     const x = R * Math.cos(this.camPhi) * Math.sin(this.camTheta);
     const y = R * Math.sin(this.camPhi);
     const z = R * Math.cos(this.camPhi) * Math.cos(this.camTheta);
-    this.camera.position.set(x, y, tz + z);
-    this.camera.lookAt(0, 0, tz);
+    this.camera.position.set(cx + x, y, cz + z);
+    this.camera.lookAt(cx, 0, cz);
+    const key = this.camZoom.toFixed(2) + "," + this.camTheta.toFixed(2);
+    if (key !== this.lastCam) { this.lastCam = key; this.cb.onCamera?.(this.camZoom, this.camTheta); }
   }
 
   private applyPhase(): void {
@@ -708,6 +833,7 @@ class World {
     });
     g.rotation.y = -g0.rot * Math.PI / 2;
     const wrap = new THREE.Group();
+    g.name = "model";
     wrap.add(g);
     const ring = new THREE.Mesh(new THREE.RingGeometry(.55 * Math.max(f.w, f.d), .62 * Math.max(f.w, f.d), 28),
       new THREE.MeshBasicMaterial({ color: linC(0x9C4F76), transparent: true, opacity: .8, side: THREE.DoubleSide }));
@@ -761,7 +887,7 @@ class World {
     const g = this.opts.ghost;
     if (!g || !this.ghostWrap) return;
     const f = itemFootprint(g);
-    this.ghostWrap.position.set(WCX(x, f.w), .01 + this.ghostLift, WCZ(y, f.d));
+    this.ghostWrap.position.set(WCX(x, f.w), .01, WCZ(y, f.d));
     this.ghostFits = fits(this.cb.getState(), { ...g, x, y });
     const col = linC(this.ghostFits ? 0x6F945C : 0xC96A4A);
     const ring = this.ghostWrap.getObjectByName("ring") as THREE.Mesh | undefined;
@@ -819,6 +945,8 @@ class World {
        catch up on the next sync, a second or two later. */
     if (this.ghostDrag) { this.syncGhost(); return; }
     const S = this.cb.getState();
+    /* new land or the isle changes what the camera has to fit */
+    if (!this.fit.key.startsWith(S.lands.join(",") + "|" + S.bridge + "|")) this.needProj = true;
     /* rebuild the main island when a land expansion was raised */
     const lk = S.lands.join(",");
     if (lk !== this.landKey) {
@@ -858,6 +986,13 @@ class World {
       if (g.userData.smoke) wrap.userData.smoke = g.userData.smoke;
       this.itemsG.add(wrap);
     });
+    if (this.settleQueue) {
+      const q = this.settleQueue;
+      const i = S.placed.findIndex(p => p.x === q.x && p.y === q.y);
+      const w = this.itemsG.children.find(c => c.userData.pidx === i);
+      if (w) w.userData.settleT = 0;
+      this.settleQueue = null;
+    }
     if (this.popQueue) {
       for (let i = this.itemsG.children.length - 1; i >= 0; i--) {
         const w = this.itemsG.children[i];
@@ -879,10 +1014,11 @@ class World {
         const f = itemFootprint(p);
         const ring = new THREE.Mesh(
           new THREE.RingGeometry(.5 * Math.max(f.w, f.d), .58 * Math.max(f.w, f.d), 26),
-          new THREE.MeshBasicMaterial({ color: linC(0x9C4F76), transparent: true, opacity: .7, side: THREE.DoubleSide }));
+          new THREE.MeshBasicMaterial({ color: linC(0x9C4F76), transparent: true, opacity: .3, side: THREE.DoubleSide }));
         ring.rotation.x = -Math.PI / 2;
         ring.position.set(WCX(p.x, f.w), .04, WCZ(p.y, f.d));
         ring.userData.pulse = (p.x * 3 + p.y) % 6;
+        ring.userData.born = this.ringsBornAt + this.gridG.children.length * .04;
         this.gridG.add(ring);
       });
     }
@@ -1068,10 +1204,34 @@ class World {
   pokeItem(pidx: number): boolean {
     const wrap = this.itemsG.children.find(w => w.userData.pidx === pidx);
     if (!wrap) return false;
-    wrap.userData.shakeT = 1;
+    const flower = FLOWERS.has(wrap.userData.id as string);
+    /* flowers don't shake like a tree — they sway, and lose a petal or two */
+    if (flower) { wrap.userData.flutterT = 1.4; this.spawnPetals(wrap.position.x, wrap.position.z, 2 + Math.floor(Math.random() * 2)); }
+    else wrap.userData.shakeT = 1;
+    wrap.userData.pulseT = 0;
+    if (wrap.userData.smoke) wrap.userData.puffT = 1.6;   /* the chimney huffs */
     const g = wrap.children[0] as THREE.Group | undefined;
     if (g?.userData.deciduous || this.season === "winter") this.burstLeaves(pidx);
     return true;
+  }
+
+  private spawnPetals(x: number, z: number, n: number): void {
+    const cols = [0xF4B6C8, 0xFFF1E0, 0xF6D365, 0xE88FA8];
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.CircleGeometry(.05, 6),
+        new THREE.MeshBasicMaterial({ color: linC(cols[(Math.random() * cols.length) | 0]), transparent: true, side: THREE.DoubleSide }));
+      m.position.set(x + (Math.random() - .5) * .3, .35 + Math.random() * .2, z + (Math.random() - .5) * .3);
+      m.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+      this.scene.add(m);
+      this.motes.push({ m, t: 0, vx: (Math.random() - .5) * .5, vy: .55 + Math.random() * .4, vz: (Math.random() - .5) * .5 });
+    }
+  }
+
+  /** a gift arrives on the island: the world dims, the camera drifts round
+     a few degrees, and the new piece brightens into view */
+  unlockShow(): void {
+    this.unlockT = 0;
+    this.animateCamera(this.camZoom, this.camTheta + .24, 1.6);
   }
 
   burstLeaves(pidx: number): boolean {
@@ -1217,6 +1377,14 @@ class World {
       if (this.grabGhost(ev)) { this.drag = null; this.pinch = null; return; }
       this.drag = { x: ev.clientX, y: ev.clientY, sx: ev.clientX, sy: ev.clientY, moved: false, t: performance.now() };
       this.pinch = null;
+      this.spinV = 0;          /* a finger down catches a spinning island */
+      this.snapPending = false;
+      /* a scripted move (the launch dolly, arrange's lean-in) jumps to where
+         it was going — cancelling it mid-way left the island stuck far off */
+      if (this.camAnim) {
+        this.camZoom = this.camAnim.z1; this.camTheta = this.camAnim.th1;
+        this.camAnim = null; this.needProj = true;
+      }
     } else if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: this.camZoom };
@@ -1269,6 +1437,9 @@ class World {
       if (this.drag.moved) {
         this.camTheta -= dx * .006;
         this.camPhi = Math.min(1.15, Math.max(.28, this.camPhi + dy * .004));
+        const now = performance.now(), dts = Math.max(.008, (now - (this.lastDragT || now - 16)) / 1000);
+        this.lastDragT = now;
+        this.spinV = this.spinV * .6 + (-dx * .006 / dts) * .4;
       }
     }
   }
@@ -1279,7 +1450,13 @@ class World {
     this.ghostDrag = null;
     this.pointers.delete(ev.pointerId);
     if (this.pointers.size < 2) this.pinch = null;
-    if (this.pointers.size === 0) this.drag = null;
+    if (this.pointers.size === 0) {
+      /* a finger that stopped before lifting shouldn't fling the island */
+      if (this.drag?.moved) this.snapPending = true;
+      if (!this.drag?.moved || performance.now() - this.lastDragT > 90) this.spinV = 0;
+      this.spinV = Math.max(-4, Math.min(4, this.spinV));
+      this.drag = null;
+    }
     if (dropped) this.cb.onDropGhost();
     if (wasTap) this.tapAt(ev.clientX, ev.clientY);
   }
@@ -1323,6 +1500,7 @@ class World {
     }
     const seaHit = this.ray.intersectObject(this.seaMesh, false);
     if (seaHit.length) {
+      this.cb.onTapWater?.();
       this.addRipple(seaHit[0].point.x, seaHit[0].point.z, 1);
       this.fluid?.splat(seaHit[0].point.x, seaHit[0].point.z, 0, 0, 1.1);
     }
@@ -1371,6 +1549,56 @@ class World {
     this.t += dt;
     const t = this.t;
     this.petAnim(dt);
+    if (this.camAnim) {
+      const a = this.camAnim;
+      a.t += dt;
+      const k = Math.min(1, a.t / a.dur), e = 1 - Math.pow(1 - k, 3);
+      this.camZoom = a.z0 + (a.z1 - a.z0) * e;
+      this.camTheta = a.th0 + (a.th1 - a.th0) * e;
+      this.needProj = true;
+      if (k >= 1) this.camAnim = null;
+    }
+    if (!this.drag && Math.abs(this.spinV) > .005) {
+      this.camTheta += this.spinV * dt;
+      this.spinV *= Math.exp(-dt * 3.2);
+    } else if (!this.drag) this.spinV = 0;
+    /* once the spin has died, settle onto one of the four "postcard" angles
+       if it's already within a few degrees — close enough not to feel pulled */
+    if (this.snapPending && !this.drag && !this.camAnim && Math.abs(this.spinV) < .05) {
+      const base = Math.atan2(10, 11.3), q = Math.PI / 2;
+      const target = base + Math.round((this.camTheta - base) / q) * q;
+      const d = target - this.camTheta;
+      if (Math.abs(d) > .1 || Math.abs(d) < .002) this.snapPending = false;
+      else this.camTheta += d * Math.min(1, dt * 2.2);
+    }
+    for (let i = this.motes.length - 1; i >= 0; i--) {
+      const p = this.motes[i];
+      p.t += dt;
+      p.vy -= dt * 1.1;
+      p.m.position.x += p.vx * dt; p.m.position.y = Math.max(.03, p.m.position.y + p.vy * dt); p.m.position.z += p.vz * dt;
+      p.m.rotation.x += dt * 4; p.m.rotation.y += dt * 3;
+      (p.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - Math.max(0, p.t - 1.1) / .6);
+      if (p.t > 1.7) {
+        this.scene.remove(p.m); p.m.geometry.dispose(); (p.m.material as THREE.Material).dispose();
+        this.motes.splice(i, 1);
+      }
+    }
+    if (this.unlockT >= 0) {
+      this.unlockT += dt;
+      const k = this.unlockT;
+      /* dim for a moment, then come back a little brighter than before */
+      this.renderer.toneMappingExposure = k < .35 ? 1 - .38 * (k / .35)
+        : k < 1.1 ? .62 : k < 1.7 ? .62 + .56 * ((k - 1.1) / .6) : Math.max(1, 1.18 - (k - 1.7) * .5);
+      if (k > 2.1) { this.unlockT = -1; this.renderer.toneMappingExposure = 1; }
+    }
+    /* clouds turn with the camera at a fraction of its speed — depth */
+    this.cloudsG.rotation.y = (this.camTheta - Math.atan2(10, 11.3)) * .4;
+    if (this.glowT >= 0 && this.unlockT < 0) {
+      this.glowT += dt;
+      const k = Math.min(1, this.glowT / 1.4);
+      this.renderer.toneMappingExposure = 1 + .16 * Math.sin(Math.PI * k);
+      if (k >= 1) { this.glowT = -1; this.renderer.toneMappingExposure = 1; }
+    }
     this.waves.forEach(w => {
       const s = 1 + .025 * Math.sin(t * 1.1 + (w.userData.ph as number));
       w.scale.set(s, s, 1);
@@ -1418,19 +1646,47 @@ class World {
         w.scale.setScalar((w.userData.baseScale as number) * Math.max(.15, e));
         if (k >= 1) { w.scale.setScalar(w.userData.baseScale as number); delete w.userData.popT; }
       }
+      const g0 = w.children[0];
+      if (g0 && (w.userData.pulseT !== undefined || w.userData.settleT !== undefined)) {
+        if (!g0.userData.s0) g0.userData.s0 = g0.scale.clone();
+        const s0 = g0.userData.s0 as THREE.Vector3;
+        let sx = 1, sy = 1;
+        if (w.userData.pulseT !== undefined) {
+          /* tapped: a breath bigger and back */
+          w.userData.pulseT += dt;
+          const k = Math.min(1, (w.userData.pulseT as number) / .32);
+          sx = sy = 1 + .035 * Math.sin(Math.PI * k);
+          if (k >= 1) delete w.userData.pulseT;
+        }
+        if (w.userData.settleT !== undefined) {
+          /* set down: squash to .94 and back, spreading a touch as it lands */
+          w.userData.settleT += dt;
+          const k = Math.min(1, (w.userData.settleT as number) / .36);
+          const d = Math.sin(Math.PI * k) * (1 - k * .35);
+          sy *= 1 - .06 * d; sx *= 1 + .03 * d;
+          if (k >= 1) delete w.userData.settleT;
+        }
+        g0.scale.set(s0.x * sx, s0.y * sy, s0.z * sx);
+      }
       if ((w.userData.shakeT as number | undefined) !== undefined && (w.userData.shakeT as number) > 0)
         w.userData.shakeT = Math.max(0, (w.userData.shakeT as number) - dt);
       const shake = ((w.userData.shakeT as number) || 0) > 0
         ? Math.sin(t * 26) * .09 * (w.userData.shakeT as number) : 0;
+      if (w.userData.flutterT) w.userData.flutterT = Math.max(0, (w.userData.flutterT as number) - dt);
+      const flutter = ((w.userData.flutterT as number) || 0) > 0
+        ? Math.sin(t * 7) * .07 * ((w.userData.flutterT as number) / 1.4) : 0;
       if (w.userData.sway !== undefined)
-        w.rotation.z = Math.sin(t * 1.1 + (w.userData.sway as number)) * .025 + shake;
+        w.rotation.z = Math.sin(t * 1.1 + (w.userData.sway as number)) * .025 + shake + flutter;
       else if (shake) w.rotation.z = shake;
       if (w.userData.spin) (w.userData.spin as THREE.Object3D).rotation.z = t * .9;
       if (w.userData.fire) (w.children[0] as THREE.Group).children.forEach(m => {
         if (m.name === "flame") m.scale.y = 1 + .18 * Math.sin(t * 11 + m.position.x * 9);
       });
+      if (w.userData.puffT) w.userData.puffT = Math.max(0, (w.userData.puffT as number) - dt);
+      const puff = (w.userData.puffT as number) || 0;
+      if (puff) w.userData.smokePh = ((w.userData.smokePh as number) || 0) + dt * .6 * puff;
       if (w.userData.smoke) (w.userData.smoke as THREE.Group).children.forEach((p, i) => {
-        const ph = (t * .2 + i * .37) % 1;
+        const ph = (t * .2 + ((w.userData.smokePh as number) || 0) + i * .37) % 1;
         p.position.y = ph * .55;
         p.position.x = Math.sin(t * 1.2 + i * 2.1) * .045;
         p.scale.setScalar(.45 + ph * .95);
@@ -1443,17 +1699,25 @@ class World {
     });
     if (this.yarnWobble > 0) this.yarnWobble -= dt;
     this.gridG.children.forEach(r => {
-      if (r.userData.pulse !== undefined)
-        ((r as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = .4 + .3 * Math.sin(t * 4 + (r.userData.pulse as number));
+      if (r.userData.pulse === undefined) return;
+      const k = Math.max(0, Math.min(1, (t - (r.userData.born as number)) / .3));
+      const e = 1 - Math.pow(1 - k, 3);
+      r.scale.setScalar(.7 + .3 * e);
+      ((r as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = (.26 + .08 * Math.sin(t * 2.5 + (r.userData.pulse as number))) * e;
     });
     const ghost = this.ghostG.children[0] as THREE.Group | undefined;
     const ring = ghost?.getObjectByName("ring") as THREE.Mesh | undefined;
-    if (ring) (ring.material as THREE.MeshBasicMaterial).opacity = .45 + .35 * Math.sin(t * 4);
-    /* a held item rides just above the island, so it reads as picked up */
+    if (ring) (ring.material as THREE.MeshBasicMaterial).opacity = .8 + .2 * Math.sin(t * 4);
+    /* The held piece is the one thing on the island at full strength: its
+       ring and footprint stay on the ground while the model itself floats
+       above them — higher while a finger is on it — with a slow bob. */
     if (ghost) {
-      const lift = this.ghostDrag ? .18 : 0;
+      const lift = this.ghostDrag ? .34 : .2;
       this.ghostLift += (lift - this.ghostLift) * Math.min(1, dt * 16);
-      ghost.position.y = .01 + this.ghostLift;
+      const model = ghost.getObjectByName("model");
+      if (model) model.position.y = this.ghostLift + (this.ghostDrag ? 0 : .04 * Math.sin(t * 3));
+      if (this.ghostShakeT > 0) this.ghostShakeT = Math.max(0, this.ghostShakeT - dt);
+      if (model) model.position.x = this.ghostShakeT > 0 ? Math.sin(t * 70) * .045 * (this.ghostShakeT / .32) : 0;
     }
     if (this.landAnim) {
       this.landAnim.t += dt;
@@ -1529,8 +1793,14 @@ class World {
     }
     if (!this.petBody) return;
     this.petRoot.position.set(pv.x - 5, 0, pv.y - 5.6);
-    this.petRoot.rotation.y = pv.face;
     const walking = !!pv.path;
+    if (!walking && pv.mode === "look") {
+      /* turn to face whoever is holding the phone */
+      let d = this.camTheta - pv.face;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      pv.face += d * Math.min(1, dt * 6);
+    }
+    this.petRoot.rotation.y = pv.face + (pv.mode === "spin" && !walking ? (1 - Math.max(0, pv.modeT) / .9) * Math.PI * 2 : 0);
     const nap = pv.napping && !walking;
     const bob = walking ? Math.abs(Math.sin(t * 12)) * .07
       : pv.mode === "happy" ? Math.abs(Math.sin(t * 9)) * .16
@@ -1551,14 +1821,17 @@ class World {
       const l = this.petBody!.getObjectByName(n);
       if (l) l.rotation.x = r;
     };
-    setLeg("legFL", nap ? 1.25 : sw); setLeg("legBR", nap ? -1.25 : sw);
+    const scratch = pv.mode === "scratch" && !walking ? Math.sin(t * 30) * .5 - .6 : 0;
+    setLeg("legFL", nap ? 1.25 : sw); setLeg("legBR", nap ? -1.25 : scratch || sw);
     setLeg("legFR", nap ? 1.25 : -sw); setLeg("legBL", nap ? -1.25 : -sw);
     const tail = this.petBody.getObjectByName("tail");
     if (tail) tail.rotation.z = Math.sin(t * (walking ? 10 : pv.mode === "happy" ? 12 : 3)) * .35;
     const head = this.petBody.getObjectByName("head");
     if (head) head.rotation.x = pv.mode === "drink" && !walking
       ? .55 + .1 * Math.sin(t * 5)
-      : pv.napping && !walking ? .35 : 0;
+      : pv.napping && !walking ? .35
+      : pv.mode === "scratch" && !walking ? .25 + .05 * Math.sin(t * 30) : 0;
+    if (head) head.rotation.z = pv.mode === "look" && !walking ? .22 * Math.sin(Math.min(1, 2.4 - pv.modeT) * Math.PI) : 0;
   }
 
   /* ---------- shop thumbnails ---------- */

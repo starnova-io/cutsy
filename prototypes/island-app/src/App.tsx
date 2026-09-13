@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CompletePayload, PlacedItem, Screen, SessionInfo } from "./game/types";
 import { getState, mutate, useGame } from "./game/store";
-import { fits, firstFreeSpot, itemFootprint } from "./game/economy";
+import { fits, firstFreeSpot, itemFootprint, nextUnlockInfo } from "./game/economy";
 import { commitPlacement, completeSession, grantLand, pickUpPlaced } from "./game/actions";
 import { audio } from "./game/audio";
-import { ambientStart, ambientStop, shopWhoosh, uiTick } from "./game/ambience";
+import { ambientDuck, ambientStart, ambientStop, setListenerAzimuth, setPresence } from "./game/ambience";
+import * as sfx from "./game/sfx";
+import { byId } from "./game/catalog";
 import { world, petView } from "./world/world3d";
 import { initPetPosition, petGoTo, setWanderCtx } from "./world/wander";
 import { hideSplash } from "./native/splash";
-import { registerFeedback, toast, ask as askFeedback, confettiBurst, heartAt } from "./ui/feedback";
+import { dropHaptic, liftHaptic, softHaptic, tickHaptic } from "./native/haptics";
+import { registerFeedback, toast, ask as askFeedback, heartAt, type AskOpts } from "./ui/feedback";
 import { beginGuard, endGuard, guardAvailable, loadGuardCaps, NO_GUARD, pickBlockedApps,
   requestGuardAccess, type GuardCaps, type GuardStatus } from "./native/guard";
 import { Nav } from "./components/Nav";
+import { Splash } from "./components/Splash";
 import { Home } from "./screens/Home";
 import { Focus } from "./screens/Focus";
 import { Complete } from "./screens/Complete";
@@ -28,7 +32,19 @@ interface Placing {
      so a lifted piece is distinguishable from no piece at all. */
   inline?: boolean;
 }
-interface DialogState { msg: string; ok: string; cancel: string; resolve: (v: boolean) => void }
+/** what Home looked like before a session paid out, so it can animate the change */
+export interface Arrival { energy: number; pct: number; left: number | null; goal: string | null; streakUp: boolean; level: number }
+interface DialogState extends AskOpts { msg: string; ok: string; cancel: string; resolve: (v: boolean) => void }
+
+/** what a tapped piece sounds like */
+const objectKind = (id: string): "tree" | "flower" | "house" | "stone" | "water" | "other" => {
+  const a = byId(id);
+  if (/flower|tulip|rose|sunflower|lavender/.test(id)) return "flower";
+  if (a.cat === "plants") return "tree";
+  if (a.cat === "buildings" || /house|cabin|bench|fence|dock|shed/.test(id)) return "house";
+  if (/rock|well|stone|lantern|birdbath|sandcastle|fountain/.test(id)) return "stone";
+  return "other";
+};
 
 const initialScreen = (): Screen => {
   const h = location.hash.slice(1);
@@ -43,6 +59,16 @@ export default function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const [payload, setPayload] = useState<CompletePayload | null>(null);
+  const [arrival, setArrival] = useState<Arrival | null>(null);
+  /* a gift landing on the island gets its own moment on Home, not a dialog */
+  const [reveal, setReveal] = useState<{ name: string; sub: string } | null>(null);
+  const revealT = useRef<number | undefined>(undefined);
+  const showReveal = (name: string, sub: string) => {
+    window.clearTimeout(revealT.current);
+    window.setTimeout(() => { world.unlockShow(); setReveal({ name, sub }); }, 250);
+    revealT.current = window.setTimeout(() => setReveal(null), 3000);
+  };
+  const beforeRef = useRef<Arrival | null>(null);
   const [arrange, setArrange] = useState(false);
   /* which shields are actually up this session — null until the plugin answers */
   const [shield, setShield] = useState<GuardStatus | null>(null);
@@ -50,6 +76,12 @@ export default function App() {
   const [caps, setCaps] = useState<GuardCaps>(NO_GUARD);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  /* the launch sequence plays on a cold start into Home — not for a deep
+     link, and not under a test driver that needs the island to hold still */
+  const [splash, setSplash] = useState(() => initialScreen() === "home" && (!navigator.webdriver || location.search.includes("splash")));
+  /* with the animated splash covering the page, the native launch image can
+     go as soon as React has painted — they share their first frame */
+  useEffect(() => { if (splash) hideSplash(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---- refs so world callbacks always see the latest ---- */
   const screenRef = useRef(screen); screenRef.current = screen;
@@ -105,7 +137,7 @@ export default function App() {
         window.clearTimeout(toastTimer.current);
         toastTimer.current = window.setTimeout(() => setToastMsg(null), ms);
       },
-      (msg, ok, cancel) => new Promise<boolean>(resolve => setDialog({ msg, ok, cancel, resolve })),
+      (msg, ok, cancel, opts) => new Promise<boolean>(resolve => { sfx.modalOpen(); setDialog({ ...opts, msg, ok, cancel, resolve }); }),
     );
   }, []);
 
@@ -114,7 +146,9 @@ export default function App() {
   const settle = useCallback((item: PlacedItem) => {
     const f = itemFootprint(item);
     const ptx = Math.round(petView.x), pty = Math.round(petView.y);
+    world.queueSettle(item.x, item.y);
     commitPlacement(item);
+    dropHaptic();
     if (ptx >= item.x && ptx < item.x + f.w && pty >= item.y && pty < item.y + f.d) {
       const spot = firstFreeSpot(getState(), "yarn");
       mutate(st => { st.cat = { x: spot.x, y: spot.y }; });
@@ -125,6 +159,8 @@ export default function App() {
   const liftItem = useCallback((idx: number) => {
     const item = pickUpPlaced(idx);
     if (!item) return;
+    liftHaptic();
+    sfx.lift();
     const origin = { ...item };
     mutate(st => { st.held = { item, origin }; });   /* survives a kill mid-move */
     setPlacing({ item, origin, inline: true });
@@ -135,19 +171,24 @@ export default function App() {
     setScreen("home");
   }, [liftItem]);
   /** a piece that has never been on the island: from the Shop, or a gift */
-  const startPlacing = useCallback((id: string) => {
+  const startPlacing = useCallback((id: string, quiet = false) => {
     const item = firstFreeSpot(getState(), id);
+    sfx.lift();
     mutate(st => { st.held = { item, origin: null }; });
     setPlacing({ item, origin: null, inline: true });
     setScreen("home");
-    toast("Tap where it should go");
+    if (!quiet) toast("Tap where it should go");
   }, []);
   /** land a lifted item if the tile it is on is free; otherwise leave it held */
   const dropInline = useCallback((cand: PlacedItem) => {
     const p0 = placingRef.current;
     if (!p0) return false;
     if (!fits(getState(), cand)) {
+      /* no popup: the piece shakes its head and stays in hand */
       setPlacing(p => (p ? { ...p, item: cand } : p));
+      world.shakeGhost();
+      sfx.invalid();
+      tickHaptic();
       return false;
     }
     settle(cand);
@@ -162,9 +203,15 @@ export default function App() {
       getState,
       onTapPet: (cx, cy) => {
         if (screenRef.current !== "home") return;
-        petView.mode = "happy";
-        petView.modeT = 1.6;
-        heartAt(cx, cy);
+        /* the companion looks round at you, then answers in its own way —
+           a sound only some of the time, so a tap never feels mechanical */
+        const voice = sfx.petTap(getState().pet);
+        petView.face = world.cameraFace;
+        const r = Math.random();
+        if (voice === "meow" || (voice === null && r < .35)) { petView.mode = "happy"; petView.modeT = 1.6; heartAt(cx, cy); }
+        else if (voice === "purr") { petView.mode = "look"; petView.modeT = 2; heartAt(cx, cy, "spark"); }
+        else { petView.mode = "spin"; petView.modeT = .9; }
+        softHaptic();
       },
       onTapItem: idx => {
         if (screenRef.current !== "home") return;
@@ -176,11 +223,15 @@ export default function App() {
         if (placingRef.current) return;
         if (arrangeRef.current) { liftItem(idx); return; }
         world.pokeItem(idx);
+        const p = getState().placed[idx];
+        if (p) sfx.tapObject(objectKind(p.id));
       },
       onMoveGhost: (x, y) => {
         if (!placingRef.current) return;
         setPlacing(p => (p ? { ...p, item: { ...p.item, x, y } } : p));
       },
+      onCamera: (zoom, theta) => { setPresence(zoom); setListenerAzimuth(theta); },
+      onTapWater: () => sfx.tapObject("water"),
       onDropGhost: () => {
         const p = placingRef.current;
         if (p?.inline) dropInline(p.item);
@@ -204,12 +255,13 @@ export default function App() {
        wakes the island's soundscape */
     const arm = () => { if (getState().sound) ambientStart(); };
     window.addEventListener("pointerdown", arm, { once: true });
-    const t = window.setTimeout(() => toast("Drag to spin your island · pinch to zoom", 3200), 1200);
-    return () => { window.clearTimeout(t); window.removeEventListener("pointerdown", arm); };
+    /* the orbit/zoom hint is Home's own now — on the island, once */
+    return () => window.removeEventListener("pointerdown", arm);
   }, [startMove, liftItem, dropInline]);
 
   const toggleSound = useCallback(() => {
     const on = !getState().sound;
+    if (on) sfx.toggleOn(); else sfx.toggleOff();
     mutate(st => { st.sound = on; });
     if (on) { audio(); ambientStart(); toast("Sound on — listen to your island"); }
     else { ambientStop(); toast("Sound off"); }
@@ -267,13 +319,9 @@ export default function App() {
       lastTickRef.current = now;
       if (remainRef.current <= 0) {
         window.clearInterval(iv);
-        shieldDown();
-        const done = completeSession(s.durMin, true, leavesRef.current);
-        logEvent("focus_complete", { minutes: s.durMin, full: true });
-        setSession(null);
-        setPayload(done);
-        setScreen("complete");
-        confettiBurst();
+        /* 00:00 holds for a breath of silence before anything celebrates */
+        setSession({ ...s, remainMs: 0 });
+        window.setTimeout(() => finishSession(s.durMin, true), navigator.webdriver ? 0 : 260);
       } else {
         setSession({ ...s, remainMs: remainRef.current });
       }
@@ -282,6 +330,34 @@ export default function App() {
     /* re-arm only when a session starts */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!session]);
+
+  /** pay a session out and move to the reward — shared by the timer and End session */
+  const finishSession = (minutes: number, full: boolean) => {
+    shieldDown();
+    ambientDuck(false);
+    const st0 = getState(), nu0 = nextUnlockInfo(st0);
+    beforeRef.current = { energy: st0.energy, pct: nu0 ? nu0.pct : 100, left: nu0 ? nu0.left : null, goal: nu0 ? nu0.item.id : null, streakUp: false,
+      level: Math.floor(st0.totalMin / 100) };
+    const streak0 = st0.streak;
+    const done = completeSession(minutes, full, leavesRef.current);
+    beforeRef.current.streakUp = getState().streak > streak0;
+    logEvent("focus_complete", { minutes, full });
+    setSession(null);
+    setPayload(done);
+    setScreen("complete");
+  };
+  /** back on Home after a reward: let the island and the numbers react */
+  const arriveHome = () => {
+    const b = beforeRef.current;
+    if (b?.streakUp) {
+      const n = getState().streak;
+      window.setTimeout(() => sfx.streak([7, 14, 30, 100].includes(n)), 1100);
+    }
+    setArrival(b);
+    beforeRef.current = null;
+    window.setTimeout(() => { world.celebrate(); petCheer(); }, 280);
+    window.setTimeout(() => setArrival(null), 4200);
+  };
 
   const startSession = () => {
     audio();
@@ -308,6 +384,12 @@ export default function App() {
     setSession({ durMin: chosenMin, remainMs: remainRef.current, paused: false });
   };
   const togglePause = () => {
+    const was = sessionRef.current;
+    if (was) {
+      /* pause: the island quiets and the companion asks mmrp? — resume is one note */
+      ambientDuck(!was.paused);
+      if (!was.paused) sfx.petMrrp(getState().pet); else sfx.signature(1);
+    }
     setSession(s => {
       if (!s) return s;
       const paused = !s.paused;
@@ -320,22 +402,17 @@ export default function App() {
     if (!s) return;
     const focusedMin = Math.floor((s.durMin * 60000 - remainRef.current) / 60000);
     if (focusedMin >= 1) {
-      void askFeedback(`Leave your focus session? You'll keep ✦ ${focusedMin} for the ${focusedMin} min you focused.`,
-        "End session", "Keep focusing").then(okd => {
+      void askFeedback(`Wrap up now and you'll keep ✦ ${focusedMin} for the ${focusedMin} min you focused.`,
+        "End session", "Keep focusing", { title: "Stay a little longer?", stay: true }).then(okd => {
           if (!okd || !sessionRef.current) return;
-          shieldDown();
-          const done = completeSession(focusedMin, false, leavesRef.current);
-          logEvent("focus_complete", { minutes: focusedMin, full: false });
-          setSession(null);
-          setPayload(done);
-          setScreen("complete");
-          confettiBurst();
+          finishSession(focusedMin, false);
         });
     } else {
-      void askFeedback("Leave your focus session? These first moments won't be counted.",
-        "Leave", "Keep focusing").then(okd => {
+      void askFeedback("Leave now and this session won't count toward your island.",
+        "Leave session", "Keep focusing", { title: "Leave already?", stay: true }).then(okd => {
           if (!okd || !sessionRef.current) return;
           shieldDown();
+          ambientDuck(false);
           setSession(null);
           toast("No worries — your island will wait for you.");
           setScreen("home");
@@ -367,38 +444,45 @@ export default function App() {
   const placeGift = () => {
     const item = payload?.item;
     if (!item) return;
-    startPlacing(item.id);
+    arriveHome();
+    startPlacing(item.id, true);
+    showReveal(item.name, "Tap where it should go");
   };
   const buildGiftBridge = () => {
     mutate(st => { st.bridge = true; });
     world.revealIslet();
-    petCheer();
-    confettiBurst();
-    toast("New area discovered!", 3000);
+    arriveHome();
+    showReveal("Bridge to the Isle", "New area discovered");
     setScreen("home");
   };
   const raiseGiftLand = () => {
     const item = payload?.item;
     if (!item) return;
     grantLand(item.id);
-    petCheer();
-    confettiBurst();
-    toast("New land rises from the sea!", 3000);
+    arriveHome();
+    showReveal(item.name, "New land rises from the sea");
     setScreen("home");
   };
 
+  /* Every ordinary button gets a soft wooden tok, and picking something gets a
+     pluck; buttons with a sound of their own opt out with data-sfx="own". */
+  const clickSound = (e: React.MouseEvent) => {
+    const el = (e.target as HTMLElement).closest("button");
+    if (!el || el.disabled || el.dataset.sfx === "own") return;
+    if (el.matches(".sitem, .cat-chip, .chip, .pet-opt, .plan")) sfx.selectPluck(); else sfx.tapUI();
+  };
   const go = (s: Screen) => {
-    if (s !== screenRef.current) { if (s === "shop") shopWhoosh(); else uiTick(); }
+    if (s !== screenRef.current) sfx.tabPop();
     setScreen(s);
   };
   const navHidden = screen === "complete" || screen === "paywall" || (screen === "focus" && !!session);
 
   return (
-    <div id="phone">
+    <div id="phone" className={"on-" + screen} onClickCapture={clickSound}>
       {screen === "home" && (
         <Home chosenMin={chosenMin} onFocus={() => setScreen("focus")} arrange={arrange}
           sound={getState().sound} onToggleSound={toggleSound}
-          held={placing?.inline ? placing.item : null}
+          held={placing?.inline ? placing.item : null} arrival={arrival} reveal={reveal}
           onRotateHeld={() => setPlacing(p => (p ? { ...p, item: { ...p.item, rot: (p.item.rot + 1) % 4 } } : p))}
           onCancelHeld={putBack}
           onToggleArrange={() => {
@@ -410,7 +494,7 @@ export default function App() {
           }} />
       )}
       {screen === "focus" && (
-        <Focus session={session} chosenMin={chosenMin} demo={demo} shield={shield}
+        <Focus session={session} chosenMin={chosenMin} demo={demo} shield={shield} leaving={!!dialog?.stay}
           caps={caps} onPickApps={pickApps}
           onPickMin={setChosenMin} onToggleDemo={() => { setDemo(d => !d); toast(demo ? "Demo speed off" : "Demo speed ×60 — a minute passes each second"); }}
           onStart={startSession} onPause={togglePause} onEnd={endEarly} onBack={() => setScreen("home")} />
@@ -423,7 +507,7 @@ export default function App() {
             if (item && item.special === "land") grantLand(item.id, false); /* still theirs, just quietly */
             else if (item && item.special !== "bridge" && !getState().inventory.includes(item.id))
               mutate(st => { st.inventory.push(item.id); });
-            petCheer();
+            arriveHome();
             setScreen("home");
           }} />
       )}
@@ -432,18 +516,24 @@ export default function App() {
           onPlaceInventory={startPlacing}
           onMove={startMove} />
       )}
-      {screen === "profile" && <Profile onPaywall={() => setScreen("paywall")} onHome={() => setScreen("home")} />}
+      {screen === "profile" && <Profile onPaywall={() => setScreen("paywall")} onHome={() => setScreen("home")} onToggleSound={toggleSound} />}
       {screen === "paywall" && <Paywall onClose={() => setScreen("shop")} />}
 
       <Nav screen={screen} onGo={go} hidden={navHidden} />
+      {splash && <Splash pet={getState().pet} onLand={sfx.splashSignature} onDive={() => world.introDolly()} onDone={() => setSplash(false)} />}
 
       {dialog && (
-        <div id="dlg" className="show" role="alertdialog">
+        <div id="dlg" className={"show" + (dialog.stay ? " stay" : "")} role="alertdialog">
           <div className="box">
+            {dialog.title && <h3 id="dlg-title">{dialog.title}</h3>}
             <p id="dlg-msg">{dialog.msg}</p>
-            <div className="row">
-              <button className="btn ok" id="dlg-ok" onClick={() => { dialog.resolve(true); setDialog(null); }}>{dialog.ok}</button>
-              <button className="btn btn-ghost" id="dlg-cancel" onClick={() => { dialog.resolve(false); setDialog(null); }}>{dialog.cancel}</button>
+            {/* when staying is what we hope for, staying is the filled button
+                on top and leaving drops to a quiet line under it */}
+            <div className={"row" + (dialog.stay ? " stay" : "")}>
+              <button className={"btn " + (dialog.stay ? "btn-ghost leave" : "ok")} id="dlg-ok" data-sfx="own"
+                onClick={() => { sfx.modalClose(); dialog.resolve(true); setDialog(null); }}>{dialog.ok}</button>
+              <button className={"btn " + (dialog.stay ? "ok" : "btn-ghost")} id="dlg-cancel" data-sfx="own"
+                onClick={() => { sfx.modalClose(); dialog.resolve(false); setDialog(null); }}>{dialog.cancel}</button>
             </div>
           </div>
         </div>

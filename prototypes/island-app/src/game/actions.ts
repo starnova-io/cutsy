@@ -1,8 +1,7 @@
 import { byId } from "./catalog";
 import { getState, mutate } from "./store";
 import { dayStamp } from "./weather";
-import { chime, plink } from "./audio";
-import { placeSound } from "./ambience";
+import * as sfx from "./sfx";
 import { newlyUnlocked } from "./economy";
 import { world } from "../world/world3d";
 import type { CompletePayload, PlacedItem } from "./types";
@@ -23,7 +22,7 @@ export function completeSession(minutes: number, full: boolean, leaves = 0): Com
       s.daysActive = Math.min(7, s.daysActive + 1);
     }
   });
-  chime();
+  /* no sound here: the reward screen plays the signature after a beat */
   return { minutes, full, item: newlyUnlocked(getState(), prevTotal), leaves };
 }
 
@@ -33,7 +32,7 @@ export function buildBridge(): boolean {
   const a = byId("bridge");
   if (s.bridge || s.energy < a.price) return false;
   mutate(st => { st.energy -= a.price; st.bridge = true; });
-  plink(); chime();
+  sfx.unlock("land", "bridge");
   world.revealIslet();
   return true;
 }
@@ -44,7 +43,7 @@ export function buyLand(id: string): boolean {
   const a = byId(id);
   if (a.special !== "land" || s.lands.includes(id) || s.energy < a.price) return false;
   mutate(st => { st.energy -= a.price; st.lands.push(id); });
-  plink(); chime();
+  sfx.unlock("land", id);
   world.revealLand(id);
   return true;
 }
@@ -53,7 +52,7 @@ export function buyLand(id: string): boolean {
 export function grantLand(id: string, cinematic = true): void {
   if (getState().lands.includes(id)) return;
   mutate(st => { st.lands.push(id); });
-  if (cinematic) { chime(); world.revealLand(id); }
+  if (cinematic) { sfx.unlock("land", id); world.revealLand(id); }
 }
 
 /** Buy a normal item and drop it at the given spot. */
@@ -65,15 +64,14 @@ export function buyAndPlace(id: string, spot: PlacedItem): boolean {
     st.energy -= a.price;
     st.placed.push({ ...spot });
   });
-  plink();
-  placeSound(a);
+  sfx.drop(a.cat);
   return true;
 }
 
 /** A milestone gift or inventory item placed via the placement screen. */
 export function commitPlacement(placing: PlacedItem): void {
   mutate(s => { s.placed.push({ ...placing }); });
-  placeSound(byId(placing.id));
+  sfx.drop(byId(placing.id).cat);
 }
 
 export function pickUpPlaced(idx: number): PlacedItem | null {

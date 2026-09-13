@@ -6,10 +6,25 @@ function leaf(px: number, py: number, ang: number, len: number, col: string): st
     <path d="M0,0 Q1.5,-${len*.4} 0,-${len} Q -${len*.42},-${len*.62} 0,0" fill="${col}" opacity=".75"/>
     <line x1="0" y1="0" x2="0" y2="-${len*.85}" stroke="#4E6E41" stroke-width="1.1"/></g>`;
 }
+/* Focus-state faces shared by both companions: drowsy is the yawn as a
+   session starts (and the stretch every few minutes), worried is the look
+   you get when you reach for "End session". */
+const DROWSY_EYES = `<path d="M-8.4,-30.4 q2.1,1.3 4.2,0 M4.2,-30.4 q2.1,1.3 4.2,0" stroke="#33261F" stroke-width="1.9" fill="none" stroke-linecap="round"/>`;
+const YAWN = `<ellipse class="yawn" cx="0" cy="-25.2" rx="2.3" ry="2.9" fill="#8C4A3A"/>`;
+const WORRIED_BROWS = `<path d="M-9,-36.6 l4.4,-1.6 M9,-36.6 l-4.4,-1.6" stroke="#A06A3A" stroke-width="1.4" stroke-linecap="round"/>`;
+const ZZ = `<text class="zz" x="8" y="-26" font-size="11">z</text>
+      <text class="zz zz2" x="15" y="-32" font-size="9">z</text>`;
+const bodyClass = (mode: string): string =>
+  mode === "happy" ? "cat-happy" : mode === "drowsy" ? "cat-breathe cat-stretch" : "cat-breathe";
+
 export function catSVG(mode: string): string {
   /* Mochi — chibi orange cat. local coords, feet at (0,0). modes: idle | sleep | happy */
   const B = "#F5A15C", D = "#DE8038", C = "#FDECD4", INNER = "#F6C2AC", BLUSH = "#F2A98C";
-  if (mode === "sleep") {
+  if (mode === "sleep" || mode === "peek") {
+    /* peek: still curled up, one eye opened to see why the clock stopped */
+    const eyesC = mode === "peek"
+      ? `<path d="M-12,-11.6 q1.8,1.7 3.6,0" stroke="#A06A3A" stroke-width="1.5" fill="none" stroke-linecap="round"/><ellipse class="cat-blink" cx="-3.2" cy="-12" rx="1.5" ry="1.9" fill="#33261F"/>`
+      : `<path d="M-12,-11.6 q1.8,1.7 3.6,0 M-5,-12 q1.8,1.7 3.6,0" stroke="#A06A3A" stroke-width="1.5" fill="none" stroke-linecap="round"/>`;
     return `<g class="cat-breathe">
       <ellipse cx="0" cy="-9" rx="15.5" ry="9.8" fill="${B}"/>
       <path d="M-1,-17.6 q2.2,2.4 5.2,2.2 M5,-15.8 q2,2 4.6,1.6" stroke="${D}" stroke-width="2" fill="none" stroke-linecap="round"/>
@@ -17,21 +32,23 @@ export function catSVG(mode: string): string {
       <ellipse cx="-7" cy="-12.5" rx="9.5" ry="8.8" fill="${B}"/>
       <path d="M-12.5,-18.5 C-14.8,-25 -10.5,-27.5 -6.5,-22.8 C-6,-20.8 -7,-19 -8,-18.2 Z" fill="${B}"/>
       <path d="M-11.6,-19.4 C-12.8,-23.4 -10.4,-24.9 -8.2,-22 Z" fill="${INNER}"/>
-      <path d="M-12,-11.6 q1.8,1.7 3.6,0 M-5,-12 q1.8,1.7 3.6,0" stroke="#A06A3A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      ${eyesC}
       <ellipse cx="-13.2" cy="-8.6" rx="1.9" ry="1.2" fill="${BLUSH}" opacity=".6"/>
       </g>
-      <text class="zz" x="8" y="-26" font-size="11">z</text>
-      <text class="zz zz2" x="15" y="-32" font-size="9">z</text>`;
+      ${mode === "peek" ? "" : ZZ}`;
   }
   const eyes = mode === "happy"
     ? `<path d="M-8.3,-31 q2.1,-2.8 4.2,0 M4.1,-31 q2.1,-2.8 4.2,0" stroke="#33261F" stroke-width="1.9" fill="none" stroke-linecap="round"/>`
+    : mode === "drowsy" ? DROWSY_EYES
     : `<g class="cat-blink">
         <ellipse cx="-6.2" cy="-31" rx="2.1" ry="2.8" fill="#33261F"/><ellipse cx="6.2" cy="-31" rx="2.1" ry="2.8" fill="#33261F"/>
-        <circle cx="-5.5" cy="-32" r=".9" fill="#FFF"/><circle cx="6.9" cy="-32" r=".9" fill="#FFF"/></g>`;
+        <circle cx="-5.5" cy="-32" r=".9" fill="#FFF"/><circle cx="6.9" cy="-32" r=".9" fill="#FFF"/></g>${mode === "worried" ? WORRIED_BROWS : ""}`;
   const mouth = mode === "happy"
     ? `<path d="M-2.6,-27.2 Q0,-24 2.6,-27.2 Z" fill="#B4633C"/>`
+    : mode === "drowsy" ? YAWN
+    : mode === "worried" ? `<path d="M-2.2,-24.6 q2.2,-1.8 4.4,0" stroke="#C08A5A" stroke-width="1.2" fill="none" stroke-linecap="round"/>`
     : `<path d="M0,-26.9 q-1.6,1.9 -3.8,1 M0,-26.9 q1.6,1.9 3.8,1" stroke="#C08A5A" stroke-width="1.15" fill="none" stroke-linecap="round"/>`;
-  return `<g class="${mode === "happy" ? "cat-happy" : "cat-breathe"}">
+  return `<g class="${bodyClass(mode)}">
     <g class="cat-tail"><path d="M10,-7 C20,-5 25,-15 19,-26" stroke="${D}" stroke-width="6" fill="none" stroke-linecap="round"/></g>
     <path d="M-11,-1.6 C-12.5,-12 -6,-18 0,-18 C6,-18 12.5,-12 11,-1.6 Q0,2.6 -11,-1.6 Z" fill="${B}"/>
     <ellipse cx="0" cy="-6.2" rx="6.5" ry="5.4" fill="${C}"/>
@@ -55,7 +72,7 @@ export function catSVG(mode: string): string {
 export function dogSVG(mode: string): string {
   /* Miso — chibi shiba pup. local coords, feet at (0,0). modes: idle | sleep | happy */
   const B = "#DFA05F", D = "#C08046", C = "#FBF0DC", INNER = "#EFC9A4", BLUSH = "#F0A98F";
-  if (mode === "sleep") {
+  if (mode === "sleep" || mode === "peek") {
     return `<g class="cat-breathe">
       <ellipse cx="0" cy="-9" rx="15.5" ry="9.8" fill="${B}"/>
       <path d="M9.5,-14 C15,-16.5 15.5,-21.5 11,-21.5 C8,-21.5 7.5,-17.5 10.5,-16.5" stroke="${D}" stroke-width="4.2" fill="none" stroke-linecap="round"/>
@@ -63,22 +80,26 @@ export function dogSVG(mode: string): string {
       <path d="M-13,-18.6 C-16,-23 -13,-27 -8.8,-24.2 C-8,-22 -9,-19.8 -10,-18.8 Z" fill="${D}"/>
       <ellipse cx="-10" cy="-10.5" rx="4.6" ry="3.4" fill="${C}"/>
       <ellipse cx="-13.4" cy="-11.6" rx="1.6" ry="1.3" fill="#33261F"/>
-      <path d="M-7.6,-14.6 q1.8,1.6 3.6,0" stroke="#A06A3A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      ${mode === "peek"
+        ? `<ellipse class="cat-blink" cx="-5.8" cy="-15" rx="1.5" ry="1.9" fill="#33261F"/>`
+        : `<path d="M-7.6,-14.6 q1.8,1.6 3.6,0" stroke="#A06A3A" stroke-width="1.5" fill="none" stroke-linecap="round"/>`}
       <ellipse cx="-4.6" cy="-10" rx="1.9" ry="1.2" fill="${BLUSH}" opacity=".6"/>
       </g>
-      <text class="zz" x="8" y="-26" font-size="11">z</text>
-      <text class="zz zz2" x="15" y="-32" font-size="9">z</text>`;
+      ${mode === "peek" ? "" : ZZ}`;
   }
   const eyes = mode === "happy"
     ? `<path d="M-8.3,-31 q2.1,-2.8 4.2,0 M4.1,-31 q2.1,-2.8 4.2,0" stroke="#33261F" stroke-width="1.9" fill="none" stroke-linecap="round"/>`
+    : mode === "drowsy" ? DROWSY_EYES
     : `<g class="cat-blink">
         <ellipse cx="-6.2" cy="-31" rx="2.1" ry="2.8" fill="#33261F"/><ellipse cx="6.2" cy="-31" rx="2.1" ry="2.8" fill="#33261F"/>
-        <circle cx="-5.5" cy="-32" r=".9" fill="#FFF"/><circle cx="6.9" cy="-32" r=".9" fill="#FFF"/></g>`;
+        <circle cx="-5.5" cy="-32" r=".9" fill="#FFF"/><circle cx="6.9" cy="-32" r=".9" fill="#FFF"/></g>${mode === "worried" ? WORRIED_BROWS : ""}`;
   const mouth = mode === "happy"
     ? `<path d="M-2.6,-27 Q0,-23.8 2.6,-27 Z" fill="#B4633C"/>
        <rect x="-1.6" y="-26.2" width="3.2" height="4.4" rx="1.6" fill="#F09D95"/>`
+    : mode === "drowsy" ? YAWN
+    : mode === "worried" ? `<path d="M-2.2,-24.4 q2.2,-1.8 4.4,0" stroke="#B07A48" stroke-width="1.2" fill="none" stroke-linecap="round"/>`
     : `<path d="M0,-27.2 q-1.6,1.9 -3.8,1 M0,-27.2 q1.6,1.9 3.8,1" stroke="#B07A48" stroke-width="1.15" fill="none" stroke-linecap="round"/>`;
-  return `<g class="${mode === "happy" ? "cat-happy" : "cat-breathe"}">
+  return `<g class="${bodyClass(mode)}">
     <g class="cat-tail"><path d="M10.5,-9.5 C17,-10.5 19.5,-17.5 14.5,-19.8 C11,-21.3 8.5,-17 11.5,-15.2" stroke="${D}" stroke-width="4.4" fill="none" stroke-linecap="round"/></g>
     <path d="M-11,-1.6 C-12.5,-12 -6,-18 0,-18 C6,-18 12.5,-12 11,-1.6 Q0,2.6 -11,-1.6 Z" fill="${B}"/>
     <ellipse cx="0" cy="-6.2" rx="6.5" ry="5.4" fill="${C}"/>
@@ -103,6 +124,7 @@ export function dogSVG(mode: string): string {
     </g>`;
 }
 export function focusSceneSVG(kind: string, mode: string): string {
+  const curled = mode === "sleep" || mode === "peek";
   /* The companion is the whole point of this screen, so it gets the frame:
      roughly half the height, centred, with the lamp and the plant staged
      around it. It used to sit at a third of that, marooned in empty space. */
@@ -114,17 +136,20 @@ export function focusSceneSVG(kind: string, mode: string): string {
     <ellipse cx="150" cy="135" rx="118" ry="25" fill="#463A4A"/>
     <ellipse cx="150" cy="131" rx="104" ry="20" fill="#534459"/>
     <!-- potted plant, right -->
-    <g transform="translate(243,126) scale(1.25)">${leaf(0, 0, -16, 21, "#5F7A50")}${leaf(0, 0, 18, 24, "#526B45")}${leaf(0, 0, -48, 17, "#5F7A50")}
-      <path d="M-9,0 h18 l-2.8,14 h-12.4 Z" fill="#8A5A38"/></g>
+    <g transform="translate(243,126) scale(1.25)"><g class="plant-sway">${leaf(0, 0, -16, 21, "#5F7A50")}${leaf(0, 0, 18, 24, "#526B45")}${leaf(0, 0, -48, 17, "#5F7A50")}
+      </g><path d="M-9,0 h18 l-2.8,14 h-12.4 Z" fill="#8A5A38"/></g>
     <!-- the lamp: the only warm light in the room -->
-    <ellipse class="glow-pulse" cx="58" cy="64" rx="52" ry="42" fill="url(#lampGlow)"/>
+    <g class="lamp-glow"><ellipse class="glow-pulse" cx="58" cy="64" rx="52" ry="42" fill="url(#lampGlow)"/></g>
     <rect x="55.5" y="64" width="4" height="66" fill="#6B5638"/>
-    <path d="M40,66 L46.5,44 L71,44 L77.5,66 Z" fill="#E8CFA4"/>
+    <path class="lamp-shade" d="M40,66 L46.5,44 L71,44 L77.5,66 Z" fill="#E8CFA4"/>
     <ellipse cx="57.5" cy="132" rx="17" ry="5.5" fill="#3A3040"/>
     <!-- the curled sleeping poses are half the height of the sitting ones,
          so they get their own scale rather than shrinking into the frame -->
     <!-- two fireflies, so the room is never completely still -->
-    <circle class="ff" cx="104" cy="52" r="2.2" fill="#FFE9A8"/>
-    <circle class="ff ff2" cx="212" cy="72" r="1.8" fill="#FFE9A8"/>
-    <g transform="translate(${mode === "sleep" ? 144 : 150},${mode === "sleep" ? 126 : 130}) scale(${mode === "sleep" ? 2.2 : 1.62})">${kind === "dog" ? dogSVG(mode) : catSVG(mode)}</g>`;
+    <g class="ffs">
+      <g class="ff-drift"><circle class="ff" cx="104" cy="52" r="2.2" fill="#FFE9A8"/></g>
+      <g class="ff-drift ffd2"><circle class="ff ff2" cx="212" cy="72" r="1.8" fill="#FFE9A8"/></g>
+      <g class="ff-drift ffd3"><circle class="ff ff3" cx="170" cy="34" r="1.5" fill="#FFE9A8"/></g>
+    </g>
+    <g transform="translate(${curled ? 144 : 150},${curled ? 126 : 130}) scale(${curled ? 2.2 : 1.62})">${kind === "dog" ? dogSVG(mode) : catSVG(mode)}</g>`;
 }

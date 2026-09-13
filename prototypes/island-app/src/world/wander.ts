@@ -191,7 +191,18 @@ export function initPetPosition(): void {
   if (bed) { petView.x = bed.x; petView.y = bed.y; petView.napping = true; }
 }
 
-setInterval(() => { if (Math.random() < .65) petStroll(); }, 6000);
+/* The companion's idle life: one small thing every 5–15s, never several at
+   once — a stroll most often, sometimes a look up at you or a quick scratch. */
+function idleBeat(): void {
+  const r = Math.random();
+  const free = !petBusy && !petView.path && petView.mode === "idle" && !petView.napping
+    && ctx.worldVisible() && !ctx.blocked();
+  if (r < .55) petStroll();
+  else if (free && r < .78) { petView.mode = "look"; petView.modeT = 2.4; }
+  else if (free && r < .9) { petView.mode = "scratch"; petView.modeT = 1.3; }
+  setTimeout(idleBeat, 5000 + Math.random() * 10000);
+}
+setTimeout(idleBeat, 4000);
 
 /* test hooks */
 (window as any).petStroll = petStroll;

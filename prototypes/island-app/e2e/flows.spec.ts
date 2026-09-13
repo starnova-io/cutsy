@@ -92,6 +92,7 @@ test("focus: a session can be started, paused and ended", async ({ page }) => {
 test("the sound mixer writes every fader and survives a reload", async ({ page }) => {
   await open(page, "#profile", { sound: true });   /* the card is inert with sound off */
   await page.locator("#mix-vol").fill("30");
+  await page.click("#mix-more");                   /* the per-layer faders are tucked away */
   await page.locator(".mix-row", { hasText: "Companion" }).locator("input").fill("0");
   await page.waitForTimeout(200);
   let s = await save(page);
@@ -99,10 +100,11 @@ test("the sound mixer writes every fader and survives a reload", async ({ page }
   expect(s.mix.pet).toBe(0);
   await page.reload();
   await page.waitForSelector("#screen-profile");
+  await page.click("#mix-more");
   await expect(page.locator(".mix-row", { hasText: "Companion" }).locator(".mix-num")).toHaveText("off");
   await page.click("#mix-reset");
   s = await save(page);
-  expect(s.mix.pet).toBe(1);
+  expect(s.mix.pet).toBeCloseTo(.03, 2);        /* back to the quiet defaults */
   expect(s.mix.vol).toBeCloseTo(.5, 2);
 });
 

@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { byId, CATALOG, PETS } from "../game/catalog";
-import { mutate, resetState, useGame } from "../game/store";
-import { applyMix } from "../game/ambience";
+import { DEFAULT_MIX, mutate, resetState, useGame } from "../game/store";
+import { applyMix, SCAPES } from "../game/ambience";
+import * as sfx from "../game/sfx";
 import { ask, toast } from "../ui/feedback";
 import { catSVG, dogSVG } from "../ui/mascots";
 import type { MixKey, PetKind } from "../game/types";
@@ -25,8 +27,9 @@ const MIX_LAYERS: [MixKey, string, string][] = [
   ["pet", "Companion", "paws on the ground"],
 ];
 
-export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
+export function Profile(props: { onPaywall: () => void; onHome: () => void; onToggleSound: () => void }) {
   const s = useGame();
+  const [mixOpen, setMixOpen] = useState(false);
   const lvl = 1 + Math.floor(s.totalMin / 100);
   const counts: Record<string, number> = {};
   for (const p of s.placed) counts[byId(p.id).cat] = (counts[byId(p.id).cat] ?? 0) + 1;
@@ -45,22 +48,30 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
   return (
     <section className="screen active" id="screen-profile">
       <header className="sheet-head">
-        <h1>Your world</h1>
-        <span className="pill">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E8913C" /><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#F2C14E" /></svg>
-          <span id="streak-pill-2">{s.streak} day streak</span>
-        </span>
+        <h1>You</h1>
       </header>
       <div className="scroll">
+        {/* who you are here: you, your companion, and how far the two of you
+            have come — the settings live further down */}
         <div className="card" id="profile">
-          <h2>Your progress</h2>
-          <div id="level-row">
-            <span id="level-lbl">Level {lvl}</span>
-            <div id="level-track"><div id="level-fill" style={{ width: (s.totalMin % 100) + "%" }} /></div>
+          <div id="you-hero">
+            <svg id="you-pet" viewBox="-27 -56 54 62" aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: s.pet === "dog" ? dogSVG("happy") : catSVG("happy") }} />
+            <div id="you-hero-body">
+              <div id="you-name">{PETS[s.pet].name} &amp; you</div>
+              <div id="level-row">
+                <span id="level-lbl">Level {lvl}</span>
+                <div id="level-track"><div id="level-fill" style={{ width: (s.totalMin % 100) + "%" }} /></div>
+              </div>
+              <div id="level-next">{100 - (s.totalMin % 100)} min of focus until Level {lvl + 1}</div>
+            </div>
           </div>
-          <div id="level-next">{100 - (s.totalMin % 100)} min of focus until Level {lvl + 1}</div>
-          <div id="week-line">This week · {s.weekMin} min focused · {s.sessions} sessions · {s.daysActive} days</div>
-          <div id="alltime-line"><span className="spark">✦</span> <b id="pts-all">{s.totalMin}</b> earned all-time</div>
+          <div id="you-stats">
+            <div className="stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2.5 3.5 6 5.6 6 9.5A6 6 0 0 1 6 12.5C6 8.6 9.5 6.5 12 3Z" fill="#E8913C" /><path d="M12 11c1.2 1.7 2.5 2.7 2.5 4.4a2.5 2.5 0 0 1-5 0c0-1.7 1.3-2.7 2.5-4.4Z" fill="#F2C14E" /></svg><b id="streak-pill-2">{s.streak}</b><span>day streak</span></div>
+            <div className="stat"><svg className="stat-ic" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13.4" r="7.1" /><path d="M12 13.4v-3.5" /><path d="M9.9 2.8h4.2" /><path d="M12 2.8v2.5" /></svg><b>{s.totalMin}</b><span>min focused</span></div>
+            <div className="stat"><span className="spark" aria-hidden="true">✦</span><b id="pts-all">{s.energy}</b><span>Sparks</span></div>
+          </div>
+          <div id="week-line">This week · {s.weekMin} min · {s.sessions} sessions · {s.daysActive} days</div>
         </div>
         <div className="card">
           <h2>Your journey</h2>
@@ -81,8 +92,8 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
                       : isNext
                         ? <span className="j-sub">{m.unlock > s.totalMin
                             ? `${m.unlock - s.totalMin} min of focus to go · ${pct}%`
-                            : m.id === "bridge" ? "Unlocked — build it from the Shop"
-                            : "Unlocked — raise it from the Shop"}</span>
+                            : m.id === "bridge" ? "Unlocked — build it in Decorate"
+                            : "Unlocked — raise it in Decorate"}</span>
                         : <span className="j-sub">{m.unlock} min of focus</span>}
                   </div>
                 </div>
@@ -114,19 +125,22 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
           </div>
           <div id="pet-desc">{PETS[s.pet].line}</div>
         </div>
+        <div className="section-lbl">Settings</div>
         <div className="card" id="mix-card">
-          <h2 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            Island sounds
-            <button className="mix-reset" id="mix-reset"
-              onClick={() => {
-                mutate(st => { st.mix = { vol: .5, sea: 1, wind: 1, rain: 1, fire: 1, wild: 1, pet: 1 }; });
-                applyMix();
-                toast("Sounds back to how they started");
-              }}>Reset</button>
-          </h2>
+          <h2>Sound</h2>
+          {/* three plain choices up front; the per-layer mixer is there for
+              whoever goes looking */}
+          <button className={"set-row" + (s.sfx ? " on" : "")} id="set-sfx" data-sfx="own"
+            onClick={() => { const on = !s.sfx; mutate(st => { st.sfx = on; }); if (on) sfx.toggleOn(); }}>
+            <span className="set-txt"><b>Sound effects</b><em>taps, pieces, rewards</em></span><span className="sw" aria-hidden="true" />
+          </button>
+          <button className={"set-row" + (s.sound ? " on" : "")} id="set-ambience" data-sfx="own"
+            onClick={props.onToggleSound}>
+            <span className="set-txt"><b>Island ambience</b><em>sea, wind, weather, wildlife</em></span><span className="sw" aria-hidden="true" />
+          </button>
           <div id="mix-vol-row">
-            <span className="mix-vol-lbl">Volume</span>
-            <input type="range" id="mix-vol" min="0" max="100" step="5"
+            <span className="mix-vol-lbl">Quiet</span>
+            <input type="range" id="mix-vol" min="0" max="100" step="1"
               value={Math.round((s.mix?.vol ?? .5) * 100)} disabled={!s.sound}
               aria-label="Island sound volume"
               onChange={e => {
@@ -134,17 +148,26 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
                 mutate(st => { st.mix.vol = v; });
                 applyMix();
               }} />
-            <span className="mix-vol-num">{Math.round((s.mix?.vol ?? .5) * 100)}</span>
+            <span className="mix-vol-lbl">Immersive</span>
           </div>
-          {!s.sound && <div className="mix-off-note">Sounds are off — turn them on from your island.</div>}
-          <div id="mix-rows">
+          <div className="set-sub">Focus soundscape</div>
+          <div id="scape-chips">
+            {SCAPES.map(x => (
+              <button key={x.id} data-scape={x.id} data-sfx="own" className={"scape-chip" + (s.scape === x.id ? " on" : "")}
+                onClick={() => { sfx.selectPluck(); mutate(st => { st.scape = x.id; }); }}>{x.name}</button>
+            ))}
+          </div>
+          <button className="mix-more" id="mix-more" aria-expanded={mixOpen} onClick={() => setMixOpen(o => !o)}>
+            Advanced sound mix <span className={"chev" + (mixOpen ? " open" : "")} aria-hidden="true">›</span>
+          </button>
+          {mixOpen && <div id="mix-rows">
             {MIX_LAYERS.map(([key, label, note]) => {
               const lvl = s.mix?.[key] ?? 1;
               const pct = Math.round(lvl * 100);
               return (
                 <div key={key} className={"mix-row" + (lvl > 0 && s.sound ? " on" : "")}>
                   <span className="mix-lbl">{label}<em>{note}</em></span>
-                  <input type="range" className="mix-fader" min="0" max="100" step="5"
+                  <input type="range" className="mix-fader" min="0" max="100" step="1"
                     value={pct} disabled={!s.sound} aria-label={label + " volume"}
                     onChange={e => {
                       const v = Number(e.target.value) / 100;
@@ -155,7 +178,13 @@ export function Profile(props: { onPaywall: () => void; onHome: () => void }) {
                 </div>
               );
             })}
-          </div>
+            <button className="mix-reset" id="mix-reset"
+              onClick={() => {
+                mutate(st => { st.mix = DEFAULT_MIX(); });
+                applyMix();
+                toast("Sounds back to how they started");
+              }}>Reset to default</button>
+          </div>}
         </div>
         <div className="card" id="prem-card">
           {s.premium ? (

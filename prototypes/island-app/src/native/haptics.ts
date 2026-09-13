@@ -19,3 +19,21 @@ export function tickHaptic(): void {
   lastTick = now;
   void Haptics.impact({ style: ImpactStyle.Light }).catch(() => undefined);
 }
+
+/** a soft landing — a piece was set down */
+export function dropHaptic(): void {
+  if (!native()) return;
+  void Haptics.impact({ style: ImpactStyle.Medium }).catch(() => undefined);
+}
+
+/** barely there — a toggle, a start, a quiet celebration */
+export function softHaptic(): void {
+  if (!native()) return;
+  void Haptics.impact({ style: ImpactStyle.Light }).catch(() => undefined);
+}
+
+/** a firmer bump — a piece was just lifted off the island */
+export function liftHaptic(): void {
+  if (!native()) return;
+  void Haptics.impact({ style: ImpactStyle.Light }).catch(() => undefined);
+}

@@ -23,13 +23,16 @@ function seedState(): GameState {
     ],
     inventory: [], cat: { x: 6, y: 5 }, pet: "cat", premium: false,
     guard: { dnd: true, block: false }, lands: [], sound: true, radio: false,
-    mix: DEFAULT_MIX(),
+    mix: DEFAULT_MIX(), sfx: true, scape: "live",
   };
 }
 
-/** .5 is where the master already sat, so an existing island sounds the same */
-const DEFAULT_MIX = (): MixPrefs =>
-  ({ vol: .5, sea: 1, wind: 1, rain: 1, fire: 1, wild: 1, pet: 1 });
+/** .5 is where the master already sat. The layers used to start at 100 each,
+    which read as "everything maxed"; these read like a mix someone set, and
+    ambience.ts scales them so they sound the way 100s used to (a calmer sea).
+    a function, so nobody can mutate the defaults through a shared object */
+export const DEFAULT_MIX = (): MixPrefs =>
+  ({ vol: .5, sea: .35, wind: .15, rain: .6, fire: .45, wild: .08, pet: .03 });
 
 /** set when load() had to put something right, so it gets written back out */
 let repaired = false;
@@ -61,6 +64,15 @@ function load(): GameState {
     else if (typeof v !== "number") (s.mix as unknown as Record<string, number>)[k] = 1;
   }
   if (typeof s.mix.vol !== "number") s.mix.vol = .5;
+  /* saves from before soundscapes (no `scape` yet) whose layers were never
+     touched still hold the old all-100 default — that meant "as it started",
+     so give them the new start. anything customized is left alone. */
+  if (s.scape === undefined && MIX_KEYS.every(k => s.mix[k] === 1)) {
+    const d = DEFAULT_MIX();
+    for (const k of MIX_KEYS) s.mix[k] = d[k];
+  }
+  if (s.sfx === undefined) s.sfx = true;
+  if (!s.scape) s.scape = "live";
   if (s.radio === undefined) s.radio = false;
   /* older saves had no deciduous tree, so autumn/spring had nothing to shed —
      gift an oak (leaves and petals come from the island's own trees now) */

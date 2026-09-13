@@ -5,8 +5,8 @@
    randomized timers. Storm days also flash the sky before the rumble. */
 import { audio } from "./audio";
 import { curPhase, curSeason, curWeather, isStorm } from "./weather";
-import { getState } from "./store";
-import { MIX_KEYS, type MixKey } from "./types";
+import { DEFAULT_MIX, getState } from "./store";
+import { MIX_KEYS, type MixKey, type ScapeId } from "./types";
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 
@@ -59,6 +59,12 @@ function noiseBufs(ctx: AudioContext): void {
   whiteBuf = mk(w); pinkBuf = mk(p); brownBuf = mk(br);
 }
 
+/** a noise buffer for one-shot foley elsewhere (sfx.ts), built on first ask */
+export function noiseBuffer(ctx: AudioContext, kind: "white" | "pink" | "brown"): AudioBuffer {
+  noiseBufs(ctx);
+  return (kind === "pink" ? pinkBuf : kind === "brown" ? brownBuf : whiteBuf)!;
+}
+
 const noiseSrc = (ctx: AudioContext, buf: AudioBuffer): AudioBufferSourceNode => {
   const s = ctx.createBufferSource();
   s.buffer = buf; s.loop = true;
@@ -77,11 +83,19 @@ const pan = (ctx: AudioContext, v: number): AudioNode | null => {
 interface Bed { g: GainNode }
 interface Beds {
   waves: Bed; foam: Bed; wind: Bed; whistle: Bed;
-  rain: Bed; patter: Bed; crickets: Bed; fire: Bed;
+  rain: Bed; patter: Bed; crickets: Bed; fire: Bed; room: Bed;
   whistleFilt: BiquadFilterNode;
 }
 
 let master: GainNode | null = null;
+/* after the master: how close the camera is, then the pause duck — kept apart
+   so neither has to know what the other is doing to the same gain */
+let presG: GainNode | null = null;
+let duckG: GainNode | null = null;
+/* the sea and the hearth lean a little as the island turns */
+let seaPan: StereoPannerNode | null = null;
+let firePan: StereoPannerNode | null = null;
+let sfxG: GainNode | null = null;
 let groupG: Record<string, GainNode> | null = null;
 let beds: Beds | null = null;
 let running = false;
@@ -100,7 +114,9 @@ function buildBeds(ctx: AudioContext): void {
   noiseBufs(ctx);
   master = ctx.createGain();
   master.gain.value = 0;
-  master.connect(ctx.destination);
+  presG = ctx.createGain(); presG.gain.value = 1;
+  duckG = ctx.createGain(); duckG.gain.value = 1;
+  master.connect(presG); presG.connect(duckG); duckG.connect(ctx.destination);
   /* One gain per fader, between everything it owns and the master, so a layer
      can be turned down rather than only switched off — and so the one-shot
      voices ride the same fader as the bed they belong to. */
@@ -108,8 +124,10 @@ function buildBeds(ctx: AudioContext): void {
   for (const k of MIX_KEYS) {
     const g = ctx.createGain();
     g.gain.value = 1;
-    g.connect(master);
     gg[k] = g;
+    const sp = (k === "sea" || k === "fire") ? pan(ctx, 0) as StereoPannerNode | null : null;
+    if (sp) { g.connect(sp); sp.connect(master); if (k === "sea") seaPan = sp; else firePan = sp; }
+    else g.connect(master);
   }
   groupG = gg;
 
@@ -204,7 +222,16 @@ function buildBeds(ctx: AudioContext): void {
      — leaves falling, or worse — rather than as a hearth. What's left is the
      fire's warm underside, which sits below anything you'd notice. */
 
-  beds = { waves, foam, wind, whistle, rain: rainBed, patter, crickets, fire, whistleFilt: whF };
+  /* room tone for the Cozy Room scape: the warm, still low end of being
+     indoors — pink noise with the top taken off and the rumble trimmed */
+  const roomF = ctx.createBiquadFilter();
+  roomF.type = "lowpass"; roomF.frequency.value = 420; roomF.Q.value = .3;
+  const roomHp = ctx.createBiquadFilter();
+  roomHp.type = "highpass"; roomHp.frequency.value = 60;
+  noiseSrc(ctx, pinkBuf!).connect(roomF); roomF.connect(roomHp);
+  const room = bed(ctx, roomHp, gg["fire"]);
+
+  beds = { waves, foam, wind, whistle, rain: rainBed, patter, crickets, fire, room, whistleFilt: whF };
 }
 
 /* ---- one-shot voices ---- */
@@ -380,21 +407,93 @@ const voices: Record<string, Voice> = {
    default lands exactly where the master already sat. */
 const masterLevel = (): number => .9 * (getState().mix?.vol ?? .5);
 
+/* The faders used to start at 100, and 100 was the level everything was voiced
+   at. Now each starts lower (DEFAULT_MIX) and its default is what sounds like
+   the old 100: the curve passes through 1 at the default, reaches MIX_TOP at
+   100, and is even in dB between — which is how ears hear a fader anyway. The
+   last half of the way to off fades linearly, so off really is off. */
+const MIX_TOP = 2.5;
+const MIX_TRIM: Partial<Record<MixKey, number>> = { sea: .85 };   /* a calmer sea */
+/** what a fader position (0..1) means as a gain, for layer k */
+export function mixGain(k: MixKey, v: number): number {
+  if (!(v > 0)) return 0;
+  const d = DEFAULT_MIX()[k];
+  const e = Math.log(MIX_TOP) / Math.log(1 / d);
+  return Math.pow(v / d, e) * Math.min(1, v / (d * .5)) * (MIX_TRIM[k] ?? 1);
+}
+
+/** the bus the little UI and reward sounds ride: same volume slider as the
+    island, but not its fades, duck or zoom — a tap mustn't vanish because the
+    ambience is off or the session is paused */
+export function sfxBus(ctx: AudioContext): AudioNode {
+  if (!sfxG) {
+    sfxG = ctx.createGain();
+    sfxG.gain.value = masterLevel();
+    sfxG.connect(ctx.destination);
+  }
+  return sfxG;
+}
+
 /** the mix changed in Profile — apply it without waiting for the next tick */
 export function applyMix(): void {
   const ctx = audio();
   const m = getState().mix;
   if (ctx && master && running) master.gain.setTargetAtTime(masterLevel(), ctx.currentTime, .12);
+  if (ctx && sfxG) sfxG.gain.setTargetAtTime(masterLevel(), ctx.currentTime, .12);
   if (ctx && groupG && m) {
     for (const k of MIX_KEYS) {
-      try { groupG[k].gain.setTargetAtTime(m[k] ?? 1, ctx.currentTime, .12); } catch { /* noop */ }
+      try { groupG[k].gain.setTargetAtTime(mixGain(k, m[k] ?? 1), ctx.currentTime, .12); } catch { /* noop */ }
     }
   }
   evalContext();
 }
 
+/* ---- focus soundscapes ---- */
+
+/** the soundscapes a focus session can play, in the order a picker lists them */
+export const SCAPES: readonly { id: ScapeId; name: string; blurb: string }[] = [
+  { id: "live", name: "Live island", blurb: "whatever the weather is doing" },
+  { id: "island", name: "Quiet Island", blurb: "the sea and a little wind" },
+  { id: "rainy", name: "Rainy Cottage", blurb: "rain outside, a fire in" },
+  { id: "night", name: "Night Island", blurb: "crickets and a soft breeze" },
+  { id: "morning", name: "Ocean Morning", blurb: "waves and early birds" },
+  { id: "cozy", name: "Cozy Room", blurb: "the fire and a warm, still room" },
+];
+
+/* bed levels per preset, on the same 0..1 scale evalContext uses; any bed not
+   named is silent, and so is any voice not listed */
+const SCAPE_BEDS: Record<Exclude<ScapeId, "live">, Record<string, number>> = {
+  island: { waves: .5, foam: .3, wind: .22 },
+  rainy: { rain: .5, patter: .22, fire: .6, wind: .08 },
+  night: { crickets: .45, wind: .16, waves: .12 },   /* a far-off sea: it's still an island */
+  morning: { waves: .52, foam: .32, wind: .06 },
+  cozy: { fire: .7, room: .7 },
+};
+const SCAPE_VOICES: Record<Exclude<ScapeId, "live">, string[]> = {
+  island: ["chimes"],
+  rainy: ["drip"],
+  night: ["owl"],
+  morning: ["bird", "gull"],
+  cozy: [],
+};
+
+let scape: Exclude<ScapeId, "live"> | null = null;
+/* a preset change should crossfade in a breath, not drift in like weather */
+let fastFade = false;
+
+/** play a preset while a session runs; null or "live" hands back to the weather */
+export function setScape(id: ScapeId | null): void {
+  const next = !id || id === "live" ? null : id;
+  if (next === scape) return;
+  scape = next;
+  fastFade = true;
+  evalContext();
+}
+
 function evalContext(): void {
   if (!beds) return;
+  const fade = fastFade ? .5 : 1.8;           /* .5s time constant: ~1.5s to settle */
+  fastFade = false;
   const season = curSeason(), phase = curPhase();
   const rain = curWeather() === "rain" && season !== "winter";
   const snowy = curWeather() === "rain" && season === "winter";
@@ -420,7 +519,12 @@ function evalContext(): void {
       || ((night || phase === "dusk")
         && getState().placed.some(p => p.id === "lantern" || p.id === "house" || p.id === "cabin")))
       ? (season === "winter" ? .8 : .5) * (rain ? 1.25 : 1) : 0,
+    room: 0,
   };
+  if (scape) {
+    const P = SCAPE_BEDS[scape];
+    for (const k of Object.keys(T)) T[k] = P[k] ?? 0;
+  }
   const ctx = audio();
   if (ctx) {
     const scale: Record<string, number> = {
@@ -428,13 +532,13 @@ function evalContext(): void {
          layer is a 2.8kHz hiss — together they read as a downpour on a tin
          roof rather than weather somewhere outside */
       waves: .055, foam: .02, wind: .06, whistle: .012, rain: .022, patter: .007, crickets: .017,
-      fire: .04,
+      fire: .04, room: .03,
     };
     for (const k of Object.keys(T)) {
       targets[k] = T[k];
       try {
         (beds as unknown as Record<string, Bed>)[k].g.gain
-          .setTargetAtTime(T[k] * scale[k], ctx.currentTime, 1.8);
+          .setTargetAtTime(T[k] * scale[k], ctx.currentTime, fade);
       } catch { /* noop */ }
     }
   }
@@ -452,6 +556,13 @@ function evalContext(): void {
   const w = Math.min(1, windLvl);
   voices.chimes.min = 1.2 + (1 - w) * 9;
   voices.chimes.max = 3.5 + (1 - w) * 16;
+  if (scape) {
+    const on = SCAPE_VOICES[scape];
+    const eaves = getState().placed.some(p => p.id === "house" || p.id === "cabin");
+    for (const [k, v] of Object.entries(voices)) v.on = on.includes(k) && (k !== "chimes" || eaves);
+    if (scape === "morning") { voices.bird.min = 2.5; voices.bird.max = 7; }
+    if (scape === "island") { voices.chimes.min = 7; voices.chimes.max = 16; }
+  }
   /* a fader pulled all the way down stops the one-shots outright, rather
      than scheduling sounds nobody will hear */
   const m = getState().mix;
@@ -479,9 +590,11 @@ export function ambientStart(): void {
     buildBeds(ctx);
     running = true;
     evalContext();
-    master!.gain.setTargetAtTime(masterLevel(), ctx.currentTime, 1.2);
+    /* fade in over ~1.7s: the island arriving, not switching on */
+    master!.gain.cancelScheduledValues(ctx.currentTime);
+    master!.gain.setTargetAtTime(masterLevel(), ctx.currentTime, .55);
     const m0 = getState().mix;
-    if (groupG && m0) for (const k of MIX_KEYS) groupG[k].gain.value = m0[k] ?? 1;
+    if (groupG && m0) for (const k of MIX_KEYS) groupG[k].gain.value = mixGain(k, m0[k] ?? 1);
     if (!evalIv) evalIv = window.setInterval(evalContext, 5000);
     if (!voiceIv) voiceIv = window.setInterval(tickVoices, 500);
     const now = performance.now() / 1000;
@@ -499,6 +612,44 @@ export function ambientStop(): void {
 
 export const ambientRunning = (): boolean => running;
 
+/** pausing lowers the island by a quarter, gently; resuming brings it back */
+export function ambientDuck(on: boolean): void {
+  const ctx = audio();
+  if (!ctx || !duckG) return;
+  try { duckG.gain.setTargetAtTime(on ? .75 : 1, ctx.currentTime, .35); } catch { /* noop */ }
+}
+
+/** camera zoom (1 = default, .55..1.9): leaning in brings the island ~12% closer */
+export function setPresence(zoom: number): void {
+  const ctx = audio();
+  if (!ctx || !presG || !Number.isFinite(zoom)) return;
+  const n = zoom >= 1 ? Math.min(1, (zoom - 1) / .9) : Math.max(-1, (zoom - 1) / .45);
+  try { presG.gain.setTargetAtTime(1 + .12 * n, ctx.currentTime, .25); } catch { /* noop */ }
+}
+
+/* the default camera looks from here, and the beach is voiced as if it faces
+   it — so the sea sits centred until the island is turned */
+const SEA_FACE = Math.atan2(10, 11.3);
+
+/** camera azimuth: the sea and the hearth drift a little left or right as it turns */
+export function setListenerAzimuth(theta: number): void {
+  const ctx = audio();
+  if (!ctx || !Number.isFinite(theta)) return;
+  try {
+    /* the camera's right-hand side, on the ground plane */
+    const rx = Math.cos(theta), rz = -Math.sin(theta);
+    if (seaPan) seaPan.pan.setTargetAtTime(.2 * (Math.sin(SEA_FACE) * rx + Math.cos(SEA_FACE) * rz), ctx.currentTime, .3);
+    if (firePan) {
+      const placed = getState().placed;
+      const hearth = placed.find(p => p.id === "campfire")
+        ?? placed.find(p => p.id === "house" || p.id === "cabin" || p.id === "lantern");
+      /* grid to world, the same offsets island.ts uses */
+      const v = hearth ? ((hearth.x - 5) * rx + (hearth.y - 5.6) * rz) / 6 : 0;
+      firePan.pan.setTargetAtTime(.3 * Math.max(-1, Math.min(1, v)), ctx.currentTime, .3);
+    }
+  } catch { /* noop */ }
+}
+
 /* ---- little UI sounds (they respect the speaker toggle) ---- */
 /* These go through the master like everything else. Wired straight to
    ctx.destination they skipped every volume change made to the mix and ended
@@ -506,7 +657,10 @@ export const ambientRunning = (): boolean => running;
    the ambience, so the master is always up by the time any of these fire;
    before that it doesn't exist yet and they fall back to the speakers. */
 
-const uiCtx = (): AudioContext | null => (getState().sound ? audio() : null);
+/* (since then: they ride the sfx bus and its own switch, so muting the island
+   doesn't also mute the buttons, and the island's fades don't swallow them) */
+const uiCtx = (): AudioContext | null => (getState().sfx !== false ? audio() : null);
+const uiOut = (ctx: AudioContext): AudioNode => sfxBus(ctx);
 
 /** one knock of something set down: a pitched thump plus a contact click */
 function knock(ctx: AudioContext, t: number, f: number, lvl: number): void {
@@ -517,7 +671,7 @@ function knock(ctx: AudioContext, t: number, f: number, lvl: number): void {
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(lvl, t + .006);
   g.gain.exponentialRampToValueAtTime(.0001, t + .16);
-  o.connect(g); g.connect(master ?? ctx.destination);
+  o.connect(g); g.connect(uiOut(ctx));
   o.start(t); o.stop(t + .2);
   const src = noiseSrc(ctx, whiteBuf!);
   const fl = ctx.createBiquadFilter();
@@ -526,7 +680,7 @@ function knock(ctx: AudioContext, t: number, f: number, lvl: number): void {
   ng.gain.setValueAtTime(0, t);
   ng.gain.linearRampToValueAtTime(lvl * .5, t + .004);
   ng.gain.exponentialRampToValueAtTime(.0001, t + .05);
-  src.connect(fl); fl.connect(ng); ng.connect(master ?? ctx.destination);
+  src.connect(fl); fl.connect(ng); ng.connect(uiOut(ctx));
   window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 200);
 }
 
@@ -568,7 +722,7 @@ export function uiTick(): void {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(.014, t + .003);
     g.gain.exponentialRampToValueAtTime(.0001, t + .035);
-    src.connect(f); f.connect(g); g.connect(master ?? ctx.destination);
+    src.connect(f); f.connect(g); g.connect(uiOut(ctx));
     window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 100);
   } catch { /* noop */ }
 }
@@ -589,14 +743,14 @@ export function shopWhoosh(): void {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(.022, t + .05);
     g.gain.exponentialRampToValueAtTime(.0001, t + .22);
-    src.connect(f); f.connect(g); g.connect(master ?? ctx.destination);
+    src.connect(f); f.connect(g); g.connect(uiOut(ctx));
     window.setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 300);
     const o = ctx.createOscillator(), og = ctx.createGain();
     o.type = "sine"; o.frequency.value = 1320;
     og.gain.setValueAtTime(0, t + .1);
     og.gain.linearRampToValueAtTime(.02, t + .12);
     og.gain.exponentialRampToValueAtTime(.0001, t + .4);
-    o.connect(og); og.connect(master ?? ctx.destination);
+    o.connect(og); og.connect(uiOut(ctx));
     o.start(t + .1); o.stop(t + .45);
   } catch { /* noop */ }
 }
@@ -652,6 +806,7 @@ export function footstep(ground: Ground): void {
 /* test hook */
 (window as unknown as Record<string, unknown>).__ambience = () => ({
   running,
+  scape: scape ?? "live",
   ctxState: audio()?.state ?? "none",
   targets: { ...targets },
   voices: Object.fromEntries(Object.entries(voices).map(([k, v]) => [k, v.on])),

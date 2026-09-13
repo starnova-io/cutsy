@@ -2,15 +2,20 @@
    without prop drilling. App registers the real implementations. */
 
 type ToastFn = (msg: string, ms?: number) => void;
-type AskFn = (msg: string, okLabel: string, cancelLabel: string) => Promise<boolean>;
+export interface AskOpts {
+  title?: string;
+  /** the cancel side is the one we want — it becomes the filled button, on top */
+  stay?: boolean;
+}
+type AskFn = (msg: string, okLabel: string, cancelLabel: string, opts?: AskOpts) => Promise<boolean>;
 
 let toastImpl: ToastFn = () => {};
 let askImpl: AskFn = async () => false;
 
 export const registerFeedback = (t: ToastFn, a: AskFn): void => { toastImpl = t; askImpl = a; };
 export const toast = (msg: string, ms = 2200): void => toastImpl(msg, ms);
-export const ask = (msg: string, okLabel: string, cancelLabel: string): Promise<boolean> =>
-  askImpl(msg, okLabel, cancelLabel);
+export const ask = (msg: string, okLabel: string, cancelLabel: string, opts?: AskOpts): Promise<boolean> =>
+  askImpl(msg, okLabel, cancelLabel, opts);
 
 export function confettiBurst(): void {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -30,13 +35,15 @@ export function confettiBurst(): void {
   }
 }
 
-export function heartAt(clientX: number, clientY: number): void {
+export function heartAt(clientX: number, clientY: number, kind: "heart" | "spark" = "heart"): void {
   const host = document.getElementById("phone");
   if (!host) return;
   const pr = host.getBoundingClientRect();
   const heart = document.createElement("div");
   heart.className = "heart-float";
-  heart.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 20.6S5.2 16.2 3 12A5.3 5.3 0 0 1 12 6.7 5.3 5.3 0 0 1 21 12c-2.2 4.2-9 8.6-9 8.6Z" fill="#9C4F76"/></svg>`;
+  heart.innerHTML = kind === "spark"
+    ? `<svg width="22" height="22" viewBox="-12 -12 24 24"><path d="M0 -10C1.4 -2.9 2.9 -1.4 10 0C2.9 1.4 1.4 2.9 0 10C-1.4 2.9 -2.9 1.4 -10 0C-2.9 -1.4 -1.4 -2.9 0 -10Z" fill="#DFA23A"/></svg>`
+    : `<svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 20.6S5.2 16.2 3 12A5.3 5.3 0 0 1 12 6.7 5.3 5.3 0 0 1 21 12c-2.2 4.2-9 8.6-9 8.6Z" fill="#9C4F76"/></svg>`;
   heart.style.left = (clientX - pr.left - 10) + "px";
   heart.style.top = (clientY - pr.top - 30) + "px";
   host.appendChild(heart);

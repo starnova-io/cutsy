@@ -39,6 +39,9 @@ export interface MixPrefs {
 export const MIX_KEYS = ["sea", "wind", "rain", "fire", "wild", "pet"] as const;
 export type MixKey = typeof MIX_KEYS[number];
 
+/** the soundscape a focus session plays; "live" follows the real weather */
+export type ScapeId = "live" | "island" | "rainy" | "night" | "morning" | "cozy";
+
 export interface GameState {
   energy: number;
   totalMin: number;
@@ -60,6 +63,10 @@ export interface GameState {
   sound: boolean;
   /** per-layer mix, tuned from Profile */
   mix: MixPrefs;
+  /** little UI and reward sounds (taps, pops, the signature) on/off */
+  sfx: boolean;
+  /** which soundscape a focus session plays */
+  scape: ScapeId;
   /** a piece lifted off the island and not yet put down — saved so that
       closing the app mid-move can't swallow it */
   held?: { item: PlacedItem; origin: PlacedItem | null } | null;

@@ -53,7 +53,7 @@ export function Paywall({ onClose }: { onClose: () => void }) {
   };
   return (
     <section className="screen active" id="screen-paywall">
-      <button id="pw-close" aria-label="Close" onClick={onClose}>✕</button>
+      <button id="pw-close" aria-label="Close" onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
       <div className="scroll" id="pw-scroll">
         <svg id="pw-scene" viewBox="0 0 320 168" aria-hidden="true" dangerouslySetInnerHTML={{
           __html: `

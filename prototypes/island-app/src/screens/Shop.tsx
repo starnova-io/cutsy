@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { flySparks, useTween } from "../ui/tween";
 import { useGame } from "../game/store";
 import { CATALOG, CATS, PETS, byId } from "../game/catalog";
 import { firstFreeSpot } from "../game/economy";
@@ -7,6 +8,7 @@ import { mutate } from "../game/store";
 import { world } from "../world/world3d";
 import { WorldView } from "../world/WorldView";
 import { toast, confettiBurst } from "../ui/feedback";
+import * as sfx from "../game/sfx";
 import type { CatalogItem, GameState, PetKind, PlacedItem } from "../game/types";
 
 type Entry = CatalogItem | { petKey: PetKind };
@@ -32,6 +34,19 @@ export function Shop(props: {
 }) {
   const s = useGame();
   const [cat, setCat] = useState<string>("all");
+  /* a purchase is a little event: sparks leave the balance, the balance
+     counts down, the card flashes gold, and the piece pops onto the island */
+  const [spent, setSpent] = useState<{ from: number; key: string } | null>(null);
+  const shownEnergy = useTween(spent ? spent.from : s.energy, s.energy, !!spent, 500, 220);
+  const flashT = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(flashT.current), []);
+  const celebrateBuy = (key: string, from: number) => {
+    flySparks(document.getElementById("home-energy-shop"), document.querySelector(`[data-sel="${key}"]`), 5,
+      i => { if (i < 3) sfx.sparkTink(i); });
+    setSpent({ from, key });
+    window.clearTimeout(flashT.current);
+    flashT.current = window.setTimeout(() => setSpent(null), 1000);
+  };
   const [sel, setSel] = useState<string | null>(null);
 
   const list: Entry[] = useMemo(() => {
@@ -53,6 +68,7 @@ export function Shop(props: {
   const previewPet = selEntry && isPet(selEntry) ? selEntry.petKey : null;
 
   function buy(a: CatalogItem): void {
+    const before = s.energy;
     if (a.special === "bridge") {
       if (buildBridge()) {
         confettiBurst();
@@ -69,8 +85,9 @@ export function Shop(props: {
     }
     if (!ghost) return;
     if (buyAndPlace(a.id, ghost)) {
+      /* no "purchase successful" — the island answers instead */
       world.queuePop(a.id);
-      toast("It's yours!");
+      celebrateBuy(a.id, before);
     }
   }
 
@@ -79,8 +96,8 @@ export function Shop(props: {
   return (
     <section className="screen active" id="screen-shop">
       <header className="sheet-head">
-        <div><h1>Decorate</h1><div className="sheet-sub">Your focus buys it — 1 minute = 1 ✦</div></div>
-        <span className="pill"><span className="spark">✦</span><span id="energy-pill-shop">{s.energy}</span></span>
+        <div><h1>Decorate</h1><div className="sheet-sub">Focus earns Sparks — 1 min = 1 ✦</div></div>
+        <span className="pill" id="home-energy-shop"><span className="spark">✦</span><span id="energy-pill-shop">{shownEnergy}</span></span>
       </header>
       <WorldView id="shop-world-wrap" opts={{ ghost, previewPet }} />
       <div id="cats">
@@ -107,7 +124,7 @@ export function Shop(props: {
             : owned ? "owned" : "✦ " + e.price;
           return (
             <button key={k} data-sel={k}
-              className={"sitem" + (k === selKey ? " on" : "") + (st === "locked" ? " dim" : "")}
+              className={"sitem" + (k === selKey ? " on" : "") + (st === "locked" ? " dim" : "") + (spent?.key === k ? " bought" : "")}
               onClick={() => setSel(k)}>
               {!isPet(e) && e.premium && <span className="pb">✦</span>}
               <img alt="" src={world.thumb(k)} />
@@ -153,7 +170,7 @@ export function Shop(props: {
               {selState === "locked" && <button className="btn buy-main" disabled>✦ {selEntry.price}</button>}
               {selState === "inv" && <button className="btn buy-main" data-place={selEntry.id}
                 onClick={() => { mutate(st => { st.inventory = st.inventory.filter(x => x !== selEntry.id); }); props.onPlaceInventory(selEntry.id); }}>Place</button>}
-              {selState === "buy" && <button className="btn buy-main" data-buy={selEntry.id} onClick={() => buy(selEntry)}>
+              {selState === "buy" && <button className="btn buy-main" data-buy={selEntry.id} data-sfx="own" onClick={() => buy(selEntry)}>
                 {selEntry.special === "bridge" ? "Build" : selEntry.special === "land" ? "Raise"
                   : placedCount > 0 ? "Buy another" : "Buy"} · ✦ {selEntry.price}
               </button>}
