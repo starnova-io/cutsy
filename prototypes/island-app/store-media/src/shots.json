@@ -1,0 +1,19 @@
+{
+  "order": ["island", "focus", "reward", "decorate", "seasons", "journey"],
+  "captions": {
+    "island":   ["Focus, and a little", "island grows"],
+    "focus":    ["Put the phone down.", "Mochi naps with you."],
+    "reward":   ["Every minute you focus", "earns Sparks"],
+    "decorate": ["Spend them on a", "world of your own"],
+    "seasons":  ["Real seasons, weather,", "day and night"],
+    "journey":  ["Watch your streak and", "your island grow"]
+  },
+  "preview": {
+    "open":     ["Focus, and a little", "island grows"],
+    "focus":    ["Put the phone down.", "Mochi naps with you."],
+    "reward":   ["Every minute you focus", "earns Sparks"],
+    "place":    ["Unlock something new", "for your island"],
+    "decorate": ["Make the world", "your own"]
+  },
+  "tagline": "Focus. Grow your world."
+}

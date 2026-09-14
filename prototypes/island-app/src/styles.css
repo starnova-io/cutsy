@@ -824,3 +824,7 @@
   #screen-focus:not(.running) #focus-sub{display:none;}
 }
 @media (max-height:640px){ #screen-focus:not(.running) #focus-scene{display:none;} }
+
+/* ---- tablet: the column fills the height (main.tsx sets the zoom) ---- */
+html.tablet body{background:var(--cream-deep);}
+html.tablet #phone{border-radius:0; box-shadow:0 0 60px rgba(50,38,24,.12);}

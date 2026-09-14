@@ -1,0 +1,5 @@
+node_modules/
+# captures and renders are regenerated: npm run capture && npm run render
+public/raw/
+public/clips/
+out/

@@ -36,6 +36,10 @@ interface Placing {
 export interface Arrival { energy: number; pct: number; left: number | null; goal: string | null; streakUp: boolean; level: number }
 interface DialogState extends AskOpts { msg: string; ok: string; cancel: string; resolve: (v: boolean) => void }
 
+/* dev time warp: ×60 by default, or ?demo=<factor> (store-media records a
+   session at a higher factor so the footage stays short) */
+const DEMO_WARP = Number(new URLSearchParams(location.search).get("demo")) || 60;
+
 /** what a tapped piece sounds like */
 const objectKind = (id: string): "tree" | "flower" | "house" | "stone" | "water" | "other" => {
   const a = byId(id);
@@ -315,7 +319,7 @@ export default function App() {
       const s = sessionRef.current;
       if (!s || s.paused) { lastTickRef.current = performance.now(); return; }
       const now = performance.now();
-      remainRef.current -= (now - lastTickRef.current) * (demoRef.current ? 60 : 1);
+      remainRef.current -= (now - lastTickRef.current) * (demoRef.current ? DEMO_WARP : 1);
       lastTickRef.current = now;
       if (remainRef.current <= 0) {
         window.clearInterval(iv);
